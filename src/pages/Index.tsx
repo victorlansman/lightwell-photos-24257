@@ -5,6 +5,7 @@ import { PhotoGrid } from "@/components/PhotoGrid";
 import { AlbumViewControls } from "@/components/AlbumViewControls";
 import { InlineActionBar } from "@/components/InlineActionBar";
 import { Lightbox } from "@/components/Lightbox";
+import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { mockPhotos } from "@/data/mockPhotos";
@@ -20,6 +21,7 @@ const Index = () => {
   const [showDates, setShowDates] = useState(true);
   const [cropSquare, setCropSquare] = useState(true);
   const [photos, setPhotos] = useState<Photo[]>(mockPhotos);
+  const [showShareDialog, setShowShareDialog] = useState(false);
 
   const handleSelectPhoto = (id: string) => {
     const newSelected = new Set(selectedPhotos);
@@ -76,7 +78,10 @@ const Index = () => {
   };
 
   const handleShare = () => {
-    toast.success(`Sharing ${selectedPhotos.size} photo(s)`);
+    setShowShareDialog(true);
+  };
+
+  const handleShareComplete = () => {
     setSelectedPhotos(new Set());
     setIsSelectionMode(false);
   };
@@ -137,7 +142,6 @@ const Index = () => {
                         />
                       </div>
                       <Button
-                        variant="ghost"
                         onClick={() => {
                           setIsSelectionMode(false);
                           setSelectedPhotos(new Set());
@@ -200,6 +204,13 @@ const Index = () => {
         onPrevious={handlePrevious}
         onNext={handleNext}
         onToggleFavorite={handleToggleFavorite}
+      />
+
+      <SharePhotosDialog
+        photoIds={Array.from(selectedPhotos)}
+        isOpen={showShareDialog}
+        onClose={() => setShowShareDialog(false)}
+        onShareComplete={handleShareComplete}
       />
     </SidebarProvider>
   );

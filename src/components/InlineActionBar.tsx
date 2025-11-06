@@ -29,15 +29,9 @@ export function InlineActionBar({
 
   return (
     <div className={cn("flex items-center gap-2 flex-wrap", className)}>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onClearSelection}
-        className="h-9 gap-2"
-      >
-        <X className="h-4 w-4" />
-        <span>{selectedCount} Selected</span>
-      </Button>
+      <span className="text-sm font-medium text-foreground px-3 py-2">
+        {selectedCount} selected
+      </span>
 
       <div className="h-6 w-px bg-border" />
 
@@ -58,22 +52,21 @@ export function InlineActionBar({
         onClick={onShare}
         className="h-9 gap-2"
       >
-        <Share2 className="h-4 w-4" />
-        <span className="hidden sm:inline">Share {selectedCount}</span>
-        <span className="sm:hidden">{selectedCount}</span>
+        Share
+        <X className="h-4 w-4" />
       </Button>
 
       {onRemove && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onRemove}
-          className="h-9 gap-2"
-        >
-          <UserX className="h-4 w-4" />
-          <span className="hidden sm:inline">Not {personName}</span>
-          <span className="sm:hidden">Not {personName}</span>
-        </Button>
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRemove}
+            className="h-9 gap-2"
+          >
+            Not {personName}
+          </Button>
+        </>
       )}
 
       <Button 
@@ -82,9 +75,8 @@ export function InlineActionBar({
         onClick={onDelete}
         className="h-9 gap-2 text-destructive hover:text-destructive"
       >
-        <Trash2 className="h-4 w-4" />
-        <span className="hidden sm:inline">Delete {selectedCount}</span>
-        <span className="sm:hidden">{selectedCount}</span>
+        Delete
+        <X className="h-4 w-4" />
       </Button>
     </div>
   );

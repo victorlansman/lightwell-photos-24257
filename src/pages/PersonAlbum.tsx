@@ -206,7 +206,7 @@ export default function PersonAlbum() {
                           onClick={() => setIsNamingDialogOpen(true)}
                           className="shrink-0"
                         >
-                          Edit
+                          Edit name
                         </Button>
                       </div>
                     ) : (
@@ -244,7 +244,6 @@ export default function PersonAlbum() {
                         />
                       </div>
                       <Button
-                        variant="ghost"
                         onClick={handleToggleSelectionMode}
                         size="sm"
                         className="md:ml-auto"
