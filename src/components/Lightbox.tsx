@@ -2,16 +2,7 @@ import { Photo } from "@/types/photo";
 import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -29,8 +20,6 @@ interface LightboxProps {
 export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleFavorite }: LightboxProps) {
   const [showInfo, setShowInfo] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
-  const [shareLink, setShareLink] = useState<string | null>(null);
-  const [showUnshareDialog, setShowUnshareDialog] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
 
@@ -92,38 +81,31 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     setShowShareDialog(true);
   };
 
-  const handleConfirmShare = () => {
-    // Generate a shareable link (in a real app, this would be an API call)
-    const link = `${window.location.origin}/shared/${photo.id}`;
-    setShareLink(link);
-    toast.success("Share link created!");
-  };
-
-  const handleCopyLink = () => {
-    if (shareLink) {
-      navigator.clipboard.writeText(shareLink);
-      toast.success("Link copied to clipboard!");
+  const handleDownload = async () => {
+    try {
+      // Fetch the image as a blob
+      const response = await fetch(photo.path);
+      const blob = await response.blob();
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = photo.filename || 'photo.jpg';
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("Download started");
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast.error("Failed to download photo");
     }
-  };
-
-  const handleUnshare = () => {
-    setShowShareDialog(false);
-    setShowUnshareDialog(true);
-  };
-
-  const handleConfirmUnshare = () => {
-    setShareLink(null);
-    setShowUnshareDialog(false);
-    toast.success("Photo is now private");
-  };
-
-  const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = photo.path;
-    link.download = photo.filename || 'photo.jpg';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (
@@ -258,70 +240,11 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         </DialogContent>
       </Dialog>
 
-      {/* Share Confirmation Dialog */}
-      <AlertDialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{shareLink ? "Share this photo" : "Make Photo Public?"}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {shareLink ? (
-                <div className="space-y-3">
-                  <p>Your photo is now publicly available. Anyone with this link can access it:</p>
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="text" 
-                      readOnly 
-                      value={shareLink}
-                      className="flex-1 px-3 py-2 text-sm bg-secondary text-secondary-foreground rounded border border-border"
-                    />
-                    <Button size="sm" onClick={handleCopyLink}>
-                      Copy
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                "Do you want to make this image publicly available? That means that anyone with the link will be able to access it."
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            {shareLink ? (
-              <div className="flex w-full justify-between items-center">
-                <Button variant="outline" onClick={handleUnshare}>
-                  Unshare this photo
-                </Button>
-                <AlertDialogCancel onClick={() => {
-                  setShareLink(null);
-                  setShowShareDialog(false);
-                }}>
-                  Close
-                </AlertDialogCancel>
-              </div>
-            ) : (
-              <>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <Button onClick={handleConfirmShare}>Yes</Button>
-              </>
-            )}
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Unshare Confirmation Dialog */}
-      <AlertDialog open={showUnshareDialog} onOpenChange={setShowUnshareDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Do you want to make this photo private?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Doing so will disable access to the photo for anyone with the link.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmUnshare}>Unshare</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <SharePhotosDialog
+        photoIds={[photo.id]}
+        isOpen={showShareDialog}
+        onClose={() => setShowShareDialog(false)}
+      />
     </>
   );
 }

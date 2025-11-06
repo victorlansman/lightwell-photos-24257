@@ -9,6 +9,7 @@ import { Lightbox } from "@/components/Lightbox";
 import { NamingDialog } from "@/components/NamingDialog";
 import { AlbumViewControls } from "@/components/AlbumViewControls";
 import { InlineActionBar } from "@/components/InlineActionBar";
+import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { mockPeople } from "@/data/mockPeople";
 import { PersonCluster } from "@/types/person";
 import { Photo } from "@/types/photo";
@@ -25,6 +26,7 @@ export default function PersonAlbum() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
   const [isNamingDialogOpen, setIsNamingDialogOpen] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(4);
   const [showDates, setShowDates] = useState(false);
   const [cropSquare, setCropSquare] = useState(true);
@@ -158,7 +160,10 @@ export default function PersonAlbum() {
   };
 
   const handleShare = () => {
-    toast.success(`Sharing ${selectedPhotos.size} photo(s)`);
+    setShowShareDialog(true);
+  };
+
+  const handleShareComplete = () => {
     setSelectedPhotos(new Set());
     setIsSelectionMode(false);
   };
@@ -320,6 +325,13 @@ export default function PersonAlbum() {
         allPeople={mockPeople}
         onNameSave={handleNameSave}
         onMerge={handleMerge}
+      />
+
+      <SharePhotosDialog
+        photoIds={Array.from(selectedPhotos)}
+        isOpen={showShareDialog}
+        onClose={() => setShowShareDialog(false)}
+        onShareComplete={handleShareComplete}
       />
     </SidebarProvider>
   );
