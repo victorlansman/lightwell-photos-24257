@@ -20,9 +20,10 @@ interface LightboxProps {
   onNext: () => void;
   onToggleFavorite?: (photoId: string) => void;
   onUpdateFaces?: (photoId: string, faces: FaceDetection[]) => void;
+  onUpdatePeople?: (personId: string, personName: string, photoPath: string) => void;
 }
 
-export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleFavorite, onUpdateFaces }: LightboxProps) {
+export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleFavorite, onUpdateFaces, onUpdatePeople }: LightboxProps) {
   const [showInfo, setShowInfo] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showFaces, setShowFaces] = useState(false);
@@ -221,6 +222,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         if (onUpdateFaces) {
           onUpdateFaces(photo.id, updatedFaces);
         }
+        // Update people database if assigning to a named person
+        if (personName && onUpdatePeople) {
+          onUpdatePeople(personId, personName, photo.path);
+        }
         toast.success(`Reassigned to ${personName || "Unnamed"}`);
         setEditingFace(null);
       }
@@ -251,6 +256,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       setFaces(updatedFaces);
       if (onUpdateFaces) {
         onUpdateFaces(photo.id, updatedFaces);
+      }
+      // Update people database with new person
+      if (onUpdatePeople) {
+        onUpdatePeople(newPersonId, newPersonName.trim(), photo.path);
       }
       toast.success(`Named person as ${newPersonName.trim()}`);
       setPersonToName(null);

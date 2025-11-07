@@ -9,7 +9,9 @@ import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { mockPhotos } from "@/data/mockPhotos";
+import { mockPeople } from "@/data/mockPeople";
 import { Photo, FaceDetection } from "@/types/photo";
+import { PersonCluster } from "@/types/person";
 import { toast } from "sonner";
 
 const Index = () => {
@@ -21,6 +23,7 @@ const Index = () => {
   const [showDates, setShowDates] = useState(true);
   const [cropSquare, setCropSquare] = useState(true);
   const [photos, setPhotos] = useState<Photo[]>(mockPhotos);
+  const [people, setPeople] = useState<PersonCluster[]>(mockPeople);
   const [showShareDialog, setShowShareDialog] = useState(false);
 
   const handleSelectPhoto = (id: string) => {
@@ -114,6 +117,40 @@ const Index = () => {
     if (lightboxPhoto && lightboxPhoto.id === photoId) {
       setLightboxPhoto({ ...lightboxPhoto, faces });
     }
+  };
+
+  const handleUpdatePeople = (personId: string, personName: string, photoPath: string) => {
+    setPeople((prevPeople) => {
+      // Check if person already exists
+      const existingPerson = prevPeople.find(p => p.id === personId);
+      
+      if (existingPerson) {
+        // Update existing person
+        return prevPeople.map(p => {
+          if (p.id === personId) {
+            // Add photo if not already in the list
+            const photos = p.photos.includes(photoPath) ? p.photos : [...p.photos, photoPath];
+            return {
+              ...p,
+              name: personName,
+              photoCount: photos.length,
+              photos,
+            };
+          }
+          return p;
+        });
+      } else {
+        // Create new person
+        const newPerson: PersonCluster = {
+          id: personId,
+          name: personName,
+          thumbnailPath: photoPath,
+          photoCount: 1,
+          photos: [photoPath],
+        };
+        return [...prevPeople, newPerson];
+      }
+    });
   };
 
   return (
@@ -216,6 +253,7 @@ const Index = () => {
         onNext={handleNext}
         onToggleFavorite={handleToggleFavorite}
         onUpdateFaces={handleUpdateFaces}
+        onUpdatePeople={handleUpdatePeople}
       />
 
       <SharePhotosDialog

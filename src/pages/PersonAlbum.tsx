@@ -20,8 +20,9 @@ import { toast } from "sonner";
 export default function PersonAlbum() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [people, setPeople] = useState<PersonCluster[]>(mockPeople);
   const [person, setPerson] = useState<PersonCluster | undefined>(
-    mockPeople.find((p) => p.id === id)
+    people.find((p) => p.id === id)
   );
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -158,6 +159,50 @@ export default function PersonAlbum() {
     if (lightboxPhoto && lightboxPhoto.id === photoId) {
       setLightboxPhoto({ ...lightboxPhoto, faces });
     }
+  };
+
+  const handleUpdatePeople = (personId: string, personName: string, photoPath: string) => {
+    setPeople((prevPeople) => {
+      // Check if person already exists
+      const existingPerson = prevPeople.find(p => p.id === personId);
+      
+      if (existingPerson) {
+        // Update existing person
+        const updatedPeople = prevPeople.map(p => {
+          if (p.id === personId) {
+            // Add photo if not already in the list
+            const photos = p.photos.includes(photoPath) ? p.photos : [...p.photos, photoPath];
+            return {
+              ...p,
+              name: personName,
+              photoCount: photos.length,
+              photos,
+            };
+          }
+          return p;
+        });
+        
+        // Also update local person state if it's the current person
+        if (person && person.id === personId) {
+          const updatedPerson = updatedPeople.find(p => p.id === personId);
+          if (updatedPerson) {
+            setPerson(updatedPerson);
+          }
+        }
+        
+        return updatedPeople;
+      } else {
+        // Create new person
+        const newPerson: PersonCluster = {
+          id: personId,
+          name: personName,
+          thumbnailPath: photoPath,
+          photoCount: 1,
+          photos: [photoPath],
+        };
+        return [...prevPeople, newPerson];
+      }
+    });
   };
 
   const handleToggleSelectAll = () => {
@@ -325,13 +370,14 @@ export default function PersonAlbum() {
         onNext={handleNext}
         onToggleFavorite={handleToggleFavorite}
         onUpdateFaces={handleUpdateFaces}
+        onUpdatePeople={handleUpdatePeople}
       />
 
       <NamingDialog
         isOpen={isNamingDialogOpen}
         onClose={() => setIsNamingDialogOpen(false)}
         currentPerson={person}
-        allPeople={mockPeople}
+        allPeople={people}
         onNameSave={handleNameSave}
         onMerge={handleMerge}
       />
