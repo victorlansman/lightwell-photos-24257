@@ -18,4 +18,6 @@ export interface Photo {
   tagged_people?: string[];
   user_notes?: string;
   faces?: FaceDetection[];
+  taken_at?: string | null;
+  tags?: string[];
 }

@@ -10,12 +10,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Heart, User, Tag, X } from "lucide-react";
-
-interface Photo {
-  taken_at: string | null;
-  tags: string[];
-  people?: Array<{ id: string; name: string }>;
-}
+import { Photo, FaceDetection } from "@/types/photo";
 
 interface PhotoFiltersProps {
   photos: Photo[];
@@ -43,8 +38,10 @@ export function PhotoFilters({
   const allPeople = useMemo(() => {
     const peopleMap = new Map<string, string>();
     photos.forEach(photo => {
-      photo.people?.forEach(person => {
-        peopleMap.set(person.id, person.name);
+      photo.faces?.forEach(face => {
+        if (face.personId && face.personName) {
+          peopleMap.set(face.personId, face.personName);
+        }
       });
     });
     return Array.from(peopleMap.entries()).map(([id, name]) => ({ id, name }));
@@ -53,7 +50,7 @@ export function PhotoFilters({
   const allTags = useMemo(() => {
     const tagsSet = new Set<string>();
     photos.forEach(photo => {
-      photo.tags.forEach(tag => tagsSet.add(tag));
+      photo.tags?.forEach(tag => tagsSet.add(tag));
     });
     return Array.from(tagsSet).sort();
   }, [photos]);

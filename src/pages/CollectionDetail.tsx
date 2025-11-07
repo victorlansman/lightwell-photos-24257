@@ -3,30 +3,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Upload, Users, Settings, Heart, User } from "lucide-react";
+import { ArrowLeft, Upload, Users } from "lucide-react";
 import { PhotoFilters } from "@/components/PhotoFilters";
-import { CollectionPhotoGrid } from "@/components/CollectionPhotoGrid";
+import { PhotoGrid } from "@/components/PhotoGrid";
 import { UploadPhotosDialog } from "@/components/UploadPhotosDialog";
 import { InviteMemberDialog } from "@/components/InviteMemberDialog";
-import { PhotoLightbox } from "@/components/PhotoLightbox";
+import { Lightbox } from "@/components/Lightbox";
+import { AlbumViewControls } from "@/components/AlbumViewControls";
+import { Photo, FaceDetection } from "@/types/photo";
 
-interface Photo {
-  id: string;
-  path: string;
-  thumbnail_url: string | null;
-  original_filename: string;
-  taken_at: string | null;
-  title: string | null;
-  description: string | null;
-  tags: string[];
-  width: number | null;
-  height: number | null;
-  camera_model: string | null;
-  location: any;
-  created_at: string;
-  is_favorite?: boolean;
-  people?: any[];
-}
 
 interface Collection {
   id: string;
@@ -47,6 +32,13 @@ export default function CollectionDetail() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
+  const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  
+  // View controls
+  const [zoomLevel, setZoomLevel] = useState(4);
+  const [showDates, setShowDates] = useState(true);
+  const [cropSquare, setCropSquare] = useState(true);
   
   // Filter states
   const [yearRange, setYearRange] = useState<[number, number]>([1900, new Date().getFullYear()]);
@@ -154,14 +146,25 @@ export default function CollectionDetail() {
 
       const favoriteIds = new Set(favoritesData?.map(f => f.photo_id) || []);
 
-      const photosWithFavorites = (photosData || []).map(photo => ({
-        ...photo,
-        is_favorite: favoriteIds.has(photo.id),
-        people: photo.photo_people?.map((pp: any) => ({
-          ...pp.person,
-          face_bbox: pp.face_bbox,
-        })) || [],
-      }));
+      const photosWithFavorites: Photo[] = (photosData || []).map(photo => {
+        const faces: FaceDetection[] = photo.photo_people?.map((pp: any) => ({
+          personId: pp.person.id,
+          personName: pp.person.name,
+          boundingBox: pp.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
+        })) || [];
+
+        return {
+          id: photo.id,
+          path: photo.path,
+          created_at: photo.created_at,
+          filename: photo.original_filename,
+          is_favorite: favoriteIds.has(photo.id),
+          faces,
+          user_notes: photo.description,
+          taken_at: photo.taken_at,
+          tags: photo.tags || [],
+        };
+      });
 
       setPhotos(photosWithFavorites);
     } catch (error: any) {
@@ -186,14 +189,14 @@ export default function CollectionDetail() {
     // People filter
     if (selectedPeople.length > 0) {
       filtered = filtered.filter(photo =>
-        photo.people?.some(person => selectedPeople.includes(person.id))
+        photo.faces?.some(face => selectedPeople.includes(face.personId))
       );
     }
 
     // Tags filter
     if (selectedTags.length > 0) {
       filtered = filtered.filter(photo =>
-        selectedTags.some(tag => photo.tags.includes(tag))
+        selectedTags.some(tag => photo.tags?.includes(tag))
       );
     }
 
@@ -245,6 +248,47 @@ export default function CollectionDetail() {
         description: error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const handlePhotoClick = (photo: Photo) => {
+    if (!isSelectionMode) {
+      setLightboxPhoto(photo);
+    } else {
+      handleSelectPhoto(photo.id);
+    }
+  };
+
+  const handleSelectPhoto = (photoId: string) => {
+    setSelectedPhotos((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(photoId)) {
+        newSet.delete(photoId);
+      } else {
+        newSet.add(photoId);
+      }
+      return newSet;
+    });
+  };
+
+  const handlePrevious = () => {
+    if (!lightboxPhoto) return;
+    const currentIndex = filteredPhotos.findIndex((p) => p.id === lightboxPhoto.id);
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : filteredPhotos.length - 1;
+    setLightboxPhoto(filteredPhotos[prevIndex]);
+  };
+
+  const handleNext = () => {
+    if (!lightboxPhoto) return;
+    const currentIndex = filteredPhotos.findIndex((p) => p.id === lightboxPhoto.id);
+    const nextIndex = currentIndex < filteredPhotos.length - 1 ? currentIndex + 1 : 0;
+    setLightboxPhoto(filteredPhotos[nextIndex]);
+  };
+
+  const handleUpdateFaces = (photoId: string, faces: FaceDetection[]) => {
+    setPhotos(photos.map(p => p.id === photoId ? { ...p, faces } : p));
+    if (lightboxPhoto?.id === photoId) {
+      setLightboxPhoto({ ...lightboxPhoto, faces });
     }
   };
 
@@ -303,10 +347,26 @@ export default function CollectionDetail() {
           onShowFavoritesOnlyChange={setShowFavoritesOnly}
         />
 
-        <CollectionPhotoGrid
+        <div className="mb-4">
+          <AlbumViewControls
+            zoomLevel={zoomLevel}
+            onZoomChange={setZoomLevel}
+            showDates={showDates}
+            onToggleDates={() => setShowDates(!showDates)}
+            cropSquare={cropSquare}
+            onToggleCropSquare={() => setCropSquare(!cropSquare)}
+          />
+        </div>
+
+        <PhotoGrid
           photos={filteredPhotos}
-          onPhotoClick={setLightboxPhoto}
-          onToggleFavorite={handleToggleFavorite}
+          selectedPhotos={selectedPhotos}
+          onSelectPhoto={handleSelectPhoto}
+          onPhotoClick={handlePhotoClick}
+          zoomLevel={zoomLevel}
+          showDates={showDates}
+          cropSquare={cropSquare}
+          isSelectionMode={isSelectionMode}
         />
       </main>
 
@@ -323,13 +383,15 @@ export default function CollectionDetail() {
         collectionId={id!}
       />
 
-      {lightboxPhoto && (
-        <PhotoLightbox
-          photo={lightboxPhoto}
-          onClose={() => setLightboxPhoto(null)}
-          onToggleFavorite={handleToggleFavorite}
-        />
-      )}
+      <Lightbox
+        photo={lightboxPhoto}
+        isOpen={!!lightboxPhoto}
+        onClose={() => setLightboxPhoto(null)}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        onToggleFavorite={handleToggleFavorite}
+        onUpdateFaces={handleUpdateFaces}
+      />
     </div>
   );
 }
