@@ -1,8 +1,11 @@
-import { Photo } from "@/types/photo";
-import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info } from "lucide-react";
+import { Photo, FaceDetection } from "@/types/photo";
+import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { SharePhotosDialog } from "@/components/SharePhotosDialog";
+import { FaceBoundingBox } from "@/components/FaceBoundingBox";
+import { EditPersonDialog } from "@/components/EditPersonDialog";
+import { mockPeople } from "@/data/mockPeople";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -20,8 +23,22 @@ interface LightboxProps {
 export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleFavorite }: LightboxProps) {
   const [showInfo, setShowInfo] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showFaces, setShowFaces] = useState(false);
+  const [editingFace, setEditingFace] = useState<FaceDetection | null>(null);
+  const [faces, setFaces] = useState<FaceDetection[]>([]);
+  const imageRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (photo?.faces) {
+      setFaces(photo.faces);
+    } else {
+      setFaces([]);
+    }
+    setShowFaces(false);
+  }, [photo]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -108,6 +125,28 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     }
   };
 
+  const handleEditFace = (face: FaceDetection) => {
+    setEditingFace(face);
+  };
+
+  const handleRemoveFace = (face: FaceDetection) => {
+    setFaces(prev => prev.filter(f => f !== face));
+    toast.success("Face removed from photo");
+  };
+
+  const handleSelectPerson = (personId: string, personName: string | null) => {
+    if (editingFace) {
+      setFaces(prev => prev.map(f => 
+        f === editingFace ? { ...f, personId, personName } : f
+      ));
+      toast.success(`Reassigned to ${personName || "Unnamed"}`);
+    }
+  };
+
+  const handleCreateNewPerson = () => {
+    toast.info("Creating new person - this would open a naming dialog");
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -130,6 +169,16 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               <Button variant="ghost" size="icon" onClick={handleDownload}>
                 <Download className="h-5 w-5" />
               </Button>
+              {faces.length > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setShowFaces(!showFaces)}
+                  className={cn(showFaces && "bg-accent")}
+                >
+                  <Users className="h-5 w-5" />
+                </Button>
+              )}
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -149,15 +198,41 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             onTouchEnd={handleTouchEnd}
           >
             {/* Image */}
-            <div className={cn(
-              "flex-1 flex items-center justify-center p-16 transition-all",
-              showInfo && "lg:pr-8"
-            )}>
-              <img
-                src={photo.path}
-                alt="Photo"
-                className="max-w-full max-h-full object-contain animate-fade-in"
-              />
+            <div 
+              ref={imageRef}
+              className={cn(
+                "flex-1 flex items-center justify-center p-16 transition-all relative",
+                showInfo && "lg:pr-8"
+              )}
+            >
+              <div className="relative">
+                <img
+                  ref={imgRef}
+                  src={photo.path}
+                  alt="Photo"
+                  className="max-w-full max-h-full object-contain animate-fade-in"
+                />
+                {showFaces && imgRef.current && (
+                  <div 
+                    className="absolute inset-0"
+                    style={{
+                      width: imgRef.current.width,
+                      height: imgRef.current.height,
+                    }}
+                  >
+                    {faces.map((face, idx) => (
+                      <FaceBoundingBox
+                        key={idx}
+                        face={face}
+                        imageWidth={imgRef.current!.width}
+                        imageHeight={imgRef.current!.height}
+                        onEdit={handleEditFace}
+                        onRemove={handleRemoveFace}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Info Panel */}
@@ -244,6 +319,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         photoIds={[photo.id]}
         isOpen={showShareDialog}
         onClose={() => setShowShareDialog(false)}
+      />
+
+      <EditPersonDialog
+        face={editingFace}
+        isOpen={!!editingFace}
+        onClose={() => setEditingFace(null)}
+        allPeople={mockPeople}
+        onSelectPerson={handleSelectPerson}
+        onCreateNew={handleCreateNewPerson}
       />
     </>
   );

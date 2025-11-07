@@ -1,3 +1,14 @@
+export interface FaceDetection {
+  personId: string;
+  personName: string | null;
+  boundingBox: {
+    x: number; // percentage from left
+    y: number; // percentage from top
+    width: number; // percentage of image width
+    height: number; // percentage of image height
+  };
+}
+
 export interface Photo {
   id: string;
   path: string;
@@ -6,4 +17,5 @@ export interface Photo {
   filename?: string;
   tagged_people?: string[];
   user_notes?: string;
+  faces?: FaceDetection[];
 }
