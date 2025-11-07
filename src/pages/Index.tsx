@@ -99,9 +99,11 @@ const Index = () => {
           boundingBox: pp.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
         })) || [];
 
-        // Use thumbnail_url if available, otherwise construct storage URL from path
-        const imageUrl = photo.thumbnail_url || 
-          `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${photo.path}`;
+        // Use thumbnail_url if available, or construct storage URL from path, or use path directly if it starts with /
+        const imageUrl = photo.thumbnail_url ||
+          (photo.path.startsWith('/') 
+            ? photo.path 
+            : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${photo.path}`);
 
         return {
           id: photo.id,
