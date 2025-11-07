@@ -102,30 +102,90 @@ export const mockPhotos: Photo[] = [
     path: photo6,
     created_at: "2024-11-13T18:30:00Z",
     is_favorite: true,
+    faces: [
+      {
+        personId: "unknown-2",
+        personName: null,
+        boundingBox: { x: 20, y: 30, width: 30, height: 40 }
+      },
+      {
+        personId: "sofia",
+        personName: "Sofia",
+        boundingBox: { x: 55, y: 35, width: 28, height: 38 }
+      }
+    ]
   },
   {
     id: "7",
     path: photo1,
     created_at: "2024-11-12T08:00:00Z",
     is_favorite: false,
+    faces: [
+      {
+        personId: "camilla",
+        personName: "Camilla",
+        boundingBox: { x: 40, y: 25, width: 30, height: 40 }
+      }
+    ]
   },
   {
     id: "8",
     path: photo2,
     created_at: "2024-11-12T13:20:00Z",
     is_favorite: false,
+    faces: [
+      {
+        personId: "victor",
+        personName: "Victor",
+        boundingBox: { x: 45, y: 20, width: 28, height: 38 }
+      },
+      {
+        personId: "unknown-1",
+        personName: null,
+        boundingBox: { x: 15, y: 40, width: 25, height: 35 }
+      }
+    ]
   },
   {
     id: "9",
     path: photo3,
     created_at: "2024-11-11T10:45:00Z",
     is_favorite: false,
+    faces: [
+      {
+        personId: "camilla",
+        personName: "Camilla",
+        boundingBox: { x: 25, y: 30, width: 32, height: 42 }
+      },
+      {
+        personId: "sofia",
+        personName: "Sofia",
+        boundingBox: { x: 60, y: 28, width: 30, height: 40 }
+      }
+    ]
   },
   {
     id: "10",
     path: photo4,
     created_at: "2024-11-11T15:30:00Z",
     is_favorite: true,
+    faces: [
+      {
+        personId: "camilla",
+        personName: "Camilla",
+        boundingBox: { x: 20, y: 15, width: 28, height: 38 }
+      },
+      {
+        personId: "victor",
+        personName: "Victor",
+        boundingBox: { x: 50, y: 20, width: 30, height: 40 }
+      },
+      {
+        personId: "sofia",
+        personName: "Sofia",
+        boundingBox: { x: 75, y: 25, width: 22, height: 32 }
+      }
+    ]
   },
   {
     id: "11",
