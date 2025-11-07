@@ -8,6 +8,8 @@ import { Mail, Loader2 } from "lucide-react";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const navigate = useNavigate();
@@ -32,25 +34,31 @@ export default function Auth() {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleMagicLink = async (e: React.FormEvent) => {
+  const handlePasswordAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/collections`,
-        },
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Check your email",
-        description: "We sent you a magic link to sign in.",
-      });
-      setEmail("");
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/collections`,
+          },
+        });
+        if (error) throw error;
+        toast({
+          title: "Account created!",
+          description: "You can now sign in.",
+        });
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -83,7 +91,7 @@ export default function Auth() {
         </div>
 
         <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
-          <form onSubmit={handleMagicLink} className="space-y-6">
+          <form onSubmit={handlePasswordAuth} className="space-y-6">
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium text-foreground">
                 Email address
@@ -99,6 +107,22 @@ export default function Auth() {
               />
             </div>
 
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium text-foreground">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading}
+                minLength={6}
+              />
+            </div>
+
             <Button
               type="submit"
               className="w-full"
@@ -107,19 +131,23 @@ export default function Auth() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending magic link...
+                  {isSignUp ? "Creating account..." : "Signing in..."}
                 </>
               ) : (
-                <>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Send magic link
-                </>
+                <>{isSignUp ? "Sign up" : "Sign in"}</>
               )}
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>We'll email you a magic link for a password-free sign in.</p>
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-sm text-primary hover:underline"
+              disabled={loading}
+            >
+              {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
+            </button>
           </div>
         </div>
       </div>
