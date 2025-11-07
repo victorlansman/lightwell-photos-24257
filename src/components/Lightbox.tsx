@@ -33,6 +33,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [newPersonName, setNewPersonName] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [faceToDelete, setFaceToDelete] = useState<FaceDetection | null>(null);
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -44,8 +45,44 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     } else {
       setFaces([]);
     }
-    setShowFaces(false);
+    // Don't reset showFaces - let user control visibility
   }, [photo]);
+
+  // Track image dimensions for bounding box positioning
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (imgRef.current) {
+        setImageDimensions({
+          width: imgRef.current.width,
+          height: imgRef.current.height,
+        });
+      }
+    };
+
+    const img = imgRef.current;
+    if (img) {
+      // Update on load
+      img.addEventListener('load', updateDimensions);
+      // Update immediately if already loaded
+      if (img.complete) {
+        updateDimensions();
+      }
+    }
+
+    // Update on window resize
+    window.addEventListener('resize', updateDimensions);
+    
+    // Update when info panel toggles
+    const timeoutId = setTimeout(updateDimensions, 300);
+
+    return () => {
+      if (img) {
+        img.removeEventListener('load', updateDimensions);
+      }
+      window.removeEventListener('resize', updateDimensions);
+      clearTimeout(timeoutId);
+    };
+  }, [showInfo]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -200,8 +237,14 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   const handleNamePerson = () => {
     if (personToName && newPersonName.trim() && photo) {
-      // Update the face with the new name
-      const updatedFace = { ...personToName, personName: newPersonName.trim() };
+      // Create a proper personId based on the name
+      const newPersonId = newPersonName.trim().toLowerCase().replace(/\s+/g, '-');
+      // Update the face with the new name and proper personId
+      const updatedFace = { 
+        ...personToName, 
+        personName: newPersonName.trim(),
+        personId: newPersonId
+      };
       const updatedFaces = faces.map(f => 
         f === personToName ? updatedFace : f
       );
@@ -281,20 +324,20 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                   alt="Photo"
                   className="max-w-full max-h-full object-contain animate-fade-in"
                 />
-                {showFaces && imgRef.current && (
+                {showFaces && imageDimensions.width > 0 && (
                   <div 
                     className="absolute inset-0"
                     style={{
-                      width: imgRef.current.width,
-                      height: imgRef.current.height,
+                      width: imageDimensions.width,
+                      height: imageDimensions.height,
                     }}
                   >
                     {faces.map((face, idx) => (
                       <FaceBoundingBox
                         key={idx}
                         face={face}
-                        imageWidth={imgRef.current!.width}
-                        imageHeight={imgRef.current!.height}
+                        imageWidth={imageDimensions.width}
+                        imageHeight={imageDimensions.height}
                         onEdit={handleEditFace}
                         onRemove={handleRemoveFace}
                       />
