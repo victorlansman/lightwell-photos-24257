@@ -19,9 +19,10 @@ interface LightboxProps {
   onPrevious: () => void;
   onNext: () => void;
   onToggleFavorite?: (photoId: string) => void;
+  onUpdateFaces?: (photoId: string, faces: FaceDetection[]) => void;
 }
 
-export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleFavorite }: LightboxProps) {
+export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleFavorite, onUpdateFaces }: LightboxProps) {
   const [showInfo, setShowInfo] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showFaces, setShowFaces] = useState(false);
@@ -30,6 +31,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [showNamingDialog, setShowNamingDialog] = useState(false);
   const [personToName, setPersonToName] = useState<FaceDetection | null>(null);
   const [newPersonName, setNewPersonName] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [faceToDelete, setFaceToDelete] = useState<FaceDetection | null>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -43,6 +46,13 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     }
     setShowFaces(false);
   }, [photo]);
+
+  // Sync faces back to parent when they change
+  useEffect(() => {
+    if (photo && onUpdateFaces && faces.length >= 0) {
+      onUpdateFaces(photo.id, faces);
+    }
+  }, [faces, photo?.id]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -134,8 +144,26 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleRemoveFace = (face: FaceDetection) => {
-    setFaces(prev => prev.filter(f => f !== face));
-    toast.success("Face removed from photo");
+    // If person is named, convert to unnamed
+    if (face.personName) {
+      setFaces(prev => prev.map(f => 
+        f === face ? { ...f, personName: null, personId: `unknown-${Date.now()}` } : f
+      ));
+      toast.success("Person unmarked");
+    } else {
+      // If unnamed, show confirmation dialog
+      setFaceToDelete(face);
+      setShowDeleteDialog(true);
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (faceToDelete) {
+      setFaces(prev => prev.filter(f => f !== faceToDelete));
+      toast.success("Face tag deleted");
+      setFaceToDelete(null);
+      setShowDeleteDialog(false);
+    }
   };
 
   const handleSelectPerson = (personId: string, personName: string | null) => {
@@ -390,6 +418,28 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               </Button>
               <Button onClick={handleNamePerson} disabled={!newPersonName.trim()}>
                 Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={() => setShowDeleteDialog(false)}>
+        <DialogContent className="sm:max-w-md">
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Delete the tag of this person?</h3>
+            <p className="text-sm text-muted-foreground">
+              This will permanently remove the face tag from this photo.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => {
+                setShowDeleteDialog(false);
+                setFaceToDelete(null);
+              }}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmDelete}>
+                Yes
               </Button>
             </div>
           </div>

@@ -17,9 +17,14 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
   const width = (face.boundingBox.width / 100) * imageWidth;
   const height = (face.boundingBox.height / 100) * imageHeight;
 
+  const isUnknown = !face.personName;
+  
   return (
     <div
-      className="absolute border-2 border-primary"
+      className={cn(
+        "absolute border-2",
+        isUnknown ? "border-yellow-500" : "border-primary"
+      )}
       style={{
         left: `${left}px`,
         top: `${top}px`,
@@ -28,7 +33,12 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
       }}
     >
       {/* Person name flag */}
-      <div className="absolute -top-8 left-0 bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-lg">
+      <div className={cn(
+        "absolute -top-8 left-0 px-2 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-lg",
+        isUnknown 
+          ? "bg-yellow-500 text-black" 
+          : "bg-primary text-primary-foreground"
+      )}>
         <span>{face.personName || "Unknown"}</span>
         <div className="flex items-center gap-0.5">
           <Button

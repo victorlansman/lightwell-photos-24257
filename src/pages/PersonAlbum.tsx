@@ -13,7 +13,7 @@ import { InlineActionBar } from "@/components/InlineActionBar";
 import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { mockPeople } from "@/data/mockPeople";
 import { PersonCluster } from "@/types/person";
-import { Photo } from "@/types/photo";
+import { Photo, FaceDetection } from "@/types/photo";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -145,6 +145,18 @@ export default function PersonAlbum() {
     // Also update the lightbox photo if it's the one being toggled
     if (lightboxPhoto && lightboxPhoto.id === photoId) {
       setLightboxPhoto({ ...lightboxPhoto, is_favorite: !lightboxPhoto.is_favorite });
+    }
+  };
+
+  const handleUpdateFaces = (photoId: string, faces: FaceDetection[]) => {
+    setPhotos((prevPhotos) =>
+      prevPhotos.map((p) =>
+        p.id === photoId ? { ...p, faces } : p
+      )
+    );
+    // Also update the lightbox photo if it's the one being updated
+    if (lightboxPhoto && lightboxPhoto.id === photoId) {
+      setLightboxPhoto({ ...lightboxPhoto, faces });
     }
   };
 
@@ -312,6 +324,7 @@ export default function PersonAlbum() {
         onPrevious={handlePrevious}
         onNext={handleNext}
         onToggleFavorite={handleToggleFavorite}
+        onUpdateFaces={handleUpdateFaces}
       />
 
       <NamingDialog

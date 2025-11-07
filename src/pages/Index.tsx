@@ -9,7 +9,7 @@ import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { mockPhotos } from "@/data/mockPhotos";
-import { Photo } from "@/types/photo";
+import { Photo, FaceDetection } from "@/types/photo";
 import { toast } from "sonner";
 
 const Index = () => {
@@ -102,6 +102,17 @@ const Index = () => {
     );
     if (lightboxPhoto && lightboxPhoto.id === photoId) {
       setLightboxPhoto({ ...lightboxPhoto, is_favorite: !lightboxPhoto.is_favorite });
+    }
+  };
+
+  const handleUpdateFaces = (photoId: string, faces: FaceDetection[]) => {
+    setPhotos((prevPhotos) =>
+      prevPhotos.map((p) =>
+        p.id === photoId ? { ...p, faces } : p
+      )
+    );
+    if (lightboxPhoto && lightboxPhoto.id === photoId) {
+      setLightboxPhoto({ ...lightboxPhoto, faces });
     }
   };
 
@@ -204,6 +215,7 @@ const Index = () => {
         onPrevious={handlePrevious}
         onNext={handleNext}
         onToggleFavorite={handleToggleFavorite}
+        onUpdateFaces={handleUpdateFaces}
       />
 
       <SharePhotosDialog
