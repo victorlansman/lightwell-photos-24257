@@ -2,6 +2,7 @@ import { Photo, FaceDetection } from "@/types/photo";
 import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { FaceBoundingBox } from "@/components/FaceBoundingBox";
 import { EditPersonDialog } from "@/components/EditPersonDialog";
@@ -26,6 +27,9 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [showFaces, setShowFaces] = useState(false);
   const [editingFace, setEditingFace] = useState<FaceDetection | null>(null);
   const [faces, setFaces] = useState<FaceDetection[]>([]);
+  const [showNamingDialog, setShowNamingDialog] = useState(false);
+  const [personToName, setPersonToName] = useState<FaceDetection | null>(null);
+  const [newPersonName, setNewPersonName] = useState("");
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -136,15 +140,43 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   const handleSelectPerson = (personId: string, personName: string | null) => {
     if (editingFace) {
-      setFaces(prev => prev.map(f => 
-        f === editingFace ? { ...f, personId, personName } : f
-      ));
-      toast.success(`Reassigned to ${personName || "Unnamed"}`);
+      const targetPerson = mockPeople.find(p => p.id === personId);
+      
+      // If target person is unnamed/unknown, trigger naming dialog
+      if (targetPerson && targetPerson.name === null) {
+        setPersonToName({ ...editingFace, personId, personName });
+        setShowNamingDialog(true);
+        setEditingFace(null);
+      } else {
+        setFaces(prev => prev.map(f => 
+          f === editingFace ? { ...f, personId, personName } : f
+        ));
+        toast.success(`Reassigned to ${personName || "Unnamed"}`);
+        setEditingFace(null);
+      }
     }
   };
 
   const handleCreateNewPerson = () => {
-    toast.info("Creating new person - this would open a naming dialog");
+    if (editingFace) {
+      setPersonToName(editingFace);
+      setShowNamingDialog(true);
+      setEditingFace(null);
+    }
+  };
+
+  const handleNamePerson = () => {
+    if (personToName && newPersonName.trim()) {
+      // Update the face with the new name
+      const updatedFace = { ...personToName, personName: newPersonName.trim() };
+      setFaces(prev => prev.map(f => 
+        f === personToName ? updatedFace : f
+      ));
+      toast.success(`Named person as ${newPersonName.trim()}`);
+      setPersonToName(null);
+      setNewPersonName("");
+      setShowNamingDialog(false);
+    }
   };
 
   return (
@@ -238,9 +270,9 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             {/* Info Panel */}
             {showInfo && (
               <div className={cn(
-                "absolute bg-card/95 backdrop-blur-sm border-l border-border p-6 space-y-4 overflow-y-auto",
+                "absolute bg-card/95 backdrop-blur-sm border-l border-border p-6 space-y-4 overflow-y-auto z-40",
                 "lg:relative lg:w-80 lg:h-full",
-                "max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:top-auto max-lg:max-h-[50vh] max-lg:border-l-0 max-lg:border-t"
+                "max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:top-16 max-lg:max-h-[calc(100vh-4rem)] max-lg:border-l-0 max-lg:border-t"
               )}>
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-foreground">Photo Info</h3>
@@ -267,16 +299,16 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                     </p>
                   </div>
 
-                  {photo.tagged_people && photo.tagged_people.length > 0 && (
+                  {faces.length > 0 && (
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Tagged People</p>
+                      <p className="text-sm font-medium text-muted-foreground">People in Photo</p>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {photo.tagged_people.map((person, idx) => (
+                        {faces.map((face, idx) => (
                           <span 
                             key={idx}
                             className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded"
                           >
-                            {person}
+                            {face.personName || "Unknown"}
                           </span>
                         ))}
                       </div>
@@ -329,6 +361,40 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         onSelectPerson={handleSelectPerson}
         onCreateNew={handleCreateNewPerson}
       />
+
+      <Dialog open={showNamingDialog} onOpenChange={() => {
+        setShowNamingDialog(false);
+        setNewPersonName("");
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Name This Person</h3>
+            <Input
+              type="text"
+              placeholder="Enter name..."
+              value={newPersonName}
+              onChange={(e) => setNewPersonName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleNamePerson();
+                }
+              }}
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => {
+                setShowNamingDialog(false);
+                setNewPersonName("");
+              }}>
+                Cancel
+              </Button>
+              <Button onClick={handleNamePerson} disabled={!newPersonName.trim()}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
