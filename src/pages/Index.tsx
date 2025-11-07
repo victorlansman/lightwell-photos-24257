@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/Header";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PhotoGrid } from "@/components/PhotoGrid";
@@ -8,13 +11,11 @@ import { Lightbox } from "@/components/Lightbox";
 import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { mockPhotos } from "@/data/mockPhotos";
-import { mockPeople } from "@/data/mockPeople";
 import { Photo, FaceDetection } from "@/types/photo";
-import { PersonCluster } from "@/types/person";
-import { toast } from "sonner";
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
@@ -22,9 +23,105 @@ const Index = () => {
   const [zoomLevel, setZoomLevel] = useState(4);
   const [showDates, setShowDates] = useState(true);
   const [cropSquare, setCropSquare] = useState(true);
-  const [photos, setPhotos] = useState<Photo[]>(mockPhotos);
-  const [people, setPeople] = useState<PersonCluster[]>(mockPeople);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showShareDialog, setShowShareDialog] = useState(false);
+
+  useEffect(() => {
+    checkAuth();
+    fetchPhotos();
+  }, []);
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      navigate("/auth");
+    }
+  };
+
+  const fetchPhotos = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get user's collections
+      const { data: userData } = await supabase
+        .from("users")
+        .select("id")
+        .eq("supabase_user_id", user.id)
+        .single();
+
+      if (!userData) return;
+
+      const { data: collectionsData } = await supabase
+        .from("collection_members")
+        .select("collection_id")
+        .eq("user_id", userData.id);
+
+      if (!collectionsData || collectionsData.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const collectionIds = collectionsData.map(c => c.collection_id);
+
+      // Fetch all photos from user's collections
+      const { data: photosData, error } = await supabase
+        .from("photos")
+        .select(`
+          *,
+          photo_people (
+            person:people (
+              id,
+              name
+            ),
+            face_bbox
+          )
+        `)
+        .in("collection_id", collectionIds)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Get favorites
+      const { data: favoritesData } = await supabase
+        .from("favorites")
+        .select("photo_id")
+        .eq("user_id", userData.id);
+
+      const favoriteIds = new Set(favoritesData?.map(f => f.photo_id) || []);
+
+      // Transform photos
+      const transformedPhotos: Photo[] = (photosData || []).map(photo => {
+        const faces: FaceDetection[] = photo.photo_people?.map((pp: any) => ({
+          personId: pp.person.id,
+          personName: pp.person.name,
+          boundingBox: pp.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
+        })) || [];
+
+        return {
+          id: photo.id,
+          path: photo.path,
+          created_at: photo.created_at,
+          filename: photo.original_filename,
+          is_favorite: favoriteIds.has(photo.id),
+          faces,
+          taken_at: photo.taken_at,
+          tags: photo.tags || [],
+        };
+      });
+
+      setPhotos(transformedPhotos);
+    } catch (error: any) {
+      toast({
+        title: "Error loading photos",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSelectPhoto = (id: string) => {
     const newSelected = new Set(selectedPhotos);
@@ -89,22 +186,80 @@ const Index = () => {
     setIsSelectionMode(false);
   };
 
-  const handleDelete = () => {
-    const remainingPhotos = photos.filter(p => !selectedPhotos.has(p.id));
-    setPhotos(remainingPhotos);
-    toast.success(`Deleted ${selectedPhotos.size} photo(s)`);
-    setSelectedPhotos(new Set());
-    setIsSelectionMode(false);
+  const handleDelete = async () => {
+    try {
+      // Delete photos
+      for (const photoId of Array.from(selectedPhotos)) {
+        await supabase
+          .from("photos")
+          .delete()
+          .eq("id", photoId);
+      }
+
+      toast({
+        title: "Success",
+        description: `Deleted ${selectedPhotos.size} photo(s)`,
+      });
+
+      // Refresh data
+      fetchPhotos();
+      setSelectedPhotos(new Set());
+      setIsSelectionMode(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleToggleFavorite = (photoId: string) => {
-    setPhotos((prevPhotos) =>
-      prevPhotos.map((p) =>
-        p.id === photoId ? { ...p, is_favorite: !p.is_favorite } : p
-      )
-    );
-    if (lightboxPhoto && lightboxPhoto.id === photoId) {
-      setLightboxPhoto({ ...lightboxPhoto, is_favorite: !lightboxPhoto.is_favorite });
+  const handleToggleFavorite = async (photoId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData } = await supabase
+        .from("users")
+        .select("id")
+        .eq("supabase_user_id", user.id)
+        .single();
+
+      if (!userData) return;
+
+      const photo = photos.find(p => p.id === photoId);
+      if (!photo) return;
+
+      if (photo.is_favorite) {
+        await supabase
+          .from("favorites")
+          .delete()
+          .eq("user_id", userData.id)
+          .eq("photo_id", photoId);
+      } else {
+        await supabase
+          .from("favorites")
+          .insert({
+            user_id: userData.id,
+            photo_id: photoId,
+          });
+      }
+
+      // Update local state
+      setPhotos((prevPhotos) =>
+        prevPhotos.map((p) =>
+          p.id === photoId ? { ...p, is_favorite: !p.is_favorite } : p
+        )
+      );
+      if (lightboxPhoto && lightboxPhoto.id === photoId) {
+        setLightboxPhoto({ ...lightboxPhoto, is_favorite: !lightboxPhoto.is_favorite });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -119,39 +274,45 @@ const Index = () => {
     }
   };
 
-  const handleUpdatePeople = (personId: string, personName: string, photoPath: string) => {
-    setPeople((prevPeople) => {
-      // Check if person already exists
-      const existingPerson = prevPeople.find(p => p.id === personId);
-      
+  const handleUpdatePeople = async (personId: string, personName: string, photoPath: string) => {
+    // Update or create person in database
+    try {
+      const { data: existingPerson } = await supabase
+        .from("people")
+        .select("*")
+        .eq("id", personId)
+        .single();
+
       if (existingPerson) {
-        // Update existing person
-        return prevPeople.map(p => {
-          if (p.id === personId) {
-            // Add photo if not already in the list
-            const photos = p.photos.includes(photoPath) ? p.photos : [...p.photos, photoPath];
-            return {
-              ...p,
-              name: personName,
-              photoCount: photos.length,
-              photos,
-            };
-          }
-          return p;
-        });
-      } else {
-        // Create new person
-        const newPerson: PersonCluster = {
-          id: personId,
-          name: personName,
-          thumbnailPath: photoPath,
-          photoCount: 1,
-          photos: [photoPath],
-        };
-        return [...prevPeople, newPerson];
+        // Update name if changed
+        if (existingPerson.name !== personName) {
+          await supabase
+            .from("people")
+            .update({ name: personName })
+            .eq("id", personId);
+        }
       }
-    });
+      // If person doesn't exist, it will be created when face is tagged
+    } catch (error: any) {
+      console.error("Error updating person:", error);
+    }
   };
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col">
+            <Header />
+            <main className="flex-1 flex items-center justify-center">
+              <p className="text-muted-foreground">Loading...</p>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   return (
     <SidebarProvider>

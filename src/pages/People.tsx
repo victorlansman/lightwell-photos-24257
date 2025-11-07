@@ -1,15 +1,101 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PeopleGallery } from "@/components/PeopleGallery";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { mockPeople } from "@/data/mockPeople";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { PersonCluster } from "@/types/person";
 
 export default function People() {
-  const [people, setPeople] = useState<PersonCluster[]>(mockPeople);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [people, setPeople] = useState<PersonCluster[]>([]);
   const [selectedClusters, setSelectedClusters] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuth();
+    fetchPeople();
+  }, []);
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      navigate("/auth");
+    }
+  };
+
+  const fetchPeople = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get user's collections
+      const { data: userData } = await supabase
+        .from("users")
+        .select("id")
+        .eq("supabase_user_id", user.id)
+        .single();
+
+      if (!userData) return;
+
+      const { data: collectionsData } = await supabase
+        .from("collection_members")
+        .select("collection_id")
+        .eq("user_id", userData.id);
+
+      if (!collectionsData || collectionsData.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const collectionIds = collectionsData.map(c => c.collection_id);
+
+      // Fetch all people from user's collections
+      const { data: peopleData, error } = await supabase
+        .from("people")
+        .select(`
+          id,
+          name,
+          thumbnail_url,
+          collection_id,
+          photo_people (
+            photo:photos (
+              id,
+              path
+            )
+          )
+        `)
+        .in("collection_id", collectionIds);
+
+      if (error) throw error;
+
+      // Transform data to PersonCluster format
+      const clusters: PersonCluster[] = (peopleData || []).map(person => {
+        const photos = person.photo_people?.map((pp: any) => pp.photo.path) || [];
+        return {
+          id: person.id,
+          name: person.name,
+          thumbnailPath: person.thumbnail_url || photos[0] || "/placeholder.svg",
+          photoCount: photos.length,
+          photos,
+        };
+      });
+
+      setPeople(clusters);
+    } catch (error: any) {
+      toast({
+        title: "Error loading people",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSelectCluster = (id: string) => {
     setSelectedClusters((prev) => {
@@ -30,42 +116,71 @@ export default function People() {
     }
   };
 
-  const handleMerge = (clusterIds: string[]) => {
-    // In a real app, this would merge the clusters via API
-    // For now, we'll just remove the merged clusters except the first one
+  const handleMerge = async (clusterIds: string[]) => {
+    // Merge people in database
     const [firstId, ...restIds] = clusterIds;
-    const firstCluster = people.find((p) => p.id === firstId);
-    const mergeClusters = people.filter((p) => restIds.includes(p.id));
+    
+    try {
+      // Update all photo_people records to point to the first person
+      for (const personId of restIds) {
+        await supabase
+          .from("photo_people")
+          .update({ person_id: firstId })
+          .eq("person_id", personId);
+        
+        // Delete the merged person
+        await supabase
+          .from("people")
+          .delete()
+          .eq("id", personId);
+      }
 
-    if (!firstCluster) return;
+      toast({
+        title: "Success",
+        description: `Merged ${clusterIds.length} people`,
+      });
 
-    // Combine all photos
-    const allPhotos = [
-      ...firstCluster.photos,
-      ...mergeClusters.flatMap((c) => c.photos),
-    ];
-
-    // Update the first cluster
-    const updatedPeople = people
-      .filter((p) => !restIds.includes(p.id))
-      .map((p) =>
-        p.id === firstId
-          ? { ...p, photos: allPhotos, photoCount: allPhotos.length }
-          : p
-      );
-
-    setPeople(updatedPeople);
-    setSelectedClusters(new Set());
-    setIsSelectionMode(false);
+      // Refresh data
+      fetchPeople();
+      setSelectedClusters(new Set());
+      setIsSelectionMode(false);
+    } catch (error: any) {
+      toast({
+        title: "Error merging people",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleHide = (clusterIds: string[]) => {
-    // In a real app, this would hide via API
-    // For now, we'll just remove them from the list
+  const handleHide = async (clusterIds: string[]) => {
+    // For now, just remove from local state
+    // In a real app, you might want to add a "hidden" flag to the database
     setPeople((prev) => prev.filter((p) => !clusterIds.includes(p.id)));
     setSelectedClusters(new Set());
     setIsSelectionMode(false);
+    
+    toast({
+      title: "Success",
+      description: `Hidden ${clusterIds.length} people`,
+    });
   };
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="flex min-h-screen w-full">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col">
+            <Header />
+            <main className="flex-1 flex items-center justify-center">
+              <p className="text-muted-foreground">Loading...</p>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   return (
     <SidebarProvider>

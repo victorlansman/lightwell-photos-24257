@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { mockPhotos } from "@/data/mockPhotos";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/Header";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -11,19 +12,16 @@ import { NamingDialog } from "@/components/NamingDialog";
 import { AlbumViewControls } from "@/components/AlbumViewControls";
 import { InlineActionBar } from "@/components/InlineActionBar";
 import { SharePhotosDialog } from "@/components/SharePhotosDialog";
-import { mockPeople } from "@/data/mockPeople";
 import { PersonCluster } from "@/types/person";
 import { Photo, FaceDetection } from "@/types/photo";
 import { ArrowLeft } from "lucide-react";
-import { toast } from "sonner";
 
 export default function PersonAlbum() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [people, setPeople] = useState<PersonCluster[]>(mockPeople);
-  const [person, setPerson] = useState<PersonCluster | undefined>(
-    people.find((p) => p.id === id)
-  );
+  const { toast } = useToast();
+  const [person, setPerson] = useState<PersonCluster | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
@@ -32,29 +30,117 @@ export default function PersonAlbum() {
   const [zoomLevel, setZoomLevel] = useState(4);
   const [showDates, setShowDates] = useState(false);
   const [cropSquare, setCropSquare] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  if (!person) {
-    return (
-      <SidebarProvider>
-        <div className="flex min-h-screen w-full">
-          <AppSidebar />
-          <div className="flex-1 flex flex-col">
-            <Header />
-            <main className="flex-1 p-6">
-              <p>Person not found</p>
-            </main>
-          </div>
-        </div>
-      </SidebarProvider>
-    );
-  }
+  useEffect(() => {
+    checkAuth();
+    fetchPersonAndPhotos();
+  }, [id]);
 
-  const [photos, setPhotos] = useState<Photo[]>(() => {
-    // Get photos from mockPhotos that include this person
-    return mockPhotos.filter(photo => 
-      photo.faces?.some(face => face.personId === person.id)
-    );
-  });
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      navigate("/auth");
+    }
+  };
+
+  const fetchPersonAndPhotos = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch person data
+      const { data: personData, error: personError } = await supabase
+        .from("people")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (personError) throw personError;
+
+      // Fetch photos with this person
+      const { data: photoData, error: photosError } = await supabase
+        .from("photo_people")
+        .select(`
+          photo_id,
+          face_bbox,
+          photo:photos (
+            id,
+            path,
+            created_at,
+            original_filename,
+            taken_at,
+            tags,
+            photo_people (
+              person:people (
+                id,
+                name
+              ),
+              face_bbox
+            )
+          )
+        `)
+        .eq("person_id", id);
+
+      if (photosError) throw photosError;
+
+      // Get user's favorites
+      const { data: userData } = await supabase
+        .from("users")
+        .select("id")
+        .eq("supabase_user_id", user.id)
+        .single();
+
+      const { data: favoritesData } = await supabase
+        .from("favorites")
+        .select("photo_id")
+        .eq("user_id", userData?.id || "");
+
+      const favoriteIds = new Set(favoritesData?.map(f => f.photo_id) || []);
+
+      // Transform photos
+      const transformedPhotos: Photo[] = (photoData || []).map((pp: any) => {
+        const photo = pp.photo;
+        const faces: FaceDetection[] = photo.photo_people?.map((photoP: any) => ({
+          personId: photoP.person.id,
+          personName: photoP.person.name,
+          boundingBox: photoP.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
+        })) || [];
+
+        return {
+          id: photo.id,
+          path: photo.path,
+          created_at: photo.created_at,
+          filename: photo.original_filename,
+          is_favorite: favoriteIds.has(photo.id),
+          faces,
+          taken_at: photo.taken_at,
+          tags: photo.tags || [],
+        };
+      });
+
+      // Create person cluster
+      const cluster: PersonCluster = {
+        id: personData.id,
+        name: personData.name,
+        thumbnailPath: personData.thumbnail_url || transformedPhotos[0]?.path || "/placeholder.svg",
+        photoCount: transformedPhotos.length,
+        photos: transformedPhotos.map(p => p.path),
+      };
+
+      setPerson(cluster);
+      setPhotos(transformedPhotos);
+    } catch (error: any) {
+      toast({
+        title: "Error loading person",
+        description: error.message,
+        variant: "destructive",
+      });
+      navigate("/people");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSelectPhoto = (id: string) => {
     setSelectedPhotos((prev) => {
@@ -75,36 +161,63 @@ export default function PersonAlbum() {
     }
   };
 
-  const handleRemovePhotos = () => {
-    const remainingPhotos = person.photos.filter((_, index) => 
-      !selectedPhotos.has(`${person.id}-${index}`)
-    );
+  const handleRemovePhotos = async () => {
+    if (!person) return;
     
-    setPerson({
-      ...person,
-      photos: remainingPhotos,
-      photoCount: remainingPhotos.length,
-    });
-    
-    toast.success(`Removed ${selectedPhotos.size} photo(s) from ${person.name || "this person"}`);
-    setSelectedPhotos(new Set());
-    setIsSelectionMode(false);
+    try {
+      // Remove photo_people associations for selected photos
+      for (const photoId of Array.from(selectedPhotos)) {
+        await supabase
+          .from("photo_people")
+          .delete()
+          .eq("photo_id", photoId)
+          .eq("person_id", person.id);
+      }
+
+      toast({
+        title: "Success",
+        description: `Removed ${selectedPhotos.size} photo(s) from ${person.name || "this person"}`,
+      });
+
+      // Refresh data
+      fetchPersonAndPhotos();
+      setSelectedPhotos(new Set());
+      setIsSelectionMode(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeletePhotos = () => {
-    const remainingPhotos = person.photos.filter((_, index) => 
-      !selectedPhotos.has(`${person.id}-${index}`)
-    );
-    
-    setPerson({
-      ...person,
-      photos: remainingPhotos,
-      photoCount: remainingPhotos.length,
-    });
-    
-    toast.success(`Deleted ${selectedPhotos.size} photo(s)`);
-    setSelectedPhotos(new Set());
-    setIsSelectionMode(false);
+  const handleDeletePhotos = async () => {
+    try {
+      // Delete photos entirely
+      for (const photoId of Array.from(selectedPhotos)) {
+        await supabase
+          .from("photos")
+          .delete()
+          .eq("id", photoId);
+      }
+
+      toast({
+        title: "Success",
+        description: `Deleted ${selectedPhotos.size} photo(s)`,
+      });
+
+      // Refresh data
+      fetchPersonAndPhotos();
+      setSelectedPhotos(new Set());
+      setIsSelectionMode(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePhotoClick = (photo: Photo) => {
@@ -113,13 +226,34 @@ export default function PersonAlbum() {
     }
   };
 
-  const handleNameSave = (name: string) => {
-    setPerson({ ...person, name });
-    toast.success(`Person named: ${name}`);
+  const handleNameSave = async (name: string) => {
+    if (!person) return;
+    
+    try {
+      await supabase
+        .from("people")
+        .update({ name })
+        .eq("id", person.id);
+
+      setPerson({ ...person, name });
+      toast({
+        title: "Success",
+        description: `Person named: ${name}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleMerge = (targetPerson: PersonCluster) => {
-    toast.success(`Merged with ${targetPerson.name}`);
+    toast({
+      title: "Success",
+      description: `Merged with ${targetPerson.name}`,
+    });
     navigate("/people");
   };
 
@@ -161,48 +295,25 @@ export default function PersonAlbum() {
     }
   };
 
-  const handleUpdatePeople = (personId: string, personName: string, photoPath: string) => {
-    setPeople((prevPeople) => {
-      // Check if person already exists
-      const existingPerson = prevPeople.find(p => p.id === personId);
+  const handleUpdatePeople = async (personId: string, personName: string, photoPath: string) => {
+    // Update person in database if needed
+    try {
+      await supabase
+        .from("people")
+        .update({ name: personName })
+        .eq("id", personId);
       
-      if (existingPerson) {
-        // Update existing person
-        const updatedPeople = prevPeople.map(p => {
-          if (p.id === personId) {
-            // Add photo if not already in the list
-            const photos = p.photos.includes(photoPath) ? p.photos : [...p.photos, photoPath];
-            return {
-              ...p,
-              name: personName,
-              photoCount: photos.length,
-              photos,
-            };
-          }
-          return p;
-        });
-        
-        // Also update local person state if it's the current person
-        if (person && person.id === personId) {
-          const updatedPerson = updatedPeople.find(p => p.id === personId);
-          if (updatedPerson) {
-            setPerson(updatedPerson);
-          }
-        }
-        
-        return updatedPeople;
-      } else {
-        // Create new person
-        const newPerson: PersonCluster = {
-          id: personId,
-          name: personName,
-          thumbnailPath: photoPath,
-          photoCount: 1,
-          photos: [photoPath],
-        };
-        return [...prevPeople, newPerson];
+      // Refresh data if it's the current person
+      if (person && person.id === personId) {
+        fetchPersonAndPhotos();
       }
-    });
+    } catch (error: any) {
+      toast({
+        title: "Error updating person",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleToggleSelectAll = () => {
@@ -221,6 +332,38 @@ export default function PersonAlbum() {
     setSelectedPhotos(new Set());
     setIsSelectionMode(false);
   };
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="flex min-h-screen w-full">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col">
+            <Header />
+            <main className="flex-1 flex items-center justify-center">
+              <p className="text-muted-foreground">Loading...</p>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
+  if (!person) {
+    return (
+      <SidebarProvider>
+        <div className="flex min-h-screen w-full">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col">
+            <Header />
+            <main className="flex-1 flex items-center justify-center">
+              <p className="text-muted-foreground">Person not found</p>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -377,7 +520,7 @@ export default function PersonAlbum() {
         isOpen={isNamingDialogOpen}
         onClose={() => setIsNamingDialogOpen(false)}
         currentPerson={person}
-        allPeople={people}
+        allPeople={[]} // Not needed in this context
         onNameSave={handleNameSave}
         onMerge={handleMerge}
       />
