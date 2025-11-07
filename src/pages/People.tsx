@@ -76,12 +76,19 @@ export default function People() {
       // Transform data to PersonCluster format
       const clusters: PersonCluster[] = (peopleData || []).map(person => {
         const photos = person.photo_people?.map((pp: any) => pp.photo.path) || [];
+        const thumbnailUrl = person.thumbnail_url || 
+          (photos.length > 0 
+            ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${photos[0]}`
+            : "/placeholder.svg");
+            
         return {
           id: person.id,
           name: person.name,
-          thumbnailPath: person.thumbnail_url || photos[0] || "/placeholder.svg",
+          thumbnailPath: thumbnailUrl,
           photoCount: photos.length,
-          photos,
+          photos: photos.map((path: string) => 
+            `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${path}`
+          ),
         };
       });
 

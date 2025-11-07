@@ -99,9 +99,13 @@ const Index = () => {
           boundingBox: pp.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
         })) || [];
 
+        // Use thumbnail_url if available, otherwise construct storage URL from path
+        const imageUrl = photo.thumbnail_url || 
+          `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${photo.path}`;
+
         return {
           id: photo.id,
-          path: photo.path,
+          path: imageUrl,
           created_at: photo.created_at,
           filename: photo.original_filename,
           is_favorite: favoriteIds.has(photo.id),

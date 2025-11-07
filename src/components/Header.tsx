@@ -1,18 +1,57 @@
-import { Search, Upload, Moon, Sun, User, MoreVertical } from "lucide-react";
+import { Search, Upload, Moon, Sun, User, MoreVertical, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTheme } from "next-themes";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
+  const navigate = useNavigate();
+  const [collectionId, setCollectionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchUserCollection();
+  }, []);
+
+  const fetchUserCollection = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: userData } = await supabase
+      .from("users")
+      .select("id")
+      .eq("supabase_user_id", user.id)
+      .single();
+
+    if (!userData) return;
+
+    const { data: memberData } = await supabase
+      .from("collection_members")
+      .select("collection_id")
+      .eq("user_id", userData.id)
+      .limit(1)
+      .single();
+
+    if (memberData) {
+      setCollectionId(memberData.collection_id);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
 
   return (
     <header className="h-16 border-b border-border bg-card flex items-center px-4 gap-4 shadow-elevation-1">
@@ -44,9 +83,25 @@ export function Header() {
           )}
         </Button>
 
-        <Button variant="ghost" size="icon" className="hidden md:flex">
-          <User className="h-5 w-5" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="hidden md:flex">
+              <User className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {collectionId && (
+              <>
+                <DropdownMenuLabel>Collection: {collectionId.slice(0, 8)}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Mobile menu */}
         <DropdownMenu>
@@ -74,9 +129,17 @@ export function Header() {
               )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="h-4 w-4 mr-2" />
-              Account
+            {collectionId && (
+              <>
+                <DropdownMenuLabel className="font-normal">
+                  Collection: {collectionId.slice(0, 8)}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

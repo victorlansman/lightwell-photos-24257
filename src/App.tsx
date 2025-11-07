@@ -7,7 +7,6 @@ import { ThemeProvider } from "next-themes";
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import Collections from "./pages/Collections";
-import CollectionDetail from "./pages/CollectionDetail";
 import People from "./pages/People";
 import PersonAlbum from "./pages/PersonAlbum";
 import NotFound from "./pages/NotFound";
@@ -25,7 +24,6 @@ function App() {
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<Index />} />
             <Route path="/albums" element={<Collections />} />
-            <Route path="/collections/:id" element={<CollectionDetail />} />
             <Route path="/people" element={<People />} />
             <Route path="/people/:id" element={<PersonAlbum />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
