@@ -73,8 +73,16 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     // Update on window resize
     window.addEventListener('resize', updateDimensions);
     
-    // Update when info panel toggles
+    // Update when info panel toggles and when photo changes
     const timeoutId = setTimeout(updateDimensions, 300);
+    
+    // Also try to update after a short delay to catch cached images
+    const rafId = requestAnimationFrame(() => {
+      updateDimensions();
+      // Try again after a brief delay
+      setTimeout(updateDimensions, 50);
+      setTimeout(updateDimensions, 150);
+    });
 
     return () => {
       if (img) {
@@ -82,8 +90,9 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       }
       window.removeEventListener('resize', updateDimensions);
       clearTimeout(timeoutId);
+      cancelAnimationFrame(rafId);
     };
-  }, [showInfo]);
+  }, [showInfo, photo]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -322,7 +331,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             <div 
               ref={imageRef}
               className={cn(
-                "flex-1 flex items-center justify-center p-16 transition-all relative",
+                "flex-1 flex items-center justify-center p-16 transition-all relative z-0",
                 showInfo && "lg:pr-8"
               )}
             >
@@ -335,7 +344,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                 />
                 {showFaces && imageDimensions.width > 0 && (
                   <div 
-                    className="absolute inset-0"
+                    className="absolute inset-0 z-10"
                     style={{
                       width: imageDimensions.width,
                       height: imageDimensions.height,
@@ -359,8 +368,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             {/* Info Panel */}
             {showInfo && (
               <div className={cn(
-                "absolute bg-card/95 backdrop-blur-sm border-l border-border p-6 space-y-4 overflow-y-auto z-40",
-                "lg:relative lg:w-80 lg:h-full",
+                "absolute bg-card/95 backdrop-blur-sm border-l border-border p-6 space-y-4 overflow-y-auto z-50",
+                "lg:relative lg:w-80 lg:h-full lg:z-auto",
                 "max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:top-16 max-lg:max-h-[calc(100vh-4rem)] max-lg:border-l-0 max-lg:border-t"
               )}>
                 <div className="flex items-center justify-between">
