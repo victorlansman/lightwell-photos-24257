@@ -14,16 +14,295 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      collection_members: {
+        Row: {
+          collection_id: string
+          id: string
+          invited_by: string | null
+          joined_at: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          collection_id: string
+          id?: string
+          invited_by?: string | null
+          joined_at?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          collection_id?: string
+          id?: string
+          invited_by?: string | null
+          joined_at?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_members_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_members_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collections: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          shopify_order_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          shopify_order_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          shopify_order_id?: string | null
+        }
+        Relationships: []
+      }
+      favorites: {
+        Row: {
+          created_at: string | null
+          id: string
+          photo_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          photo_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          photo_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "photos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      people: {
+        Row: {
+          collection_id: string
+          created_at: string | null
+          id: string
+          name: string
+          thumbnail_url: string | null
+        }
+        Insert: {
+          collection_id: string
+          created_at?: string | null
+          id?: string
+          name: string
+          thumbnail_url?: string | null
+        }
+        Update: {
+          collection_id?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          thumbnail_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photo_people: {
+        Row: {
+          face_bbox: Json | null
+          id: string
+          person_id: string
+          photo_id: string
+        }
+        Insert: {
+          face_bbox?: Json | null
+          id?: string
+          person_id: string
+          photo_id: string
+        }
+        Update: {
+          face_bbox?: Json | null
+          id?: string
+          person_id?: string
+          photo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_people_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_people_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "photos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photos: {
+        Row: {
+          camera_model: string | null
+          collection_id: string
+          created_at: string | null
+          description: string | null
+          height: number | null
+          id: string
+          location: Json | null
+          original_filename: string
+          path: string
+          rotation: number | null
+          tags: string[] | null
+          taken_at: string | null
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string | null
+          width: number | null
+        }
+        Insert: {
+          camera_model?: string | null
+          collection_id: string
+          created_at?: string | null
+          description?: string | null
+          height?: number | null
+          id?: string
+          location?: Json | null
+          original_filename: string
+          path: string
+          rotation?: number | null
+          tags?: string[] | null
+          taken_at?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+          width?: number | null
+        }
+        Update: {
+          camera_model?: string | null
+          collection_id?: string
+          created_at?: string | null
+          description?: string | null
+          height?: number | null
+          id?: string
+          location?: Json | null
+          original_filename?: string
+          path?: string
+          rotation?: number | null
+          tags?: string[] | null
+          taken_at?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photos_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string | null
+          display_name: string
+          email: string
+          id: string
+          preferences: Json | null
+          storage_quota: number | null
+          supabase_user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_name: string
+          email: string
+          id?: string
+          preferences?: Json | null
+          storage_quota?: number | null
+          supabase_user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string
+          email?: string
+          id?: string
+          preferences?: Json | null
+          storage_quota?: number | null
+          supabase_user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      user_has_role_in_collection: {
+        Args: {
+          _collection_id: string
+          _required_role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      user_is_member_of_collection: {
+        Args: { _collection_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "owner" | "admin" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +429,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["owner", "admin", "viewer"],
+    },
   },
 } as const
