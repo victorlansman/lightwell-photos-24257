@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { mockPhotos } from "@/data/mockPhotos";
 import { Header } from "@/components/Header";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -47,16 +48,12 @@ export default function PersonAlbum() {
     );
   }
 
-  const [photos, setPhotos] = useState<Photo[]>(
-    person.photos.map((path, index) => ({
-      id: `${person.id}-${index}`,
-      path,
-      created_at: new Date().toISOString(),
-      is_favorite: false,
-      filename: path.split('/').pop() || `photo-${index}.jpg`,
-      tagged_people: [person.name || 'Unknown'],
-    }))
-  );
+  const [photos, setPhotos] = useState<Photo[]>(() => {
+    // Get photos from mockPhotos that include this person
+    return mockPhotos.filter(photo => 
+      photo.faces?.some(face => face.personId === person.id)
+    );
+  });
 
   const handleSelectPhoto = (id: string) => {
     setSelectedPhotos((prev) => {
