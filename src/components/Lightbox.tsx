@@ -47,13 +47,6 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     setShowFaces(false);
   }, [photo]);
 
-  // Sync faces back to parent when they change
-  useEffect(() => {
-    if (photo && onUpdateFaces && faces.length >= 0) {
-      onUpdateFaces(photo.id, faces);
-    }
-  }, [faces, photo?.id]);
-
   // Keyboard navigation
   useEffect(() => {
     if (!isOpen) return;
@@ -146,9 +139,13 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const handleRemoveFace = (face: FaceDetection) => {
     // If person is named, convert to unnamed
     if (face.personName) {
-      setFaces(prev => prev.map(f => 
+      const updatedFaces = faces.map(f => 
         f === face ? { ...f, personName: null, personId: `unknown-${Date.now()}` } : f
-      ));
+      );
+      setFaces(updatedFaces);
+      if (photo && onUpdateFaces) {
+        onUpdateFaces(photo.id, updatedFaces);
+      }
       toast.success("Person unmarked");
     } else {
       // If unnamed, show confirmation dialog
@@ -158,8 +155,12 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleConfirmDelete = () => {
-    if (faceToDelete) {
-      setFaces(prev => prev.filter(f => f !== faceToDelete));
+    if (faceToDelete && photo) {
+      const updatedFaces = faces.filter(f => f !== faceToDelete);
+      setFaces(updatedFaces);
+      if (onUpdateFaces) {
+        onUpdateFaces(photo.id, updatedFaces);
+      }
       toast.success("Face tag deleted");
       setFaceToDelete(null);
       setShowDeleteDialog(false);
@@ -167,7 +168,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleSelectPerson = (personId: string, personName: string | null) => {
-    if (editingFace) {
+    if (editingFace && photo) {
       const targetPerson = mockPeople.find(p => p.id === personId);
       
       // If target person is unnamed/unknown, trigger naming dialog
@@ -176,9 +177,13 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         setShowNamingDialog(true);
         setEditingFace(null);
       } else {
-        setFaces(prev => prev.map(f => 
+        const updatedFaces = faces.map(f => 
           f === editingFace ? { ...f, personId, personName } : f
-        ));
+        );
+        setFaces(updatedFaces);
+        if (onUpdateFaces) {
+          onUpdateFaces(photo.id, updatedFaces);
+        }
         toast.success(`Reassigned to ${personName || "Unnamed"}`);
         setEditingFace(null);
       }
@@ -194,12 +199,16 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleNamePerson = () => {
-    if (personToName && newPersonName.trim()) {
+    if (personToName && newPersonName.trim() && photo) {
       // Update the face with the new name
       const updatedFace = { ...personToName, personName: newPersonName.trim() };
-      setFaces(prev => prev.map(f => 
+      const updatedFaces = faces.map(f => 
         f === personToName ? updatedFace : f
-      ));
+      );
+      setFaces(updatedFaces);
+      if (onUpdateFaces) {
+        onUpdateFaces(photo.id, updatedFaces);
+      }
       toast.success(`Named person as ${newPersonName.trim()}`);
       setPersonToName(null);
       setNewPersonName("");
@@ -394,9 +403,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         setShowNamingDialog(false);
         setNewPersonName("");
       }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" aria-describedby="naming-dialog-description">
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Name This Person</h3>
+            <p id="naming-dialog-description" className="sr-only">Enter a name for this person</p>
             <Input
               type="text"
               placeholder="Enter name..."
@@ -425,10 +435,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       </Dialog>
 
       <Dialog open={showDeleteDialog} onOpenChange={() => setShowDeleteDialog(false)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" aria-describedby="delete-dialog-description">
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Delete the tag of this person?</h3>
-            <p className="text-sm text-muted-foreground">
+            <p id="delete-dialog-description" className="text-sm text-muted-foreground">
               This will permanently remove the face tag from this photo.
             </p>
             <div className="flex gap-2 justify-end">
