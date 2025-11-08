@@ -112,14 +112,9 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // If newBox exists, intercept navigation and show confirmation dialog
+      // Auto-discard newBox if navigating away
       if (newBox) {
-        if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          setShowDiscardDialog(true);
-        }
-        return;
+        setNewBox(null);
       }
 
       if (e.key === "ArrowLeft") {
@@ -396,19 +391,11 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleDialogClose = () => {
-    // If newBox exists, show confirmation dialog instead of closing
+    // Auto-discard newBox if closing
     if (newBox) {
-      setShowDiscardDialog(true);
-    } else {
-      onClose();
+      setNewBox(null);
     }
-  };
-
-  const handleImageClick = (e: React.MouseEvent) => {
-    // If clicking outside the new box, show confirmation dialog
-    if (newBox && e.target === e.currentTarget) {
-      setShowDiscardDialog(true);
-    }
+    onClose();
   };
 
   return (
@@ -458,7 +445,6 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            onClick={handleImageClick}
           >
             {/* Image */}
             <div 
@@ -811,7 +797,7 @@ function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onDiscard, o
   return (
     <div
       ref={boxRef}
-      className="absolute border-2 border-orange-500 cursor-move"
+      className="absolute border-2 border-emerald-500 cursor-move"
       style={{
         left: `${left}px`,
         top: `${top}px`,
@@ -821,18 +807,18 @@ function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onDiscard, o
       onMouseDown={(e) => handleMouseDown(e)}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Resize handles - orange */}
-      <div className="absolute -top-1 -left-1 w-3 h-3 bg-orange-500 rounded-full cursor-nw-resize" onMouseDown={(e) => handleMouseDown(e, 'top-left')} />
-      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-orange-500 rounded-full cursor-n-resize" onMouseDown={(e) => handleMouseDown(e, 'top')} />
-      <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full cursor-ne-resize" onMouseDown={(e) => handleMouseDown(e, 'top-right')} />
-      <div className="absolute top-1/2 -translate-y-1/2 -left-1 w-3 h-3 bg-orange-500 rounded-full cursor-w-resize" onMouseDown={(e) => handleMouseDown(e, 'left')} />
-      <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-3 h-3 bg-orange-500 rounded-full cursor-e-resize" onMouseDown={(e) => handleMouseDown(e, 'right')} />
-      <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-orange-500 rounded-full cursor-sw-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-left')} />
-      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-orange-500 rounded-full cursor-s-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom')} />
-      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-orange-500 rounded-full cursor-se-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-right')} />
+      {/* Resize handles - green */}
+      <div className="absolute -top-1 -left-1 w-3 h-3 bg-emerald-500 rounded-full cursor-nw-resize" onMouseDown={(e) => handleMouseDown(e, 'top-left')} />
+      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-emerald-500 rounded-full cursor-n-resize" onMouseDown={(e) => handleMouseDown(e, 'top')} />
+      <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full cursor-ne-resize" onMouseDown={(e) => handleMouseDown(e, 'top-right')} />
+      <div className="absolute top-1/2 -translate-y-1/2 -left-1 w-3 h-3 bg-emerald-500 rounded-full cursor-w-resize" onMouseDown={(e) => handleMouseDown(e, 'left')} />
+      <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-3 h-3 bg-emerald-500 rounded-full cursor-e-resize" onMouseDown={(e) => handleMouseDown(e, 'right')} />
+      <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-emerald-500 rounded-full cursor-sw-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-left')} />
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-emerald-500 rounded-full cursor-s-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom')} />
+      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full cursor-se-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-right')} />
       
       {/* Person name flag with confirm/discard buttons */}
-      <div className="absolute -top-12 left-0 px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 shadow-lg bg-orange-500 text-white">
+      <div className="absolute -top-12 left-0 px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 shadow-lg bg-emerald-500 text-white">
         <span>New person</span>
         <div className="flex items-center gap-1">
           <Button
