@@ -300,17 +300,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               <Button variant="ghost" size="icon" onClick={handleDownload}>
                 <Download className="h-5 w-5" />
               </Button>
-              {faces.length > 0 && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setShowFaces(!showFaces)}
-                  className={cn(showFaces && "bg-accent")}
-                >
-                  <Users className="h-5 w-5" />
-                </Button>
-              )}
               <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setShowFaces(!showFaces)}
+                className={cn(showFaces && "bg-accent")}
+              >
+                <Users className="h-5 w-5" />
+              </Button>
+              <Button
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setShowInfo(!showInfo)}
