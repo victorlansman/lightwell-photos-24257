@@ -12,6 +12,18 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { z } from "zod";
+
+// Validation schema
+const createCollectionSchema = z.object({
+  name: z.string()
+    .trim()
+    .min(1, "Collection name is required")
+    .max(100, "Collection name must be less than 100 characters"),
+  shopifyOrderId: z.string()
+    .max(255, "Shopify Order ID must be less than 255 characters")
+    .optional()
+});
 
 interface CreateCollectionDialogProps {
   open: boolean;
@@ -31,6 +43,22 @@ export function CreateCollectionDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate input
+    const validation = createCollectionSchema.safeParse({
+      name,
+      shopifyOrderId: shopifyOrderId || undefined,
+    });
+
+    if (!validation.success) {
+      toast({
+        title: "Invalid input",
+        description: validation.error.errors[0].message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -51,8 +79,8 @@ export function CreateCollectionDialog({
       const { data: collection, error: collectionError } = await supabase
         .from("collections")
         .insert({
-          name,
-          shopify_order_id: shopifyOrderId || null,
+          name: validation.data.name,
+          shopify_order_id: validation.data.shopifyOrderId || null,
         })
         .select()
         .single();

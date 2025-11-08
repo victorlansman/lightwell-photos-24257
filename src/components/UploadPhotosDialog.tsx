@@ -13,6 +13,21 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, X } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { z } from "zod";
+
+// Validation schema for file uploads
+const fileUploadSchema = z.object({
+  file: z.custom<File>()
+    .refine((file) => file instanceof File, "Must be a file")
+    .refine(
+      (file) => file.size <= 50 * 1024 * 1024,
+      "File must be less than 50MB"
+    )
+    .refine(
+      (file) => ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'].includes(file.type.toLowerCase()),
+      "Only JPEG, PNG, and HEIC images are allowed"
+    )
+});
 
 interface UploadPhotosDialogProps {
   open: boolean;
@@ -51,6 +66,19 @@ export function UploadPhotosDialog({
       let completed = 0;
 
       for (const file of files) {
+        // Validate file before upload
+        const validation = fileUploadSchema.safeParse({ file });
+        if (!validation.success) {
+          toast({
+            title: `Invalid file: ${file.name}`,
+            description: validation.error.errors[0].message,
+            variant: "destructive",
+          });
+          completed++;
+          setUploadProgress((completed / totalFiles) * 100);
+          continue;
+        }
+
         // Upload to storage
         const fileName = `${collectionId}/${Date.now()}-${file.name}`;
         const { error: uploadError } = await supabase.storage
@@ -59,18 +87,12 @@ export function UploadPhotosDialog({
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from("photos")
-          .getPublicUrl(fileName);
-
-        // Create photo record with mock EXIF data
+        // Create photo record - no longer storing thumbnail_url as it uses signed URLs
         const { error: insertError } = await supabase
           .from("photos")
           .insert({
             collection_id: collectionId,
             path: fileName,
-            thumbnail_url: publicUrl,
             original_filename: file.name,
             taken_at: new Date().toISOString(),
             camera_model: "Unknown",

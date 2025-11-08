@@ -25,14 +25,66 @@ serve(async (req) => {
   }
 
   try {
+    // Get authenticated user from JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
     );
+
+    // Verify user is authenticated
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     const { collectionId, baseUrl } = await req.json();
     
+    if (!collectionId) {
+      throw new Error('collectionId is required');
+    }
+    
+    // Verify user has admin/owner role in the collection
+    const { data: userData } = await supabaseClient
+      .from('users')
+      .select('id')
+      .eq('supabase_user_id', user.id)
+      .single();
+    
+    if (!userData) {
+      throw new Error('User not found');
+    }
+    
+    const { data: membership } = await supabaseClient
+      .from('collection_members')
+      .select('role')
+      .eq('collection_id', collectionId)
+      .eq('user_id', userData.id)
+      .single();
+    
+    if (!membership || !['owner', 'admin'].includes(membership.role)) {
+      return new Response(JSON.stringify({ error: 'Forbidden: Insufficient permissions' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
     console.log('Starting photo migration for collection:', collectionId);
+    const supabaseServiceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
     
     const results = [];
     
@@ -58,7 +110,7 @@ serve(async (req) => {
         
         console.log('Uploading to storage:', storagePath);
         
-        const { error: uploadError } = await supabaseClient
+        const { error: uploadError } = await supabaseServiceClient
           .storage
           .from('photos')
           .upload(storagePath, arrayBuffer, {
@@ -73,7 +125,7 @@ serve(async (req) => {
         }
         
         // Update database records
-        const { error: updateError } = await supabaseClient
+        const { error: updateError } = await supabaseServiceClient
           .from('photos')
           .update({ path: storagePath })
           .eq('path', photo.url)

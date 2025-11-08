@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getPhotoUrl(path: string): string {
-  // If it's already a full URL, return as is
+  // If it's already a full URL, return as is (for legacy data)
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }
@@ -16,9 +16,10 @@ export function getPhotoUrl(path: string): string {
     return path;
   }
   
-  // Otherwise, it's a storage path - construct the storage URL
+  // For storage paths, we now use signed URLs via getSignedPhotoUrl
+  // This is a fallback that constructs the authenticated storage URL
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  return `${supabaseUrl}/storage/v1/object/public/photos/${path}`;
+  return `${supabaseUrl}/storage/v1/object/authenticated/photos/${path}`;
 }
 
 // Generate a signed URL for private photo access

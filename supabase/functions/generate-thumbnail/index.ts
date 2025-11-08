@@ -24,41 +24,96 @@ serve(async (req) => {
   }
 
   try {
+    // Get authenticated user from JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
     );
 
+    // Verify user is authenticated
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     let { photoPath, bbox, faceId }: ThumbnailRequest = await req.json();
+    
+    // Validate bbox input
+    if (!bbox || typeof bbox.x !== 'number' || typeof bbox.y !== 'number' || 
+        typeof bbox.width !== 'number' || typeof bbox.height !== 'number' ||
+        bbox.x < 0 || bbox.y < 0 || bbox.width <= 0 || bbox.height <= 0 ||
+        bbox.x > 100 || bbox.y > 100 || bbox.width > 100 || bbox.height > 100) {
+      throw new Error('Invalid bounding box parameters');
+    }
     
     console.log('Generating thumbnail for:', { photoPath, bbox, faceId });
 
     let photoData: Blob;
-
-    // If photoPath is a full URL, extract the storage path or fetch directly
+    
+    // Allowlist for URL validation
+    const ALLOWED_DOMAIN = new URL(Deno.env.get('SUPABASE_URL') ?? '').hostname;
+    
+    // Validate and handle URL-based photo paths (SSRF protection)
     if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
-      console.log('Full URL detected, fetching directly:', photoPath);
-      const response = await fetch(photoPath);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch photo from URL: ${response.statusText}`);
-      }
-      photoData = await response.blob();
-    } else if (photoPath.startsWith('/photos/')) {
-      // Static public asset path
-      const publicUrl = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/photos${photoPath}`;
-      console.log('Fetching from public URL:', publicUrl);
+      console.log('Full URL detected, validating:', photoPath);
       
-      const response = await fetch(publicUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch photo from public URL: ${response.statusText}`);
+      try {
+        const parsedUrl = new URL(photoPath);
+        
+        // Only allow Supabase storage URLs
+        if (parsedUrl.hostname !== ALLOWED_DOMAIN) {
+          throw new Error('URL domain not allowed');
+        }
+        
+        // Block private IP ranges
+        const hostname = parsedUrl.hostname;
+        if (
+          hostname === 'localhost' ||
+          hostname === '127.0.0.1' ||
+          hostname.match(/^10\./) ||
+          hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./) ||
+          hostname.match(/^192\.168\./) ||
+          hostname.match(/^169\.254\./)
+        ) {
+          throw new Error('Private IP addresses not allowed');
+        }
+        
+        console.log('URL validated, fetching from:', photoPath);
+        const response = await fetch(photoPath);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch photo from URL: ${response.statusText}`);
+        }
+        photoData = await response.blob();
+      } catch (error) {
+        console.error('URL validation failed:', error);
+        throw new Error('Invalid or disallowed URL');
       }
-      photoData = await response.blob();
+    } else if (photoPath.startsWith('/photos/')) {
+      // Static public asset path - reject this since buckets are now private
+      throw new Error('Static public paths are no longer supported');
     } else {
-      // Relative storage path - use storage client
+      // Relative storage path - use service role for storage access
+      const supabaseServiceClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
       const cleanPath = photoPath.replace(/^\/?photos\//, '');
       console.log('Downloading from storage bucket:', cleanPath);
 
-      const { data, error: downloadError } = await supabaseClient
+      const { data, error: downloadError } = await supabaseServiceClient
         .storage
         .from('photos')
         .download(cleanPath);
@@ -96,9 +151,14 @@ serve(async (req) => {
     // Encode as JPEG
     const thumbnailBytes = await resized.encodeJPEG(85);
 
-    // Upload thumbnail to storage
+    // Upload thumbnail to storage using service role
+    const supabaseServiceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    
     const thumbnailPath = `face-${faceId}.jpg`;
-    const { error: uploadError } = await supabaseClient
+    const { error: uploadError } = await supabaseServiceClient
       .storage
       .from('thumbnails')
       .upload(thumbnailPath, thumbnailBytes, {
@@ -111,18 +171,15 @@ serve(async (req) => {
       throw new Error(`Failed to upload thumbnail: ${uploadError.message}`);
     }
 
-    // Get public URL
-    const { data: urlData } = supabaseClient
-      .storage
-      .from('thumbnails')
-      .getPublicUrl(thumbnailPath);
+    // Get the storage path (not public URL since bucket is private)
+    const thumbnailUrl = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/authenticated/thumbnails/${thumbnailPath}`;
 
-    console.log('Thumbnail generated successfully:', urlData.publicUrl);
+    console.log('Thumbnail generated successfully:', thumbnailUrl);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        thumbnailUrl: urlData.publicUrl 
+        thumbnailUrl: thumbnailUrl 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
