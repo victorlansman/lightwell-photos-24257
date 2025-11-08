@@ -33,11 +33,15 @@ serve(async (req) => {
     
     console.log('Generating thumbnail for:', { photoPath, bbox, faceId });
 
+    // Strip leading /photos/ or photos/ from path since we're already in the photos bucket
+    const cleanPath = photoPath.replace(/^\/?photos\//, '');
+    console.log('Clean path for download:', cleanPath);
+
     // Download the original photo from storage
     const { data: photoData, error: downloadError } = await supabaseClient
       .storage
       .from('photos')
-      .download(photoPath);
+      .download(cleanPath);
 
     if (downloadError || !photoData) {
       console.error('Error downloading photo:', downloadError);
