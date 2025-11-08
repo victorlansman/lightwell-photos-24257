@@ -1,7 +1,7 @@
 import { Photo } from "@/types/photo";
 import { Check } from "lucide-react";
-import { useState } from "react";
-import { cn, getPhotoUrl } from "@/lib/utils";
+import { useState, useEffect } from "react";
+import { cn, getSignedPhotoUrl } from "@/lib/utils";
 
 interface PhotoCardProps {
   photo: Photo;
@@ -14,6 +14,11 @@ interface PhotoCardProps {
 
 export function PhotoCard({ photo, isSelected, onSelect, onClick, cropSquare = true, isSelectionMode = false }: PhotoCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string>('');
+
+  useEffect(() => {
+    getSignedPhotoUrl(photo.path).then(setPhotoUrl);
+  }, [photo.path]);
 
   const handleCardClick = () => {
     if (isSelectionMode) {
@@ -34,7 +39,7 @@ export function PhotoCard({ photo, isSelected, onSelect, onClick, cropSquare = t
       onClick={handleCardClick}
     >
       <img
-        src={getPhotoUrl(photo.path)}
+        src={photoUrl}
         alt="Photo"
         className={cn(
           "w-full h-full rounded-lg transition-all duration-200",

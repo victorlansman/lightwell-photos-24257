@@ -1,6 +1,7 @@
 import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn, getPhotoUrl } from "@/lib/utils";
+import { cn, getSignedPhotoUrl } from "@/lib/utils";
+import { useState, useEffect } from "react";
 
 interface Photo {
   id: string;
@@ -22,6 +23,20 @@ export function CollectionPhotoGrid({
   onPhotoClick,
   onToggleFavorite,
 }: CollectionPhotoGridProps) {
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const loadPhotoUrls = async () => {
+      const urls: Record<string, string> = {};
+      for (const photo of photos) {
+        const path = photo.thumbnail_url || photo.path;
+        urls[photo.id] = await getSignedPhotoUrl(path);
+      }
+      setPhotoUrls(urls);
+    };
+    loadPhotoUrls();
+  }, [photos]);
+
   if (photos.length === 0) {
     return (
       <div className="text-center py-16">
@@ -39,7 +54,7 @@ export function CollectionPhotoGrid({
           onClick={() => onPhotoClick(photo)}
         >
           <img
-            src={getPhotoUrl(photo.thumbnail_url || photo.path)}
+            src={photoUrls[photo.id] || ''}
             alt={photo.title || photo.original_filename}
             className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
           />

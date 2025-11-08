@@ -2,7 +2,8 @@ import { X, Heart, MapPin, Camera, Calendar, Tag as TagIcon } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { cn, getPhotoUrl } from "@/lib/utils";
+import { cn, getSignedPhotoUrl } from "@/lib/utils";
+import { useState, useEffect } from "react";
 
 interface Photo {
   id: string;
@@ -29,6 +30,12 @@ export function PhotoLightbox({
   onClose,
   onToggleFavorite,
 }: PhotoLightboxProps) {
+  const [photoUrl, setPhotoUrl] = useState<string>('');
+
+  useEffect(() => {
+    getSignedPhotoUrl(photo.path).then(setPhotoUrl);
+  }, [photo.path]);
+
   return (
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
       {/* Header */}
@@ -59,7 +66,7 @@ export function PhotoLightbox({
         {/* Image */}
         <div className="flex-1 flex items-center justify-center p-16">
           <img
-            src={getPhotoUrl(photo.path)}
+            src={photoUrl}
             alt={photo.title || photo.original_filename}
             className="max-w-full max-h-full object-contain"
           />

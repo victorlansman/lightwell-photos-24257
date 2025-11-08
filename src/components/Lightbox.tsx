@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { FaceBoundingBox } from "@/components/FaceBoundingBox";
 import { EditPersonDialog } from "@/components/EditPersonDialog";
-import { cn, getPhotoUrl } from "@/lib/utils";
+import { cn, getSignedPhotoUrl } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -48,10 +48,17 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [newBox, setNewBox] = useState<FaceDetection | null>(null);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string>('');
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (photo) {
+      getSignedPhotoUrl(photo.path).then(setPhotoUrl);
+    }
+  }, [photo]);
 
   useEffect(() => {
     if (photo?.faces) {
@@ -173,7 +180,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const handleDownload = async () => {
     try {
       // Fetch the image as a blob
-      const response = await fetch(getPhotoUrl(photo.path));
+      const response = await fetch(photoUrl);
       const blob = await response.blob();
       
       // Create a temporary URL for the blob
@@ -464,7 +471,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               <div className="relative">
                 <img
                   ref={imgRef}
-                  src={getPhotoUrl(photo.path)}
+                  src={photoUrl}
                   alt="Photo"
                   className="max-w-full max-h-full object-contain animate-fade-in"
                 />
