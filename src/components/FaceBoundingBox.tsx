@@ -151,7 +151,7 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
       className={cn(
         "absolute border-2 z-10",
         isUnnamed ? "border-yellow-500" : "border-primary",
-        isEditing && "cursor-move"
+        isEditing ? "cursor-move pointer-events-auto" : "pointer-events-none"
       )}
       style={{
         left: `${left}px`,
@@ -182,7 +182,7 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
       {/* Person name flag */}
       <div 
         className={cn(
-          "absolute -top-8 left-0 px-2 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-lg z-30",
+          "absolute -top-8 left-0 px-2 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-lg z-30 pointer-events-auto",
           isUnnamed 
             ? "bg-yellow-500 text-black" 
             : "bg-primary text-primary-foreground"
