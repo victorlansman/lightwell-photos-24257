@@ -150,7 +150,12 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
         width: `${width}px`,
         height: `${height}px`,
       }}
-      onMouseDown={(e) => handleMouseDown(e)}
+      onMouseDown={(e) => {
+        // Only handle mouse down for dragging/resizing in edit mode on the box itself
+        if (isEditing && e.target === e.currentTarget) {
+          handleMouseDown(e);
+        }
+      }}
     >
       {/* Resize handles */}
       {isEditing && (
@@ -166,35 +171,42 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
         </>
       )}
       {/* Person name flag */}
-      <div className={cn(
-        "absolute -top-8 left-0 px-2 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-lg",
-        isUnnamed 
-          ? "bg-yellow-500 text-black" 
-          : "bg-primary text-primary-foreground"
-      )}>
+      <div 
+        className={cn(
+          "absolute -top-8 left-0 px-2 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-lg",
+          isUnnamed 
+            ? "bg-yellow-500 text-black" 
+            : "bg-primary text-primary-foreground"
+        )}
+        onMouseDown={(e) => {
+          // Prevent flag from triggering box drag
+          e.stopPropagation();
+        }}
+        onClick={(e) => {
+          // Prevent flag clicks from propagating to parent
+          e.stopPropagation();
+        }}
+      >
         <span 
           className={cn(
-            "pointer-events-auto select-none",
+            "select-none",
             isClickable && "cursor-pointer hover:underline"
           )}
           onClick={handleNameClick}
-          onMouseDown={(e) => {
-            // Prevent drag from interfering with click
-            if (isClickable) {
-              e.stopPropagation();
-            }
-          }}
         >
           {displayName}
         </span>
-        <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-0.5">
           {isEditing ? (
             <>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 hover:bg-primary-foreground/20"
-                onClick={handleConfirmEdit}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleConfirmEdit();
+                }}
               >
                 <Check className="h-3 w-3" />
               </Button>
@@ -202,7 +214,10 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 hover:bg-primary-foreground/20"
-                onClick={handleCancelEdit}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCancelEdit();
+                }}
               >
                 <X className="h-3 w-3" />
               </Button>
@@ -213,7 +228,10 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 hover:bg-primary-foreground/20"
-                onClick={() => onEdit(face)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(face);
+                }}
               >
                 <User className="h-3 w-3" />
               </Button>
@@ -221,7 +239,10 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 hover:bg-primary-foreground/20"
-                onClick={() => setIsEditing(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditing(true);
+                }}
               >
                 <Edit2 className="h-3 w-3" />
               </Button>
@@ -229,7 +250,10 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 hover:bg-primary-foreground/20"
-                onClick={() => onRemove(face)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove(face);
+                }}
               >
                 <X className="h-3 w-3" />
               </Button>
