@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
 import { ArrowLeft } from "lucide-react";
+import { getPhotoUrl } from "@/lib/utils";
 
 export default function UnknownPeople() {
   const navigate = useNavigate();
@@ -88,9 +89,7 @@ export default function UnknownPeople() {
 
           return {
             id: photo.id,
-            path: photo.path.startsWith('/') 
-              ? photo.path 
-              : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${photo.path}`,
+            path: getPhotoUrl(photo.path),
             title: photo.title || undefined,
             description: photo.description || undefined,
             taken_at: photo.taken_at,

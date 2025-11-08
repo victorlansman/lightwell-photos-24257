@@ -2,7 +2,7 @@ import { X, Heart, MapPin, Camera, Calendar, Tag as TagIcon } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, getPhotoUrl } from "@/lib/utils";
 
 interface Photo {
   id: string;
@@ -59,7 +59,7 @@ export function PhotoLightbox({
         {/* Image */}
         <div className="flex-1 flex items-center justify-center p-16">
           <img
-            src={photo.path}
+            src={getPhotoUrl(photo.path)}
             alt={photo.title || photo.original_filename}
             className="max-w-full max-h-full object-contain"
           />

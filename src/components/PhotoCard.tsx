@@ -1,7 +1,7 @@
 import { Photo } from "@/types/photo";
 import { Check } from "lucide-react";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, getPhotoUrl } from "@/lib/utils";
 
 interface PhotoCardProps {
   photo: Photo;
@@ -34,7 +34,7 @@ export function PhotoCard({ photo, isSelected, onSelect, onClick, cropSquare = t
       onClick={handleCardClick}
     >
       <img
-        src={photo.path}
+        src={getPhotoUrl(photo.path)}
         alt="Photo"
         className={cn(
           "w-full h-full rounded-lg transition-all duration-200",

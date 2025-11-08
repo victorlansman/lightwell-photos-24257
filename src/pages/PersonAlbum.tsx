@@ -15,6 +15,7 @@ import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { PersonCluster } from "@/types/person";
 import { Photo, FaceDetection } from "@/types/photo";
 import { ArrowLeft } from "lucide-react";
+import { getPhotoUrl } from "@/lib/utils";
 
 export default function PersonAlbum() {
   const { id } = useParams();
@@ -89,22 +90,14 @@ export default function PersonAlbum() {
       const peopleList: PersonCluster[] = (allPeopleData || []).map(person => {
         const photos = person.photo_people?.map((pp: any) => pp.photo.path) || [];
         const thumbnailUrl = person.thumbnail_url || 
-          (photos.length > 0 
-            ? (photos[0].startsWith('/') 
-                ? photos[0] 
-                : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${photos[0]}`)
-            : "/placeholder.svg");
+          (photos.length > 0 ? getPhotoUrl(photos[0]) : "/placeholder.svg");
             
         return {
           id: person.id,
           name: person.name,
           thumbnailPath: thumbnailUrl,
           photoCount: photos.length,
-          photos: photos.map((path: string) => 
-            path.startsWith('/') 
-              ? path 
-              : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${path}`
-          ),
+          photos: photos.map((path: string) => getPhotoUrl(path)),
         };
       });
 
@@ -170,11 +163,8 @@ export default function PersonAlbum() {
           boundingBox: photoP.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
         })) || [];
 
-        // Use thumbnail_url if available, or construct storage URL from path, or use path directly if it starts with /
-        const imageUrl = photo.thumbnail_url ||
-          (photo.path.startsWith('/') 
-            ? photo.path 
-            : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${photo.path}`);
+        // Use thumbnail_url if available, otherwise use path and let getPhotoUrl handle the conversion
+        const imageUrl = photo.thumbnail_url ? getPhotoUrl(photo.thumbnail_url) : getPhotoUrl(photo.path);
 
         return {
           id: photo.id,

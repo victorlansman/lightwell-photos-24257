@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { FaceBoundingBox } from "@/components/FaceBoundingBox";
 import { EditPersonDialog } from "@/components/EditPersonDialog";
-import { cn } from "@/lib/utils";
+import { cn, getPhotoUrl } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -173,7 +173,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const handleDownload = async () => {
     try {
       // Fetch the image as a blob
-      const response = await fetch(photo.path);
+      const response = await fetch(getPhotoUrl(photo.path));
       const blob = await response.blob();
       
       // Create a temporary URL for the blob
@@ -464,7 +464,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               <div className="relative">
                 <img
                   ref={imgRef}
-                  src={photo.path}
+                  src={getPhotoUrl(photo.path)}
                   alt="Photo"
                   className="max-w-full max-h-full object-contain animate-fade-in"
                 />

@@ -1,6 +1,6 @@
 import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, getPhotoUrl } from "@/lib/utils";
 
 interface Photo {
   id: string;
@@ -39,7 +39,7 @@ export function CollectionPhotoGrid({
           onClick={() => onPhotoClick(photo)}
         >
           <img
-            src={photo.thumbnail_url || photo.path}
+            src={getPhotoUrl(photo.thumbnail_url || photo.path)}
             alt={photo.title || photo.original_filename}
             className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
           />
