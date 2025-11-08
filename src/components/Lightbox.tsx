@@ -556,13 +556,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
           {/* Add new person button */}
           {showFaces && !newBox && (
-            <Button
-              className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 shadow-lg"
-              onClick={handleAddNewPerson}
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add new person
-            </Button>
+            <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-8 z-50 pointer-events-none">
+              <Button
+                className="pointer-events-auto shadow-lg"
+                onClick={handleAddNewPerson}
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add new person
+              </Button>
+            </div>
           )}
         </DialogContent>
       </Dialog>
