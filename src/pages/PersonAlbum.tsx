@@ -134,6 +134,7 @@ export default function PersonAlbum() {
             taken_at,
             tags,
             photo_people (
+              person_id,
               person:people (
                 id,
                 name
@@ -164,8 +165,8 @@ export default function PersonAlbum() {
       const transformedPhotos: Photo[] = (photoData || []).map((pp: any) => {
         const photo = pp.photo;
         const faces: FaceDetection[] = photo.photo_people?.map((photoP: any) => ({
-          personId: photoP.person.id,
-          personName: photoP.person.name,
+          personId: photoP.person_id,
+          personName: photoP.person?.name || null,
           boundingBox: photoP.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
         })) || [];
 
@@ -359,14 +360,12 @@ export default function PersonAlbum() {
         .delete()
         .eq("photo_id", photoId);
 
-      // Insert new face tags (only for faces with valid person_id)
-      const insertData = faces
-        .filter(face => face.personId !== null)
-        .map(face => ({
-          photo_id: photoId,
-          person_id: face.personId,
-          face_bbox: face.boundingBox,
-        }));
+      // Insert new face tags (including unknown faces with null person_id)
+      const insertData = faces.map(face => ({
+        photo_id: photoId,
+        person_id: face.personId,
+        face_bbox: face.boundingBox,
+      }));
 
       if (insertData.length > 0) {
         await supabase

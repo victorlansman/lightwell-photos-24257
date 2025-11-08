@@ -126,6 +126,7 @@ export default function CollectionDetail() {
         .select(`
           *,
           photo_people (
+            person_id,
             person:people (
               id,
               name
@@ -148,8 +149,8 @@ export default function CollectionDetail() {
 
       const photosWithFavorites: Photo[] = (photosData || []).map(photo => {
         const faces: FaceDetection[] = photo.photo_people?.map((pp: any) => ({
-          personId: pp.person.id,
-          personName: pp.person.name,
+          personId: pp.person_id,
+          personName: pp.person?.name || null,
           boundingBox: pp.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
         })) || [];
 

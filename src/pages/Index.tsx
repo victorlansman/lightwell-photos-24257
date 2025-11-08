@@ -115,6 +115,7 @@ const Index = () => {
         .select(`
           *,
           photo_people (
+            person_id,
             person:people (
               id,
               name
@@ -138,8 +139,8 @@ const Index = () => {
       // Transform photos
       const transformedPhotos: Photo[] = (photosData || []).map(photo => {
         const faces: FaceDetection[] = photo.photo_people?.map((pp: any) => ({
-          personId: pp.person.id,
-          personName: pp.person.name,
+          personId: pp.person_id,
+          personName: pp.person?.name || null,
           boundingBox: pp.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
         })) || [];
 
@@ -321,14 +322,12 @@ const Index = () => {
         .delete()
         .eq("photo_id", photoId);
 
-      // Insert new face tags (only for faces with valid person_id)
-      const insertData = faces
-        .filter(face => face.personId !== null)
-        .map(face => ({
-          photo_id: photoId,
-          person_id: face.personId,
-          face_bbox: face.boundingBox,
-        }));
+      // Insert new face tags (including unknown faces with null person_id)
+      const insertData = faces.map(face => ({
+        photo_id: photoId,
+        person_id: face.personId,
+        face_bbox: face.boundingBox,
+      }));
 
       if (insertData.length > 0) {
         await supabase
