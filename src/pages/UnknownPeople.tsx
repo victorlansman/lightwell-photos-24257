@@ -12,7 +12,6 @@ import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
 import { ArrowLeft } from "lucide-react";
 import { getPhotoUrl } from "@/lib/utils";
-import { generateThumbnail, updateFaceThumbnail, updatePersonThumbnail } from "@/lib/thumbnailService";
 
 export default function UnknownPeople() {
   const navigate = useNavigate();
@@ -144,16 +143,7 @@ export default function UnknownPeople() {
 
   const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
     try {
-      // Get photo path for thumbnail generation
-      const currentPhoto = photos.find(p => p.id === photoId);
-      if (!currentPhoto) return;
-
       // Delete existing photo_people entries
-      const { data: existingFaces } = await supabase
-        .from("photo_people")
-        .select("id")
-        .eq("photo_id", photoId);
-
       await supabase
         .from("photo_people")
         .delete()
@@ -166,47 +156,10 @@ export default function UnknownPeople() {
         face_bbox: face.boundingBox,
       }));
 
-      let newFaceIds: string[] = [];
       if (insertData.length > 0) {
-        const { data: insertedFaces } = await supabase
+        await supabase
           .from("photo_people")
-          .insert(insertData)
-          .select("id, person_id");
-        
-        newFaceIds = insertedFaces?.map(f => f.id) || [];
-
-        // Generate thumbnails for newly tagged faces (not null person_id)
-        for (let i = 0; i < faces.length; i++) {
-          const face = faces[i];
-          const faceId = newFaceIds[i];
-          
-          if (face.personId && faceId) {
-            try {
-              const thumbnailUrl = await generateThumbnail(
-                currentPhoto.path,
-                face.boundingBox,
-                faceId
-              );
-              
-              if (thumbnailUrl) {
-                await updateFaceThumbnail(faceId, thumbnailUrl);
-                
-                // Update person thumbnail if they don't have one
-                const { data: personData } = await supabase
-                  .from("people")
-                  .select("thumbnail_url")
-                  .eq("id", face.personId)
-                  .single();
-                
-                if (personData && !personData.thumbnail_url) {
-                  await updatePersonThumbnail(face.personId, thumbnailUrl);
-                }
-              }
-            } catch (error) {
-              console.error("Error generating thumbnail:", error);
-            }
-          }
-        }
+          .insert(insertData);
       }
 
       // Wait for database operations to complete before updating state

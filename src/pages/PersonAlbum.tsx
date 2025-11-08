@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { PhotoCard } from "@/components/PhotoCard";
+import { FacePhotoCard } from "@/components/FacePhotoCard";
 import { Lightbox } from "@/components/Lightbox";
 import { NamingDialog } from "@/components/NamingDialog";
 import { AlbumViewControls } from "@/components/AlbumViewControls";
@@ -34,7 +35,6 @@ export default function PersonAlbum() {
   const [cropSquare, setCropSquare] = useState(true);
   const [showFaces, setShowFaces] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [faceThumbnails, setFaceThumbnails] = useState<Record<string, string>>({});
 
   useEffect(() => {
     checkAuth();
@@ -114,14 +114,12 @@ export default function PersonAlbum() {
 
       if (personError) throw personError;
 
-      // Fetch photos with this person and their face thumbnails
+      // Fetch photos with this person
       const { data: photoData, error: photosError } = await supabase
         .from("photo_people")
         .select(`
-          id,
           photo_id,
           face_bbox,
-          thumbnail_url,
           photo:photos (
             id,
             path,
@@ -158,8 +156,7 @@ export default function PersonAlbum() {
 
       const favoriteIds = new Set(favoritesData?.map(f => f.photo_id) || []);
 
-      // Transform photos and collect face thumbnails
-      const faceThumbnailMap: Record<string, string> = {};
+      // Transform photos
       const transformedPhotos: Photo[] = (photoData || []).map((pp: any) => {
         const photo = pp.photo;
         const faces: FaceDetection[] = photo.photo_people?.map((photoP: any) => ({
@@ -167,12 +164,6 @@ export default function PersonAlbum() {
           personName: photoP.person?.name || null,
           boundingBox: photoP.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
         })) || [];
-
-        // Store face thumbnail URL for this photo (convert to full URL)
-        if (pp.thumbnail_url) {
-          faceThumbnailMap[photo.id] = getPhotoUrl(pp.thumbnail_url);
-          console.log('Face thumbnail for photo', photo.id, ':', pp.thumbnail_url);
-        }
 
         // Use thumbnail_url if available, otherwise use path and let getPhotoUrl handle the conversion
         const imageUrl = photo.thumbnail_url ? getPhotoUrl(photo.thumbnail_url) : getPhotoUrl(photo.path);
@@ -188,10 +179,6 @@ export default function PersonAlbum() {
           tags: photo.tags || [],
         };
       });
-
-      console.log('Face thumbnails map:', faceThumbnailMap);
-      console.log('Total photos:', transformedPhotos.length, 'Face thumbnails:', Object.keys(faceThumbnailMap).length);
-      setFaceThumbnails(faceThumbnailMap);
 
       // Create person cluster
       const cluster: PersonCluster = {
@@ -560,6 +547,14 @@ export default function PersonAlbum() {
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </Button>
+                  
+                  {/* Person thumbnail */}
+                  <img
+                    src={person.thumbnailPath}
+                    alt={person.name || "Person"}
+                    className="w-16 h-16 rounded-2xl object-cover"
+                  />
+                  
                   <div className="min-w-0 flex-1">
                     {person.name ? (
                       <div className="flex items-center gap-2 flex-wrap">
@@ -656,26 +651,29 @@ export default function PersonAlbum() {
                   gridTemplateColumns: `repeat(${zoomLevel}, minmax(0, 1fr))`,
                 }}
               >
-                {photos.map((photo) => {
-                  const faceThumbnail = faceThumbnails[photo.id];
-                  const displayPath = showFaces && faceThumbnail ? faceThumbnail : photo.path;
-                  console.log('Photo', photo.id, 'showFaces:', showFaces, 'faceThumbnail:', faceThumbnail, 'displayPath:', displayPath);
-                  
-                  return (
-                    <PhotoCard
+                {photos.map((photo) => (
+                  showFaces ? (
+                    <FacePhotoCard
                       key={photo.id}
-                      photo={{
-                        ...photo,
-                        path: displayPath
-                      }}
+                      photo={photo}
+                      personId={person.id}
                       isSelected={selectedPhotos.has(photo.id)}
                       onSelect={handleSelectPhoto}
                       onClick={() => handlePhotoClick(photo)}
                       isSelectionMode={isSelectionMode}
-                      cropSquare={showFaces ? true : cropSquare}
                     />
-                  );
-                })}
+                  ) : (
+                    <PhotoCard
+                      key={photo.id}
+                      photo={photo}
+                      isSelected={selectedPhotos.has(photo.id)}
+                      onSelect={handleSelectPhoto}
+                      onClick={() => handlePhotoClick(photo)}
+                      isSelectionMode={isSelectionMode}
+                      cropSquare={cropSquare}
+                    />
+                  )
+                ))}
               </div>
             </div>
           </main>
