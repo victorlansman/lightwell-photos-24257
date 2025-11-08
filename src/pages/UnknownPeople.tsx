@@ -137,6 +137,8 @@ export default function UnknownPeople() {
 
   const handleCloseLightbox = () => {
     setSelectedPhoto(null);
+    // Filter out photos without unnamed faces when closing lightbox
+    setPhotos(prev => prev.filter(p => p.faces.some(face => face.personId === null)));
   };
 
   const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
@@ -163,10 +165,9 @@ export default function UnknownPeople() {
       // Wait for database operations to complete before updating state
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Update local state after database is updated
+      // Update local state WITHOUT filtering - keep photo visible until user navigates away
       setPhotos(prev => 
         prev.map(p => p.id === photoId ? { ...p, faces } : p)
-          .filter(p => p.faces.some(face => face.personId === null))
       );
 
       if (selectedPhoto?.id === photoId) {
@@ -318,14 +319,28 @@ export default function UnknownPeople() {
           photo={photos[lightboxIndex]}
           onClose={handleCloseLightbox}
           onNext={() => {
-            const nextIndex = (lightboxIndex + 1) % photos.length;
+            // Filter before navigating
+            const filteredPhotos = photos.filter(p => p.faces.some(face => face.personId === null));
+            setPhotos(filteredPhotos);
+            
+            const currentInFiltered = filteredPhotos.findIndex(p => p.id === photos[lightboxIndex]?.id);
+            const nextIndex = currentInFiltered >= 0 
+              ? (currentInFiltered + 1) % filteredPhotos.length 
+              : 0;
             setLightboxIndex(nextIndex);
-            setSelectedPhoto(photos[nextIndex]);
+            setSelectedPhoto(filteredPhotos[nextIndex]);
           }}
           onPrevious={() => {
-            const prevIndex = (lightboxIndex - 1 + photos.length) % photos.length;
+            // Filter before navigating
+            const filteredPhotos = photos.filter(p => p.faces.some(face => face.personId === null));
+            setPhotos(filteredPhotos);
+            
+            const currentInFiltered = filteredPhotos.findIndex(p => p.id === photos[lightboxIndex]?.id);
+            const prevIndex = currentInFiltered >= 0 
+              ? (currentInFiltered - 1 + filteredPhotos.length) % filteredPhotos.length 
+              : filteredPhotos.length - 1;
             setLightboxIndex(prevIndex);
-            setSelectedPhoto(photos[prevIndex]);
+            setSelectedPhoto(filteredPhotos[prevIndex]);
           }}
           onUpdateFaces={handleUpdateFaces}
           onUpdatePeople={handleUpdatePeople}
