@@ -29,15 +29,22 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { photoPath, bbox, faceId }: ThumbnailRequest = await req.json();
+    let { photoPath, bbox, faceId }: ThumbnailRequest = await req.json();
     
     console.log('Generating thumbnail for:', { photoPath, bbox, faceId });
 
     let photoData: Blob;
 
-    // Check if this is a public asset path (starts with /photos/)
-    if (photoPath.startsWith('/photos/')) {
-      // Fetch from public URL (static assets)
+    // If photoPath is a full URL, extract the storage path or fetch directly
+    if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
+      console.log('Full URL detected, fetching directly:', photoPath);
+      const response = await fetch(photoPath);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch photo from URL: ${response.statusText}`);
+      }
+      photoData = await response.blob();
+    } else if (photoPath.startsWith('/photos/')) {
+      // Static public asset path
       const publicUrl = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/photos${photoPath}`;
       console.log('Fetching from public URL:', publicUrl);
       
@@ -47,9 +54,9 @@ serve(async (req) => {
       }
       photoData = await response.blob();
     } else {
-      // Download from storage using storage client
+      // Relative storage path - use storage client
       const cleanPath = photoPath.replace(/^\/?photos\//, '');
-      console.log('Downloading from storage:', cleanPath);
+      console.log('Downloading from storage bucket:', cleanPath);
 
       const { data, error: downloadError } = await supabaseClient
         .storage
