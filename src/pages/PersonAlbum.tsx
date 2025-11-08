@@ -80,6 +80,7 @@ export default function PersonAlbum() {
           id,
           name,
           thumbnail_url,
+          thumbnail_bbox,
           collection_id,
           photo_people (
             photo:photos (
@@ -100,6 +101,7 @@ export default function PersonAlbum() {
           id: person.id,
           name: person.name,
           thumbnailPath: thumbnailUrl,
+          thumbnailBbox: person.thumbnail_bbox as any,
           photoCount: photos.length,
           photos: photos.map((path: string) => getPhotoUrl(path)),
         };
@@ -187,6 +189,7 @@ export default function PersonAlbum() {
         id: personData.id,
         name: personData.name,
         thumbnailPath: personData.thumbnail_url || transformedPhotos[0]?.path || "/placeholder.svg",
+        thumbnailBbox: personData.thumbnail_bbox as any,
         photoCount: transformedPhotos.length,
         photos: transformedPhotos.map(p => p.path),
       };
@@ -285,14 +288,25 @@ export default function PersonAlbum() {
 
   const handlePhotoClick = async (photo: Photo) => {
     if (isChoosingThumbnail) {
-      // Update person's thumbnail
+      // Get the face bounding box for this person in this photo
+      const face = photo.faces?.find(f => f.personId === person!.id);
+      const bbox = face?.boundingBox || { x: 50, y: 50, width: 20, height: 20 };
+      
+      // Update person's thumbnail with the photo path and bounding box
       try {
         await supabase
           .from("people")
-          .update({ thumbnail_url: photo.path })
+          .update({ 
+            thumbnail_url: photo.path,
+            thumbnail_bbox: bbox
+          })
           .eq("id", person!.id);
 
-        setPerson(prev => prev ? { ...prev, thumbnailPath: photo.path } : null);
+        setPerson(prev => prev ? { 
+          ...prev, 
+          thumbnailPath: photo.path,
+          thumbnailBbox: bbox
+        } : null);
         setIsChoosingThumbnail(false);
         setShowFaces(false);
         
@@ -577,12 +591,8 @@ export default function PersonAlbum() {
                   <div className="relative">
                     <div className="w-16 h-16 rounded-2xl overflow-hidden bg-muted">
                       {(() => {
-                        // Find a photo with this person's face to get bounding box
-                        const photoWithFace = photos.find(p => 
-                          p.faces?.some(f => f.personId === person.id)
-                        );
-                        const face = photoWithFace?.faces?.find(f => f.personId === person.id);
-                        const bbox = face?.boundingBox || { x: 50, y: 50, width: 20, height: 20 };
+                        // Use stored bounding box if available
+                        const bbox = person.thumbnailBbox || { x: 50, y: 50, width: 20, height: 20 };
                         
                         const centerX = bbox.x + bbox.width / 2;
                         const centerY = bbox.y + bbox.height / 2;

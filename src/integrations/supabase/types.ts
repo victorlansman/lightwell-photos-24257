@@ -126,6 +126,7 @@ export type Database = {
           created_at: string | null
           id: string
           name: string | null
+          thumbnail_bbox: Json | null
           thumbnail_url: string | null
         }
         Insert: {
@@ -133,6 +134,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string | null
+          thumbnail_bbox?: Json | null
           thumbnail_url?: string | null
         }
         Update: {
@@ -140,6 +142,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string | null
+          thumbnail_bbox?: Json | null
           thumbnail_url?: string | null
         }
         Relationships: [
