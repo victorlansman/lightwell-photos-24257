@@ -797,7 +797,7 @@ function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onDiscard, o
   return (
     <div
       ref={boxRef}
-      className="absolute border-2 border-emerald-500 cursor-move"
+      className="absolute border-2 border-emerald-500 cursor-move z-40"
       style={{
         left: `${left}px`,
         top: `${top}px`,
@@ -808,17 +808,17 @@ function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onDiscard, o
       onClick={(e) => e.stopPropagation()}
     >
       {/* Resize handles - green */}
-      <div className="absolute -top-1 -left-1 w-3 h-3 bg-emerald-500 rounded-full cursor-nw-resize" onMouseDown={(e) => handleMouseDown(e, 'top-left')} />
-      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-emerald-500 rounded-full cursor-n-resize" onMouseDown={(e) => handleMouseDown(e, 'top')} />
-      <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full cursor-ne-resize" onMouseDown={(e) => handleMouseDown(e, 'top-right')} />
-      <div className="absolute top-1/2 -translate-y-1/2 -left-1 w-3 h-3 bg-emerald-500 rounded-full cursor-w-resize" onMouseDown={(e) => handleMouseDown(e, 'left')} />
-      <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-3 h-3 bg-emerald-500 rounded-full cursor-e-resize" onMouseDown={(e) => handleMouseDown(e, 'right')} />
-      <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-emerald-500 rounded-full cursor-sw-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-left')} />
-      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-emerald-500 rounded-full cursor-s-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom')} />
-      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full cursor-se-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-right')} />
+      <div className="absolute -top-1 -left-1 w-3 h-3 bg-emerald-500 rounded-full cursor-nw-resize z-50" onMouseDown={(e) => handleMouseDown(e, 'top-left')} />
+      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-emerald-500 rounded-full cursor-n-resize z-50" onMouseDown={(e) => handleMouseDown(e, 'top')} />
+      <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full cursor-ne-resize z-50" onMouseDown={(e) => handleMouseDown(e, 'top-right')} />
+      <div className="absolute top-1/2 -translate-y-1/2 -left-1 w-3 h-3 bg-emerald-500 rounded-full cursor-w-resize z-50" onMouseDown={(e) => handleMouseDown(e, 'left')} />
+      <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-3 h-3 bg-emerald-500 rounded-full cursor-e-resize z-50" onMouseDown={(e) => handleMouseDown(e, 'right')} />
+      <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-emerald-500 rounded-full cursor-sw-resize z-50" onMouseDown={(e) => handleMouseDown(e, 'bottom-left')} />
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-emerald-500 rounded-full cursor-s-resize z-50" onMouseDown={(e) => handleMouseDown(e, 'bottom')} />
+      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full cursor-se-resize z-50" onMouseDown={(e) => handleMouseDown(e, 'bottom-right')} />
       
       {/* Person name flag with confirm/discard buttons */}
-      <div className="absolute -top-12 left-0 px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 shadow-lg bg-emerald-500 text-white">
+      <div className="absolute -top-12 left-0 px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 shadow-lg bg-emerald-500 text-white z-50">
         <span>New person</span>
         <div className="flex items-center gap-1">
           <Button
