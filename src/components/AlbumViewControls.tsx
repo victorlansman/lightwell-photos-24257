@@ -1,4 +1,4 @@
-import { ZoomIn, ZoomOut, Calendar, CalendarOff, Square, RectangleHorizontal } from "lucide-react";
+import { ZoomIn, ZoomOut, Calendar, CalendarOff, Square, RectangleHorizontal, User, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,8 @@ interface AlbumViewControlsProps {
   onToggleDates: () => void;
   cropSquare: boolean;
   onToggleCropSquare: () => void;
+  showFaces?: boolean;
+  onToggleFaces?: () => void;
 }
 
 const ZOOM_LEVELS = [1, 2, 4, 8, 16];
@@ -20,7 +22,9 @@ export function AlbumViewControls({
   showDates, 
   onToggleDates,
   cropSquare,
-  onToggleCropSquare
+  onToggleCropSquare,
+  showFaces,
+  onToggleFaces
 }: AlbumViewControlsProps) {
   const currentIndex = ZOOM_LEVELS.indexOf(zoomLevel);
 
@@ -102,6 +106,22 @@ export function AlbumViewControls({
             <Square className="h-4 w-4" />
           )}
         </Button>
+
+        {onToggleFaces && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleFaces}
+            className="h-9 w-9"
+            title={showFaces ? "Show full photos" : "Show face thumbnails"}
+          >
+            {showFaces ? (
+              <Image className="h-4 w-4" />
+            ) : (
+              <User className="h-4 w-4" />
+            )}
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -32,7 +32,9 @@ export default function PersonAlbum() {
   const [zoomLevel, setZoomLevel] = useState(4);
   const [showDates, setShowDates] = useState(false);
   const [cropSquare, setCropSquare] = useState(true);
+  const [showFaces, setShowFaces] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [faceThumbnails, setFaceThumbnails] = useState<Record<string, string>>({});
 
   useEffect(() => {
     checkAuth();
@@ -112,12 +114,14 @@ export default function PersonAlbum() {
 
       if (personError) throw personError;
 
-      // Fetch photos with this person
+      // Fetch photos with this person and their face thumbnails
       const { data: photoData, error: photosError } = await supabase
         .from("photo_people")
         .select(`
+          id,
           photo_id,
           face_bbox,
+          thumbnail_url,
           photo:photos (
             id,
             path,
@@ -154,7 +158,8 @@ export default function PersonAlbum() {
 
       const favoriteIds = new Set(favoritesData?.map(f => f.photo_id) || []);
 
-      // Transform photos
+      // Transform photos and collect face thumbnails
+      const faceThumbnailMap: Record<string, string> = {};
       const transformedPhotos: Photo[] = (photoData || []).map((pp: any) => {
         const photo = pp.photo;
         const faces: FaceDetection[] = photo.photo_people?.map((photoP: any) => ({
@@ -162,6 +167,11 @@ export default function PersonAlbum() {
           personName: photoP.person?.name || null,
           boundingBox: photoP.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
         })) || [];
+
+        // Store face thumbnail URL for this photo
+        if (pp.thumbnail_url) {
+          faceThumbnailMap[photo.id] = pp.thumbnail_url;
+        }
 
         // Use thumbnail_url if available, otherwise use path and let getPhotoUrl handle the conversion
         const imageUrl = photo.thumbnail_url ? getPhotoUrl(photo.thumbnail_url) : getPhotoUrl(photo.path);
@@ -177,6 +187,8 @@ export default function PersonAlbum() {
           tags: photo.tags || [],
         };
       });
+
+      setFaceThumbnails(faceThumbnailMap);
 
       // Create person cluster
       const cluster: PersonCluster = {
@@ -530,6 +542,8 @@ export default function PersonAlbum() {
             onToggleDates={() => setShowDates(!showDates)}
             cropSquare={cropSquare}
             onToggleCropSquare={() => setCropSquare(!cropSquare)}
+            showFaces={showFaces}
+            onToggleFaces={() => setShowFaces(!showFaces)}
           />
           <main className="flex-1 p-4 md:p-6">
             <div className="space-y-4 md:space-y-6">
@@ -642,12 +656,18 @@ export default function PersonAlbum() {
                 {photos.map((photo) => (
                   <PhotoCard
                     key={photo.id}
-                    photo={photo}
+                    photo={{
+                      ...photo,
+                      // Use face thumbnail if in face mode and available
+                      path: showFaces && faceThumbnails[photo.id] 
+                        ? faceThumbnails[photo.id] 
+                        : photo.path
+                    }}
                     isSelected={selectedPhotos.has(photo.id)}
                     onSelect={handleSelectPhoto}
                     onClick={() => handlePhotoClick(photo)}
                     isSelectionMode={isSelectionMode}
-                    cropSquare={cropSquare}
+                    cropSquare={showFaces ? true : cropSquare}
                   />
                 ))}
               </div>
