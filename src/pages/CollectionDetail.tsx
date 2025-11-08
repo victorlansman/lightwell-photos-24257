@@ -285,7 +285,7 @@ export default function CollectionDetail() {
     setLightboxPhoto(filteredPhotos[nextIndex]);
   };
 
-  const handleUpdateFaces = (photoId: string, faces: FaceDetection[]) => {
+  const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
     setPhotos(photos.map(p => p.id === photoId ? { ...p, faces } : p));
     if (lightboxPhoto?.id === photoId) {
       setLightboxPhoto({ ...lightboxPhoto, faces });

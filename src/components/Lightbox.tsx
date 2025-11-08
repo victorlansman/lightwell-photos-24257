@@ -19,8 +19,8 @@ interface LightboxProps {
   onPrevious: () => void;
   onNext: () => void;
   onToggleFavorite?: (photoId: string) => void;
-  onUpdateFaces?: (photoId: string, faces: FaceDetection[]) => void;
-  onUpdatePeople?: (personId: string, personName: string, photoPath: string) => void;
+  onUpdateFaces?: (photoId: string, faces: FaceDetection[]) => Promise<void>;
+  onUpdatePeople?: (personId: string, personName: string, photoPath: string) => Promise<void>;
   allPeople?: PersonCluster[];
 }
 
@@ -215,7 +215,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     }
   };
 
-  const handleSelectPerson = (personId: string, personName: string | null) => {
+  const handleSelectPerson = async (personId: string, personName: string | null) => {
     if (editingFace && photo) {
       const targetPerson = allPeople.find(p => p.id === personId);
       
@@ -229,13 +229,17 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
           f === editingFace ? { ...f, personId, personName } : f
         );
         setFaces(updatedFaces);
-        if (onUpdateFaces) {
-          onUpdateFaces(photo.id, updatedFaces);
-        }
-        // Update people database if assigning to a named person
+        
+        // Update people database FIRST if assigning to a named person
         if (personName && onUpdatePeople) {
-          onUpdatePeople(personId, personName, photo.path);
+          await onUpdatePeople(personId, personName, photo.path);
         }
+        
+        // Then update faces in database
+        if (onUpdateFaces) {
+          await onUpdateFaces(photo.id, updatedFaces);
+        }
+        
         toast.success(`Reassigned to ${personName || "Unnamed"}`);
         setEditingFace(null);
       }
@@ -250,7 +254,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     }
   };
 
-  const handleNamePerson = () => {
+  const handleNamePerson = async () => {
     if (personToName && newPersonName.trim() && photo) {
       // Generate a proper UUID for the new person
       const newPersonId = crypto.randomUUID();
@@ -264,13 +268,17 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         f === personToName ? updatedFace : f
       );
       setFaces(updatedFaces);
-      if (onUpdateFaces) {
-        onUpdateFaces(photo.id, updatedFaces);
-      }
-      // Update people database with new person
+      
+      // Create person in database FIRST
       if (onUpdatePeople) {
-        onUpdatePeople(newPersonId, newPersonName.trim(), photo.path);
+        await onUpdatePeople(newPersonId, newPersonName.trim(), photo.path);
       }
+      
+      // Then update faces in database
+      if (onUpdateFaces) {
+        await onUpdateFaces(photo.id, updatedFaces);
+      }
+      
       toast.success(`Named person as ${newPersonName.trim()}`);
       setPersonToName(null);
       setNewPersonName("");
