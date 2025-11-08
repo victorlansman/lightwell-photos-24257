@@ -244,17 +244,18 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         setShowNamingDialog(true);
         setEditingFace(null);
       } else {
+        // Update people database FIRST if assigning to a named person (and await it!)
+        if (personName && onUpdatePeople) {
+          await onUpdatePeople(personId, personName, photo.path);
+        }
+        
+        // Then update faces in local state and database
         setFaces(prevFaces => {
           const updatedFaces = prevFaces.map(f => 
             f === editingFace ? { ...f, personId, personName } : f
           );
           
-          // Update people database FIRST if assigning to a named person
-          if (personName && onUpdatePeople) {
-            onUpdatePeople(personId, personName, photo.path);
-          }
-          
-          // Then update faces in database
+          // Update faces in database after person is created
           if (onUpdateFaces) {
             onUpdateFaces(photo.id, updatedFaces);
           }
@@ -281,6 +282,12 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       // Generate a proper UUID for the new person
       const newPersonId = crypto.randomUUID();
       
+      // Create person in database FIRST (and await it!)
+      if (onUpdatePeople) {
+        await onUpdatePeople(newPersonId, newPersonName.trim(), photo.path);
+      }
+      
+      // Then update faces in local state and database
       setFaces(prevFaces => {
         // Update the face with the new name and proper UUID
         const updatedFace = { 
@@ -292,12 +299,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
           f === personToName ? updatedFace : f
         );
         
-        // Create person in database FIRST
-        if (onUpdatePeople) {
-          onUpdatePeople(newPersonId, newPersonName.trim(), photo.path);
-        }
-        
-        // Then update faces in database
+        // Update faces in database after person is created
         if (onUpdateFaces) {
           onUpdateFaces(photo.id, updatedFaces);
         }
