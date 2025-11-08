@@ -168,9 +168,10 @@ export default function PersonAlbum() {
           boundingBox: photoP.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
         })) || [];
 
-        // Store face thumbnail URL for this photo
+        // Store face thumbnail URL for this photo (convert to full URL)
         if (pp.thumbnail_url) {
-          faceThumbnailMap[photo.id] = pp.thumbnail_url;
+          faceThumbnailMap[photo.id] = getPhotoUrl(pp.thumbnail_url);
+          console.log('Face thumbnail for photo', photo.id, ':', pp.thumbnail_url);
         }
 
         // Use thumbnail_url if available, otherwise use path and let getPhotoUrl handle the conversion
@@ -188,6 +189,8 @@ export default function PersonAlbum() {
         };
       });
 
+      console.log('Face thumbnails map:', faceThumbnailMap);
+      console.log('Total photos:', transformedPhotos.length, 'Face thumbnails:', Object.keys(faceThumbnailMap).length);
       setFaceThumbnails(faceThumbnailMap);
 
       // Create person cluster
@@ -653,23 +656,26 @@ export default function PersonAlbum() {
                   gridTemplateColumns: `repeat(${zoomLevel}, minmax(0, 1fr))`,
                 }}
               >
-                {photos.map((photo) => (
-                  <PhotoCard
-                    key={photo.id}
-                    photo={{
-                      ...photo,
-                      // Use face thumbnail if in face mode and available
-                      path: showFaces && faceThumbnails[photo.id] 
-                        ? faceThumbnails[photo.id] 
-                        : photo.path
-                    }}
-                    isSelected={selectedPhotos.has(photo.id)}
-                    onSelect={handleSelectPhoto}
-                    onClick={() => handlePhotoClick(photo)}
-                    isSelectionMode={isSelectionMode}
-                    cropSquare={showFaces ? true : cropSquare}
-                  />
-                ))}
+                {photos.map((photo) => {
+                  const faceThumbnail = faceThumbnails[photo.id];
+                  const displayPath = showFaces && faceThumbnail ? faceThumbnail : photo.path;
+                  console.log('Photo', photo.id, 'showFaces:', showFaces, 'faceThumbnail:', faceThumbnail, 'displayPath:', displayPath);
+                  
+                  return (
+                    <PhotoCard
+                      key={photo.id}
+                      photo={{
+                        ...photo,
+                        path: displayPath
+                      }}
+                      isSelected={selectedPhotos.has(photo.id)}
+                      onSelect={handleSelectPhoto}
+                      onClick={() => handlePhotoClick(photo)}
+                      isSelectionMode={isSelectionMode}
+                      cropSquare={showFaces ? true : cropSquare}
+                    />
+                  );
+                })}
               </div>
             </div>
           </main>
