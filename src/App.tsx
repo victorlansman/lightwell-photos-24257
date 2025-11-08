@@ -25,7 +25,7 @@ function App() {
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<Index />} />
-            <Route path="/albums" element={<Collections />} />
+            <Route path="/collections" element={<Collections />} />
             <Route path="/people" element={<People />} />
             <Route path="/people/:id" element={<PersonAlbum />} />
             <Route path="/unknown" element={<UnknownPeople />} />
