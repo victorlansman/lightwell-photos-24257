@@ -149,7 +149,7 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
     <div
       ref={boxRef}
       className={cn(
-        "absolute border-2 z-10",
+        "absolute border-2 z-10 pointer-events-none",
         isUnnamed ? "border-yellow-500" : "border-primary",
         isEditing && "cursor-move"
       )}
@@ -169,20 +169,20 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
       {/* Resize handles */}
       {isEditing && (
         <>
-          <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-nw-resize z-20" onMouseDown={(e) => handleMouseDown(e, 'top-left')} />
-          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rounded-full cursor-n-resize z-20" onMouseDown={(e) => handleMouseDown(e, 'top')} />
-          <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-ne-resize z-20" onMouseDown={(e) => handleMouseDown(e, 'top-right')} />
-          <div className="absolute top-1/2 -translate-y-1/2 -left-1 w-3 h-3 bg-primary rounded-full cursor-w-resize z-20" onMouseDown={(e) => handleMouseDown(e, 'left')} />
-          <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-3 h-3 bg-primary rounded-full cursor-e-resize z-20" onMouseDown={(e) => handleMouseDown(e, 'right')} />
-          <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-sw-resize z-20" onMouseDown={(e) => handleMouseDown(e, 'bottom-left')} />
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rounded-full cursor-s-resize z-20" onMouseDown={(e) => handleMouseDown(e, 'bottom')} />
-          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-se-resize z-20" onMouseDown={(e) => handleMouseDown(e, 'bottom-right')} />
+          <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-nw-resize z-20 pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'top-left')} />
+          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rounded-full cursor-n-resize z-20 pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'top')} />
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-ne-resize z-20 pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'top-right')} />
+          <div className="absolute top-1/2 -translate-y-1/2 -left-1 w-3 h-3 bg-primary rounded-full cursor-w-resize z-20 pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'left')} />
+          <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-3 h-3 bg-primary rounded-full cursor-e-resize z-20 pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'right')} />
+          <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-sw-resize z-20 pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'bottom-left')} />
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rounded-full cursor-s-resize z-20 pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'bottom')} />
+          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-se-resize z-20 pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'bottom-right')} />
         </>
       )}
       {/* Person name flag */}
       <div 
         className={cn(
-          "absolute -top-8 left-0 px-2 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-lg z-30",
+          "absolute -top-8 left-0 px-2 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-lg z-30 pointer-events-auto",
           isUnnamed 
             ? "bg-yellow-500 text-black" 
             : "bg-primary text-primary-foreground"
