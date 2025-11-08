@@ -184,21 +184,34 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     setEditingFace(face);
   };
 
+  const handleUpdateBoundingBox = async (face: FaceDetection, newBox: { x: number; y: number; width: number; height: number }) => {
+    const updatedFaces = faces.map(f => 
+      f === face ? { ...f, boundingBox: newBox } : f
+    );
+    setFaces(updatedFaces);
+    if (photo && onUpdateFaces) {
+      await onUpdateFaces(photo.id, updatedFaces);
+    }
+    toast.success("Bounding box updated");
+  };
+
   const handleRemoveFace = async (face: FaceDetection) => {
-    // If person is named, convert to unnamed
-    if (face.personName) {
+    // Always show confirmation dialog for delete
+    setFaceToDelete(face);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDisassociateFace = async () => {
+    if (editingFace && photo) {
       const updatedFaces = faces.map(f => 
-        f === face ? { ...f, personName: null, personId: null } : f
+        f === editingFace ? { ...f, personName: null, personId: null } : f
       );
       setFaces(updatedFaces);
-      if (photo && onUpdateFaces) {
+      if (onUpdateFaces) {
         await onUpdateFaces(photo.id, updatedFaces);
       }
-      toast.success("Face unmarked");
-    } else {
-      // If unnamed, show confirmation dialog
-      setFaceToDelete(face);
-      setShowDeleteDialog(true);
+      toast.success("Face disassociated");
+      setEditingFace(null);
     }
   };
 
@@ -357,7 +370,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                       height: imageDimensions.height,
                     }}
                   >
-                    {faces.map((face, idx) => (
+                     {faces.map((face, idx) => (
                       <FaceBoundingBox
                         key={idx}
                         face={face}
@@ -365,6 +378,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                         imageHeight={imageDimensions.height}
                         onEdit={handleEditFace}
                         onRemove={handleRemoveFace}
+                        onUpdateBoundingBox={handleUpdateBoundingBox}
                         allPeople={allPeople}
                       />
                     ))}
@@ -476,14 +490,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         onClose={() => setShowShareDialog(false)}
       />
 
-      <EditPersonDialog
-        face={editingFace}
-        isOpen={!!editingFace}
-        onClose={() => setEditingFace(null)}
-        allPeople={allPeople}
-        onSelectPerson={handleSelectPerson}
-        onCreateNew={handleCreateNewPerson}
-      />
+        <EditPersonDialog
+          face={editingFace}
+          isOpen={!!editingFace}
+          onClose={() => setEditingFace(null)}
+          allPeople={allPeople}
+          onSelectPerson={handleSelectPerson}
+          onCreateNew={handleCreateNewPerson}
+          onDisassociate={handleDisassociateFace}
+        />
 
       <Dialog open={showNamingDialog} onOpenChange={() => {
         setShowNamingDialog(false);

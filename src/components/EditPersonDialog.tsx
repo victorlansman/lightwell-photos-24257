@@ -19,6 +19,7 @@ interface EditPersonDialogProps {
   allPeople: PersonCluster[];
   onSelectPerson: (personId: string, personName: string | null) => void;
   onCreateNew: () => void;
+  onDisassociate?: () => void;
 }
 
 export function EditPersonDialog({
@@ -28,6 +29,7 @@ export function EditPersonDialog({
   allPeople,
   onSelectPerson,
   onCreateNew,
+  onDisassociate,
 }: EditPersonDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -105,6 +107,19 @@ export function EditPersonDialog({
             <UserPlus className="h-4 w-4 mr-2" />
             Create New Person
           </Button>
+
+          {face?.personName && onDisassociate && (
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={() => {
+                onDisassociate();
+                onClose();
+              }}
+            >
+              This is not {face.personName}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
