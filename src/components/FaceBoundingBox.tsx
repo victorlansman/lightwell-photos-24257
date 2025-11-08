@@ -132,7 +132,7 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
   const handleNameClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isClickable && personIdForNav) {
-      navigate(`/person/${personIdForNav}`);
+      navigate(`/people/${personIdForNav}`);
     }
   };
   

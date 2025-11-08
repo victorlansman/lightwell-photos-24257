@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { UserPlus, Search, Plus } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 interface EditPersonDialogProps {
   face: FaceDetection | null;
@@ -33,6 +33,14 @@ export function EditPersonDialog({
 }: EditPersonDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
+
+  // Reset search state when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setSearchQuery("");
+      setShowAll(false);
+    }
+  }, [isOpen]);
 
   // Filter and sort people based on search, showAll state
   const { displayedPeople, hasMore, canAddNew } = useMemo(() => {
@@ -146,12 +154,14 @@ export function EditPersonDialog({
               variant="outline"
               className="w-full"
               onClick={() => {
-                onCreateNew();
+                const newPersonId = crypto.randomUUID();
+                const newPersonName = searchQuery.trim();
+                onSelectPerson(newPersonId, newPersonName);
                 onClose();
               }}
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add {searchQuery.trim()}
+              Add "{searchQuery.trim()}"
             </Button>
           )}
 
