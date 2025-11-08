@@ -365,6 +365,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                         imageHeight={imageDimensions.height}
                         onEdit={handleEditFace}
                         onRemove={handleRemoveFace}
+                        allPeople={allPeople}
                       />
                     ))}
                   </div>
@@ -408,14 +409,31 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">People in Photo</p>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {faces.map((face, idx) => (
-                          <span 
-                            key={idx}
-                            className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded"
-                          >
-                            {face.personName || "Unnamed person"}
-                          </span>
-                        ))}
+                        {faces.map((face, idx) => {
+                          let displayName = "Unnamed person";
+                          if (face.personName) {
+                            displayName = face.personName;
+                          } else if (face.personId && allPeople.length > 0) {
+                            const person = allPeople.find(p => p.id === face.personId);
+                            if (person && person.photoCount > 1) {
+                              const unnamedClusters = allPeople
+                                .filter(p => p.name === null && p.photoCount > 1)
+                                .sort((a, b) => a.id.localeCompare(b.id));
+                              const clusterIndex = unnamedClusters.findIndex(p => p.id === person.id);
+                              if (clusterIndex !== -1) {
+                                displayName = `Unnamed person ${clusterIndex + 1}`;
+                              }
+                            }
+                          }
+                          return (
+                            <span 
+                              key={idx}
+                              className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded"
+                            >
+                              {displayName}
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

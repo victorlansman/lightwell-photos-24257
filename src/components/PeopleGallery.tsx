@@ -28,7 +28,8 @@ export function PeopleGallery({
   
   // Separate named and unknown people
   const namedPeople = people.filter(p => p.name !== null);
-  const unknownPeople = people.filter(p => p.name === null);
+  // Only show unnamed people with more than 1 photo (clusters)
+  const unknownPeople = people.filter(p => p.name === null && p.photoCount > 1);
   
   const handleMerge = () => {
     if (selectedClusters.size < 2) {
