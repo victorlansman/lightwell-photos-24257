@@ -112,14 +112,13 @@ export function AlbumViewControls({
             variant="ghost"
             size="icon"
             onClick={onToggleFaces}
-            className="h-9 w-9"
+            className={cn(
+              "h-9 w-9",
+              showFaces && "bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+            )}
             title={showFaces ? "Show full photos" : "Show face thumbnails"}
           >
-            {showFaces ? (
-              <Image className="h-4 w-4" />
-            ) : (
-              <User className="h-4 w-4" />
-            )}
+            <User className="h-4 w-4" />
           </Button>
         )}
       </div>

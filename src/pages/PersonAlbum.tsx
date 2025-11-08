@@ -15,8 +15,9 @@ import { InlineActionBar } from "@/components/InlineActionBar";
 import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { PersonCluster } from "@/types/person";
 import { Photo, FaceDetection } from "@/types/photo";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { getPhotoUrl } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export default function PersonAlbum() {
   const { id } = useParams();
@@ -34,6 +35,7 @@ export default function PersonAlbum() {
   const [showDates, setShowDates] = useState(false);
   const [cropSquare, setCropSquare] = useState(true);
   const [showFaces, setShowFaces] = useState(false);
+  const [isChoosingThumbnail, setIsChoosingThumbnail] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -281,8 +283,31 @@ export default function PersonAlbum() {
     }
   };
 
-  const handlePhotoClick = (photo: Photo) => {
-    if (!isSelectionMode) {
+  const handlePhotoClick = async (photo: Photo) => {
+    if (isChoosingThumbnail) {
+      // Update person's thumbnail
+      try {
+        await supabase
+          .from("people")
+          .update({ thumbnail_url: photo.path })
+          .eq("id", person!.id);
+
+        setPerson(prev => prev ? { ...prev, thumbnailPath: photo.path } : null);
+        setIsChoosingThumbnail(false);
+        setShowFaces(false);
+        
+        toast({
+          title: "Success",
+          description: "Thumbnail updated",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    } else if (!isSelectionMode) {
       setLightboxPhoto(photo);
     }
   };
@@ -549,11 +574,22 @@ export default function PersonAlbum() {
                   </Button>
                   
                   {/* Person thumbnail */}
-                  <img
-                    src={person.thumbnailPath}
-                    alt={person.name || "Person"}
-                    className="w-16 h-16 rounded-2xl object-cover"
-                  />
+                  <div className="relative group">
+                    <img
+                      src={person.thumbnailPath}
+                      alt={person.name || "Person"}
+                      className="w-16 h-16 rounded-2xl object-cover"
+                    />
+                    <button
+                      onClick={() => {
+                        setIsChoosingThumbnail(true);
+                        setShowFaces(true);
+                      }}
+                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center"
+                    >
+                      <Pencil className="h-5 w-5 text-white" />
+                    </button>
+                  </div>
                   
                   <div className="min-w-0 flex-1">
                     {person.name ? (
@@ -584,6 +620,24 @@ export default function PersonAlbum() {
                     </p>
                   </div>
                 </div>
+
+                {/* Choose Thumbnail UI */}
+                {isChoosingThumbnail && (
+                  <div className="flex items-center gap-4 py-2">
+                    <h2 className="text-2xl font-semibold text-primary">
+                      Choose New Thumbnail
+                    </h2>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsChoosingThumbnail(false);
+                        setShowFaces(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex flex-col md:flex-row md:items-center gap-3">
                   {isSelectionMode ? (
@@ -652,16 +706,23 @@ export default function PersonAlbum() {
                 }}
               >
                 {photos.map((photo) => (
-                  showFaces ? (
-                    <FacePhotoCard
+                  (showFaces || isChoosingThumbnail) ? (
+                    <div
                       key={photo.id}
-                      photo={photo}
-                      personId={person.id}
-                      isSelected={selectedPhotos.has(photo.id)}
-                      onSelect={handleSelectPhoto}
-                      onClick={() => handlePhotoClick(photo)}
-                      isSelectionMode={isSelectionMode}
-                    />
+                      className={cn(
+                        "relative transition-transform duration-200",
+                        isChoosingThumbnail && "border-8 border-primary rounded-full hover:scale-105 cursor-pointer"
+                      )}
+                    >
+                      <FacePhotoCard
+                        photo={photo}
+                        personId={person.id}
+                        isSelected={selectedPhotos.has(photo.id)}
+                        onSelect={handleSelectPhoto}
+                        onClick={() => handlePhotoClick(photo)}
+                        isSelectionMode={isSelectionMode && !isChoosingThumbnail}
+                      />
+                    </div>
                   ) : (
                     <PhotoCard
                       key={photo.id}

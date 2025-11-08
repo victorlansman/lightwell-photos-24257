@@ -49,7 +49,7 @@ export function FacePhotoCard({
   return (
     <div
       className={cn(
-        "relative aspect-square overflow-hidden rounded-lg cursor-pointer group",
+        "relative aspect-square overflow-hidden rounded-full cursor-pointer group",
         "bg-muted transition-all duration-200",
         isSelected && "ring-4 ring-primary"
       )}
