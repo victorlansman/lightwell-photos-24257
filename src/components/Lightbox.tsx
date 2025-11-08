@@ -3,6 +3,16 @@ import { PersonCluster } from "@/types/person";
 import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users, UserPlus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { FaceBoundingBox } from "@/components/FaceBoundingBox";
@@ -37,6 +47,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [faceToDelete, setFaceToDelete] = useState<FaceDetection | null>(null);
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [newBox, setNewBox] = useState<FaceDetection | null>(null);
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -101,6 +112,16 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // If newBox exists, intercept navigation and show confirmation dialog
+      if (newBox) {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowDiscardDialog(true);
+        }
+        return;
+      }
+
       if (e.key === "ArrowLeft") {
         onPrevious();
       } else if (e.key === "ArrowRight") {
@@ -112,7 +133,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onPrevious, onNext, onClose]);
+  }, [isOpen, onPrevious, onNext, onClose, newBox]);
 
   // Touch/swipe handling
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -340,19 +361,32 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     }
   };
 
-  const handleCancelNewBox = () => {
+  const handleDiscardNewBox = () => {
+    // Simply discard the new box without saving
+    setNewBox(null);
+    toast.success("Changes discarded");
+  };
+
+  const handleCancelButton = () => {
+    // Show confirmation dialog when clicking Cancel button
+    setShowDiscardDialog(true);
+  };
+
+  const handleAddPersonFromDialog = () => {
+    // Add person via reassign flow
     if (newBox && photo) {
-      // Add as unnamed person
-      setFaces(prevFaces => {
-        const updatedFaces = [...prevFaces, newBox];
-        if (onUpdateFaces) {
-          onUpdateFaces(photo.id, updatedFaces);
-        }
-        return updatedFaces;
-      });
+      setFaces(prevFaces => [...prevFaces, newBox]);
+      setEditingFace(newBox);
       setNewBox(null);
-      toast.success("Added as unnamed person");
+      setShowDiscardDialog(false);
     }
+  };
+
+  const handleDiscardFromDialog = () => {
+    // Discard changes
+    setNewBox(null);
+    setShowDiscardDialog(false);
+    toast.success("Changes discarded");
   };
 
   const handleUpdateNewBox = (newBoundingBox: { x: number; y: number; width: number; height: number }) => {
@@ -361,9 +395,25 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     }
   };
 
+  const handleDialogClose = () => {
+    // If newBox exists, show confirmation dialog instead of closing
+    if (newBox) {
+      setShowDiscardDialog(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleImageClick = (e: React.MouseEvent) => {
+    // If clicking outside the new box, show confirmation dialog
+    if (newBox && e.target === e.currentTarget) {
+      setShowDiscardDialog(true);
+    }
+  };
+
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
+      <Dialog open={isOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="max-w-[100vw] h-screen p-0 bg-background/95 backdrop-blur-sm border-0 [&>button]:hidden">
           {/* Header */}
           <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-background/80 to-transparent flex items-center justify-between px-4 z-50">
@@ -408,6 +458,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onClick={handleImageClick}
           >
             {/* Image */}
             <div 
@@ -450,7 +501,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                         imageWidth={imageDimensions.width}
                         imageHeight={imageDimensions.height}
                         onConfirm={handleConfirmNewBox}
-                        onCancel={handleCancelNewBox}
+                        onDiscard={handleDiscardNewBox}
                         onUpdateBoundingBox={handleUpdateNewBox}
                       />
                     )}
@@ -554,16 +605,27 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             <ChevronRight className="h-6 w-6" />
           </Button>
 
-          {/* Add new person button */}
-          {showFaces && !newBox && (
+          {/* Add new person / Cancel button */}
+          {showFaces && (
             <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-8 z-50 pointer-events-none">
-              <Button
-                className="pointer-events-auto shadow-lg"
-                onClick={handleAddNewPerson}
-              >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add new person
-              </Button>
+              {!newBox ? (
+                <Button
+                  className="pointer-events-auto shadow-lg"
+                  onClick={handleAddNewPerson}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add new person
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="pointer-events-auto shadow-lg"
+                  onClick={handleCancelButton}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>
@@ -641,6 +703,25 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showDiscardDialog} onOpenChange={setShowDiscardDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Do you want to add this person?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an unsaved bounding box. Choose to add this person or discard your changes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDiscardFromDialog} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Discard changes
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleAddPersonFromDialog}>
+              Add person
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -651,11 +732,11 @@ interface NewBoundingBoxProps {
   imageWidth: number;
   imageHeight: number;
   onConfirm: () => void;
-  onCancel: () => void;
+  onDiscard: () => void;
   onUpdateBoundingBox: (newBox: { x: number; y: number; width: number; height: number }) => void;
 }
 
-function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onCancel, onUpdateBoundingBox }: NewBoundingBoxProps) {
+function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onDiscard, onUpdateBoundingBox }: NewBoundingBoxProps) {
   const [editBox, setEditBox] = useState(face.boundingBox);
   const boxRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -730,7 +811,7 @@ function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onCancel, on
   return (
     <div
       ref={boxRef}
-      className="absolute border-2 border-primary cursor-move"
+      className="absolute border-2 border-orange-500 cursor-move"
       style={{
         left: `${left}px`,
         top: `${top}px`,
@@ -738,36 +819,45 @@ function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onCancel, on
         height: `${height}px`,
       }}
       onMouseDown={(e) => handleMouseDown(e)}
+      onClick={(e) => e.stopPropagation()}
     >
-      {/* Resize handles */}
-      <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-nw-resize" onMouseDown={(e) => handleMouseDown(e, 'top-left')} />
-      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rounded-full cursor-n-resize" onMouseDown={(e) => handleMouseDown(e, 'top')} />
-      <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-ne-resize" onMouseDown={(e) => handleMouseDown(e, 'top-right')} />
-      <div className="absolute top-1/2 -translate-y-1/2 -left-1 w-3 h-3 bg-primary rounded-full cursor-w-resize" onMouseDown={(e) => handleMouseDown(e, 'left')} />
-      <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-3 h-3 bg-primary rounded-full cursor-e-resize" onMouseDown={(e) => handleMouseDown(e, 'right')} />
-      <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-sw-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-left')} />
-      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rounded-full cursor-s-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom')} />
-      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-se-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-right')} />
+      {/* Resize handles - orange */}
+      <div className="absolute -top-1 -left-1 w-3 h-3 bg-orange-500 rounded-full cursor-nw-resize" onMouseDown={(e) => handleMouseDown(e, 'top-left')} />
+      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-orange-500 rounded-full cursor-n-resize" onMouseDown={(e) => handleMouseDown(e, 'top')} />
+      <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full cursor-ne-resize" onMouseDown={(e) => handleMouseDown(e, 'top-right')} />
+      <div className="absolute top-1/2 -translate-y-1/2 -left-1 w-3 h-3 bg-orange-500 rounded-full cursor-w-resize" onMouseDown={(e) => handleMouseDown(e, 'left')} />
+      <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-3 h-3 bg-orange-500 rounded-full cursor-e-resize" onMouseDown={(e) => handleMouseDown(e, 'right')} />
+      <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-orange-500 rounded-full cursor-sw-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-left')} />
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-orange-500 rounded-full cursor-s-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom')} />
+      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-orange-500 rounded-full cursor-se-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-right')} />
       
-      {/* Person name flag with confirm/cancel */}
-      <div className="absolute -top-8 left-0 px-2 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-lg bg-primary text-primary-foreground">
+      {/* Person name flag with confirm/discard buttons */}
+      <div className="absolute -top-12 left-0 px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 shadow-lg bg-orange-500 text-white">
         <span>New person</span>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1">
           <Button
             variant="ghost"
-            size="icon"
-            className="h-5 w-5 hover:bg-primary-foreground/20"
-            onClick={onConfirm}
+            size="sm"
+            className="h-7 px-2 hover:bg-white/20 text-white"
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfirm();
+            }}
           >
-            <Check className="h-3 w-3" />
+            <Check className="h-3 w-3 mr-1" />
+            Confirm
           </Button>
           <Button
             variant="ghost"
-            size="icon"
-            className="h-5 w-5 hover:bg-primary-foreground/20"
-            onClick={onCancel}
+            size="sm"
+            className="h-7 px-2 hover:bg-red-600 bg-red-500 text-white"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDiscard();
+            }}
           >
-            <X className="h-3 w-3" />
+            <X className="h-3 w-3 mr-1" />
+            Discard
           </Button>
         </div>
       </div>
