@@ -43,7 +43,8 @@ export function FacePhotoCard({
   const centerY = bbox.y + bbox.height / 2;
 
   // Calculate zoom level to make face fill the card (with some padding)
-  const zoomFactor = Math.max(100 / bbox.width, 100 / bbox.height) * 0.7;
+  // bbox dimensions are in percentages, so 100/bbox gives us the zoom needed
+  const zoomFactor = Math.max(100 / bbox.width, 100 / bbox.height) * 0.8;
 
   return (
     <div
@@ -62,7 +63,7 @@ export function FacePhotoCard({
             className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
             style={{
               objectPosition: `${centerX}% ${centerY}%`,
-              transform: `scale(${zoomFactor / 100})`,
+              transform: `scale(${zoomFactor})`,
               transformOrigin: `${centerX}% ${centerY}%`,
             }}
           />
