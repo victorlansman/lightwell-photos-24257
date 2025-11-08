@@ -98,7 +98,12 @@ export default function People() {
         };
       });
 
-      setPeople(clusters);
+      // Sort by photo count (descending) and filter out people with 0 photos
+      const sortedAndFiltered = clusters
+        .filter(cluster => cluster.photoCount > 0)
+        .sort((a, b) => b.photoCount - a.photoCount);
+
+      setPeople(sortedAndFiltered);
     } catch (error: any) {
       toast({
         title: "Error loading people",

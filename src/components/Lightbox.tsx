@@ -252,9 +252,9 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   const handleNamePerson = () => {
     if (personToName && newPersonName.trim() && photo) {
-      // Create a proper personId based on the name
-      const newPersonId = newPersonName.trim().toLowerCase().replace(/\s+/g, '-');
-      // Update the face with the new name and proper personId
+      // Generate a proper UUID for the new person
+      const newPersonId = crypto.randomUUID();
+      // Update the face with the new name and proper UUID
       const updatedFace = { 
         ...personToName, 
         personName: newPersonName.trim(),

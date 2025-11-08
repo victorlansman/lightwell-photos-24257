@@ -8,7 +8,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { UserPlus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { UserPlus, Search } from "lucide-react";
+import { useState, useMemo } from "react";
 
 interface EditPersonDialogProps {
   face: FaceDetection | null;
@@ -27,6 +29,20 @@ export function EditPersonDialog({
   onSelectPerson,
   onCreateNew,
 }: EditPersonDialogProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Sort people by photo count (descending) and filter by search query
+  const filteredAndSortedPeople = useMemo(() => {
+    return allPeople
+      .filter(person => {
+        if (!searchQuery.trim()) return true;
+        const query = searchQuery.toLowerCase();
+        return person.name?.toLowerCase().includes(query) || 
+               (person.name === null && "unnamed".includes(query));
+      })
+      .sort((a, b) => b.photoCount - a.photoCount);
+  }, [allPeople, searchQuery]);
+
   if (!face) return null;
 
   return (
@@ -41,8 +57,18 @@ export function EditPersonDialog({
             Select a person to reassign this face to:
           </p>
 
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search people..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {allPeople.map((person) => (
+            {filteredAndSortedPeople.map((person) => (
               <Button
                 key={person.id}
                 variant="outline"
