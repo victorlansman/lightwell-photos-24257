@@ -54,7 +54,7 @@ export default function People() {
 
       const collectionIds = collectionsData.map(c => c.collection_id);
 
-      // Fetch all people from user's collections
+      // Fetch all people from user's collections with their thumbnails
       const { data: peopleData, error } = await supabase
         .from("people")
         .select(`
@@ -63,6 +63,8 @@ export default function People() {
           thumbnail_url,
           collection_id,
           photo_people (
+            id,
+            thumbnail_url,
             photo:photos (
               id,
               path
@@ -77,8 +79,14 @@ export default function People() {
       const clusters: PersonCluster[] = (peopleData || []).map(person => {
         const photos = person.photo_people?.map((pp: any) => pp.photo.path) || [];
         
-        // Handle thumbnail URL - use directly if starts with /, otherwise construct storage URL
+        // Prioritize thumbnail URLs:
+        // 1. Use person's thumbnail_url if available (for named people)
+        // 2. Use first face's thumbnail_url if available (for unnamed clusters)
+        // 3. Fall back to first photo path
+        // 4. Fall back to placeholder
+        const firstFaceThumbnail = person.photo_people?.[0]?.thumbnail_url;
         const thumbnailUrl = person.thumbnail_url || 
+          firstFaceThumbnail ||
           (photos.length > 0 
             ? (photos[0].startsWith('/') 
                 ? photos[0] 

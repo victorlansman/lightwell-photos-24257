@@ -326,6 +326,10 @@ const Index = () => {
         setLightboxPhoto(prev => prev ? { ...prev, faces } : null);
       }
 
+      // Get the photo path for thumbnail generation
+      const photo = photos.find(p => p.id === photoId);
+      if (!photo) return;
+
       // Delete all existing face tags for this photo
       await supabase
         .from("photo_people")
@@ -340,9 +344,48 @@ const Index = () => {
       }));
 
       if (insertData.length > 0) {
-        await supabase
+        const { data: insertedFaces, error: insertError } = await supabase
           .from("photo_people")
-          .insert(insertData);
+          .insert(insertData)
+          .select();
+
+        if (insertError) throw insertError;
+
+        // Generate thumbnails in background for all faces
+        if (insertedFaces) {
+          Promise.all(
+            insertedFaces.map(async (face) => {
+              try {
+                // Call edge function to generate thumbnail
+                const { data, error } = await supabase.functions.invoke('generate-thumbnail', {
+                  body: {
+                    photoPath: photo.path,
+                    bbox: face.face_bbox,
+                    faceId: face.id
+                  }
+                });
+
+                if (data?.success && data?.thumbnailUrl) {
+                  // Update photo_people with thumbnail URL
+                  await supabase
+                    .from('photo_people')
+                    .update({ thumbnail_url: data.thumbnailUrl })
+                    .eq('id', face.id);
+
+                  // If face is associated with a person, update person's thumbnail too
+                  if (face.person_id) {
+                    await supabase
+                      .from('people')
+                      .update({ thumbnail_url: data.thumbnailUrl })
+                      .eq('id', face.person_id);
+                  }
+                }
+              } catch (err) {
+                console.error('Error generating thumbnail for face:', face.id, err);
+              }
+            })
+          ).catch(err => console.error('Error in thumbnail generation batch:', err));
+        }
       }
 
       // Refresh people data in background (don't await to avoid race conditions)

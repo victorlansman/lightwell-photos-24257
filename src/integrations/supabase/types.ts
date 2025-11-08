@@ -158,18 +158,21 @@ export type Database = {
           id: string
           person_id: string | null
           photo_id: string
+          thumbnail_url: string | null
         }
         Insert: {
           face_bbox?: Json | null
           id?: string
           person_id?: string | null
           photo_id: string
+          thumbnail_url?: string | null
         }
         Update: {
           face_bbox?: Json | null
           id?: string
           person_id?: string | null
           photo_id?: string
+          thumbnail_url?: string | null
         }
         Relationships: [
           {
