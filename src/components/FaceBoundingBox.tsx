@@ -130,9 +130,14 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
   }
 
   const handleNameClick = (e: React.MouseEvent) => {
-    if (!isClickable || !personIdForNav) return;
+    console.log('Name clicked', { isClickable, personIdForNav, displayName });
+    if (!isClickable || !personIdForNav) {
+      console.log('Not clickable or no personId');
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
+    console.log('Navigating to:', `/people/${personIdForNav}`);
     navigate(`/people/${personIdForNav}`);
   };
   
@@ -179,24 +184,25 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
             : "bg-primary text-primary-foreground"
         )}
         onMouseDown={(e) => {
-          // Prevent flag from triggering box drag
-          e.stopPropagation();
-        }}
-        onClick={(e) => {
-          // Prevent flag clicks from propagating to parent
           e.stopPropagation();
         }}
       >
-        <span 
-          className={cn(
-            "select-none",
-            isClickable && "cursor-pointer hover:underline"
-          )}
-          onClick={handleNameClick}
-        >
-          {displayName}
-        </span>
-        <div className="flex items-center gap-0.5">
+        {isClickable ? (
+          <button
+            type="button"
+            className={cn(
+              "select-none text-inherit font-inherit bg-transparent border-none p-0 m-0 cursor-pointer hover:underline text-left"
+            )}
+            onClick={handleNameClick}
+          >
+            {displayName}
+          </button>
+        ) : (
+          <span className="select-none">
+            {displayName}
+          </span>
+        )}
+        <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
           {isEditing ? (
             <>
               <Button
