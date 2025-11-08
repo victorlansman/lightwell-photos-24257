@@ -351,12 +351,14 @@ const Index = () => {
 
         if (insertError) throw insertError;
 
-        // Generate thumbnails in background for all faces
-        if (insertedFaces) {
+        // Only generate thumbnails for uploaded photos (not static demo assets)
+        const isUploadedPhoto = !photo.path.startsWith('/photos/');
+        
+        if (insertedFaces && isUploadedPhoto) {
+          // Generate thumbnails in background for uploaded photos only
           Promise.all(
             insertedFaces.map(async (face) => {
               try {
-                // Call edge function to generate thumbnail
                 const { data, error } = await supabase.functions.invoke('generate-thumbnail', {
                   body: {
                     photoPath: photo.path,
@@ -366,13 +368,11 @@ const Index = () => {
                 });
 
                 if (data?.success && data?.thumbnailUrl) {
-                  // Update photo_people with thumbnail URL
                   await supabase
                     .from('photo_people')
                     .update({ thumbnail_url: data.thumbnailUrl })
                     .eq('id', face.id);
 
-                  // If face is associated with a person, update person's thumbnail too
                   if (face.person_id) {
                     await supabase
                       .from('people')
@@ -388,7 +388,7 @@ const Index = () => {
         }
       }
 
-      // Refresh people data in background (don't await to avoid race conditions)
+      // Refresh people data in background
       fetchPhotos();
     } catch (error: any) {
       toast({
@@ -396,7 +396,6 @@ const Index = () => {
         description: error.message,
         variant: "destructive",
       });
-      // Revert on error
       fetchPhotos();
     }
   };
