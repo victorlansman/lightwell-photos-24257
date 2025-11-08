@@ -468,12 +468,12 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                 showInfo && "lg:pr-8"
               )}
             >
-              <div className="relative">
+              <div className="relative max-w-full max-h-full flex items-center justify-center">
                 <img
                   ref={imgRef}
                   src={photoUrl}
                   alt="Photo"
-                  className="max-w-full max-h-full object-contain animate-fade-in"
+                  className="max-w-full max-h-[calc(100vh-8rem)] object-contain animate-fade-in"
                 />
                 {showFaces && imageDimensions.width > 0 && (
                   <div 

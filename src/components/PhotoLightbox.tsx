@@ -68,7 +68,7 @@ export function PhotoLightbox({
           <img
             src={photoUrl}
             alt={photo.title || photo.original_filename}
-            className="max-w-full max-h-full object-contain"
+            className="max-w-full max-h-[calc(100vh-8rem)] object-contain"
           />
         </div>
 
