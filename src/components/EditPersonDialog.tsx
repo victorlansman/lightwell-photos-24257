@@ -33,14 +33,14 @@ export function EditPersonDialog({
 }: EditPersonDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Sort people by photo count (descending) and filter by search query
+  // Filter to only show named people, sort by photo count (descending) and filter by search query
   const filteredAndSortedPeople = useMemo(() => {
     return allPeople
+      .filter(person => person.name !== null) // Only show named people
       .filter(person => {
         if (!searchQuery.trim()) return true;
         const query = searchQuery.toLowerCase();
-        return person.name?.toLowerCase().includes(query) || 
-               (person.name === null && "unnamed".includes(query));
+        return person.name?.toLowerCase().includes(query);
       })
       .sort((a, b) => b.photoCount - a.photoCount);
   }, [allPeople, searchQuery]);

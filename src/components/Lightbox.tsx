@@ -272,7 +272,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     if (editingFace) {
       setPersonToName(editingFace);
       setShowNamingDialog(true);
-      setEditingFace(null);
+      // Don't set editingFace to null yet - keep it for the naming flow
     }
   };
 
@@ -309,6 +309,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       setPersonToName(null);
       setNewPersonName("");
       setShowNamingDialog(false);
+      setEditingFace(null); // Clear editingFace after successful naming
     }
   };
 
