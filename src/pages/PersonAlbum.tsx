@@ -32,6 +32,7 @@ export default function PersonAlbum() {
   const [showDates, setShowDates] = useState(false);
   const [cropSquare, setCropSquare] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [showFaces, setShowFaces] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -404,33 +405,24 @@ export default function PersonAlbum() {
         .maybeSingle();
 
       if (!existingPerson) {
-        // Person doesn't exist, create them
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        if (!currentUser) return;
-
-        const { data: currentUserData } = await supabase
-          .from("users")
-          .select("id")
-          .eq("supabase_user_id", currentUser.id)
-          .single();
-
-        if (!currentUserData) return;
-
-        const { data: collectionData } = await supabase
-          .from("collection_members")
+        // Person doesn't exist, create them with proper collection_id
+        if (!person?.id) return;
+        
+        // Get the collection_id from the current person we're viewing
+        const { data: personData } = await supabase
+          .from("people")
           .select("collection_id")
-          .eq("user_id", currentUserData.id)
-          .limit(1)
+          .eq("id", person.id)
           .single();
-
-        if (!collectionData) return;
+        
+        if (!personData) return;
 
         await supabase
           .from("people")
           .insert({
             id: personId,
             name: personName,
-            collection_id: collectionData.collection_id,
+            collection_id: personData.collection_id,
             thumbnail_url: photoPath,
           });
       } else {
@@ -514,6 +506,8 @@ export default function PersonAlbum() {
             onToggleDates={() => setShowDates(!showDates)}
             cropSquare={cropSquare}
             onToggleCropSquare={() => setCropSquare(!cropSquare)}
+            showFaces={showFaces}
+            onToggleFaces={() => setShowFaces(!showFaces)}
           />
           <main className="flex-1 p-4 md:p-6">
             <div className="space-y-4 md:space-y-6">
@@ -650,6 +644,7 @@ export default function PersonAlbum() {
         onToggleFavorite={handleToggleFavorite}
         onUpdateFaces={handleUpdateFaces}
         onUpdatePeople={handleUpdatePeople}
+        allPeople={allPeople}
       />
 
       <NamingDialog
