@@ -13,7 +13,6 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
-import { getPhotoUrl } from "@/lib/utils";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -89,14 +88,14 @@ const Index = () => {
       const peopleList: PersonCluster[] = (allPeopleData || []).map(person => {
         const photos = person.photo_people?.map((pp: any) => pp.photo.path) || [];
         const thumbnailUrl = person.thumbnail_url || 
-          (photos.length > 0 ? getPhotoUrl(photos[0]) : "/placeholder.svg");
+          (photos.length > 0 ? photos[0] : "/placeholder.svg");
             
         return {
           id: person.id,
           name: person.name,
           thumbnailPath: thumbnailUrl,
           photoCount: photos.length,
-          photos: photos.map((path: string) => getPhotoUrl(path)),
+          photos: photos, // Store raw paths
         };
       });
 
@@ -137,12 +136,9 @@ const Index = () => {
           boundingBox: pp.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
         })) || [];
 
-        // Use thumbnail_url if available, otherwise use path and let getPhotoUrl handle the conversion
-        const imageUrl = photo.thumbnail_url ? getPhotoUrl(photo.thumbnail_url) : getPhotoUrl(photo.path);
-
         return {
           id: photo.id,
-          path: imageUrl,
+          path: photo.path, // Store raw path, PhotoCard will generate signed URL
           created_at: photo.created_at,
           filename: photo.original_filename,
           is_favorite: favoriteIds.has(photo.id),
