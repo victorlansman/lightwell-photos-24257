@@ -184,15 +184,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     setEditingFace(face);
   };
 
-  const handleRemoveFace = (face: FaceDetection) => {
+  const handleRemoveFace = async (face: FaceDetection) => {
     // If person is named, convert to unnamed
     if (face.personName) {
       const updatedFaces = faces.map(f => 
-        f === face ? { ...f, personName: null, personId: `unknown-${Date.now()}` } : f
+        f === face ? { ...f, personName: null, personId: null } : f
       );
       setFaces(updatedFaces);
       if (photo && onUpdateFaces) {
-        onUpdateFaces(photo.id, updatedFaces);
+        await onUpdateFaces(photo.id, updatedFaces);
       }
       toast.success("Person unmarked");
     } else {
@@ -202,12 +202,12 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (faceToDelete && photo) {
       const updatedFaces = faces.filter(f => f !== faceToDelete);
       setFaces(updatedFaces);
       if (onUpdateFaces) {
-        onUpdateFaces(photo.id, updatedFaces);
+        await onUpdateFaces(photo.id, updatedFaces);
       }
       toast.success("Face tag deleted");
       setFaceToDelete(null);

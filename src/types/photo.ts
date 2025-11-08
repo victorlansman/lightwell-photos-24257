@@ -1,5 +1,5 @@
 export interface FaceDetection {
-  personId: string;
+  personId: string | null;
   personName: string | null;
   boundingBox: {
     x: number; // percentage from left

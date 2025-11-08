@@ -156,19 +156,19 @@ export type Database = {
         Row: {
           face_bbox: Json | null
           id: string
-          person_id: string
+          person_id: string | null
           photo_id: string
         }
         Insert: {
           face_bbox?: Json | null
           id?: string
-          person_id: string
+          person_id?: string | null
           photo_id: string
         }
         Update: {
           face_bbox?: Json | null
           id?: string
-          person_id?: string
+          person_id?: string | null
           photo_id?: string
         }
         Relationships: [

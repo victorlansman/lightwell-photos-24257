@@ -359,12 +359,14 @@ export default function PersonAlbum() {
         .delete()
         .eq("photo_id", photoId);
 
-      // Insert new face tags
-      const insertData = faces.map(face => ({
-        photo_id: photoId,
-        person_id: face.personId,
-        face_bbox: face.boundingBox,
-      }));
+      // Insert new face tags (only for faces with valid person_id)
+      const insertData = faces
+        .filter(face => face.personId !== null)
+        .map(face => ({
+          photo_id: photoId,
+          person_id: face.personId,
+          face_bbox: face.boundingBox,
+        }));
 
       if (insertData.length > 0) {
         await supabase
