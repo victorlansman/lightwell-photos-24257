@@ -138,7 +138,11 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
     e.preventDefault();
     e.stopPropagation();
     console.log('Navigating to:', `/people/${personIdForNav}`);
-    navigate(`/people/${personIdForNav}`);
+    
+    // Use setTimeout to ensure navigation happens outside the event loop
+    setTimeout(() => {
+      navigate(`/people/${personIdForNav}`);
+    }, 0);
   };
   
   return (
