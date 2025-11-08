@@ -574,20 +574,43 @@ export default function PersonAlbum() {
                   </Button>
                   
                   {/* Person thumbnail */}
-                  <div className="relative group">
-                    <img
-                      src={person.thumbnailPath}
-                      alt={person.name || "Person"}
-                      className="w-16 h-16 rounded-2xl object-cover"
-                    />
+                  <div className="relative">
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden bg-muted">
+                      {(() => {
+                        // Find a photo with this person's face to get bounding box
+                        const photoWithFace = photos.find(p => 
+                          p.faces?.some(f => f.personId === person.id)
+                        );
+                        const face = photoWithFace?.faces?.find(f => f.personId === person.id);
+                        const bbox = face?.boundingBox || { x: 50, y: 50, width: 20, height: 20 };
+                        
+                        const centerX = bbox.x + bbox.width / 2;
+                        const centerY = bbox.y + bbox.height / 2;
+                        const zoomFactor = Math.max(100 / bbox.width, 100 / bbox.height) * 0.8;
+                        
+                        return (
+                          <img
+                            src={person.thumbnailPath}
+                            alt={person.name || "Person"}
+                            className="w-full h-full object-cover"
+                            style={{
+                              objectPosition: `${centerX}% ${centerY}%`,
+                              transform: `scale(${zoomFactor})`,
+                              transformOrigin: `${centerX}% ${centerY}%`,
+                            }}
+                          />
+                        );
+                      })()}
+                    </div>
                     <button
                       onClick={() => {
                         setIsChoosingThumbnail(true);
                         setShowFaces(true);
                       }}
-                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center"
+                      className="absolute top-1 right-1 bg-background/90 hover:bg-background rounded-full p-1.5 transition-colors shadow-sm"
+                      title="Change thumbnail"
                     >
-                      <Pencil className="h-5 w-5 text-white" />
+                      <Pencil className="h-3 w-3 text-foreground" />
                     </button>
                   </div>
                   
