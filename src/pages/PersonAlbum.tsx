@@ -22,6 +22,7 @@ export default function PersonAlbum() {
   const { toast } = useToast();
   const [person, setPerson] = useState<PersonCluster | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [allPeople, setAllPeople] = useState<PersonCluster[]>([]);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
@@ -48,6 +49,66 @@ export default function PersonAlbum() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Get user's collections
+      const { data: userData } = await supabase
+        .from("users")
+        .select("id")
+        .eq("supabase_user_id", user.id)
+        .single();
+
+      if (!userData) return;
+
+      const { data: collectionsData } = await supabase
+        .from("collection_members")
+        .select("collection_id")
+        .eq("user_id", userData.id);
+
+      if (!collectionsData || collectionsData.length === 0) return;
+
+      const collectionIds = collectionsData.map(c => c.collection_id);
+
+      // Fetch ALL people from user's collections for the EditPersonDialog
+      const { data: allPeopleData } = await supabase
+        .from("people")
+        .select(`
+          id,
+          name,
+          thumbnail_url,
+          collection_id,
+          photo_people (
+            photo:photos (
+              id,
+              path
+            )
+          )
+        `)
+        .in("collection_id", collectionIds);
+
+      // Transform all people data
+      const peopleList: PersonCluster[] = (allPeopleData || []).map(person => {
+        const photos = person.photo_people?.map((pp: any) => pp.photo.path) || [];
+        const thumbnailUrl = person.thumbnail_url || 
+          (photos.length > 0 
+            ? (photos[0].startsWith('/') 
+                ? photos[0] 
+                : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${photos[0]}`)
+            : "/placeholder.svg");
+            
+        return {
+          id: person.id,
+          name: person.name,
+          thumbnailPath: thumbnailUrl,
+          photoCount: photos.length,
+          photos: photos.map((path: string) => 
+            path.startsWith('/') 
+              ? path 
+              : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${path}`
+          ),
+        };
+      });
+
+      setAllPeople(peopleList);
 
       // Fetch person data
       const { data: personData, error: personError } = await supabase
@@ -86,7 +147,7 @@ export default function PersonAlbum() {
       if (photosError) throw photosError;
 
       // Get user's favorites
-      const { data: userData } = await supabase
+      const { data: userDataForFavorites } = await supabase
         .from("users")
         .select("id")
         .eq("supabase_user_id", user.id)
@@ -95,7 +156,7 @@ export default function PersonAlbum() {
       const { data: favoritesData } = await supabase
         .from("favorites")
         .select("photo_id")
-        .eq("user_id", userData?.id || "");
+        .eq("user_id", userDataForFavorites?.id || "");
 
       const favoriteIds = new Set(favoritesData?.map(f => f.photo_id) || []);
 
@@ -290,30 +351,98 @@ export default function PersonAlbum() {
     }
   };
 
-  const handleUpdateFaces = (photoId: string, faces: FaceDetection[]) => {
-    setPhotos((prevPhotos) =>
-      prevPhotos.map((p) =>
-        p.id === photoId ? { ...p, faces } : p
-      )
-    );
-    // Also update the lightbox photo if it's the one being updated
-    if (lightboxPhoto && lightboxPhoto.id === photoId) {
-      setLightboxPhoto({ ...lightboxPhoto, faces });
+  const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
+    try {
+      // Delete all existing face tags for this photo
+      await supabase
+        .from("photo_people")
+        .delete()
+        .eq("photo_id", photoId);
+
+      // Insert new face tags
+      const insertData = faces.map(face => ({
+        photo_id: photoId,
+        person_id: face.personId,
+        face_bbox: face.boundingBox,
+      }));
+
+      if (insertData.length > 0) {
+        await supabase
+          .from("photo_people")
+          .insert(insertData);
+      }
+
+      // Update local state
+      setPhotos((prevPhotos) =>
+        prevPhotos.map((p) =>
+          p.id === photoId ? { ...p, faces } : p
+        )
+      );
+      
+      if (lightboxPhoto && lightboxPhoto.id === photoId) {
+        setLightboxPhoto({ ...lightboxPhoto, faces });
+      }
+
+      // Refresh data to update counts
+      fetchPersonAndPhotos();
+    } catch (error: any) {
+      toast({
+        title: "Error updating face tags",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
   const handleUpdatePeople = async (personId: string, personName: string, photoPath: string) => {
-    // Update person in database if needed
     try {
-      await supabase
+      // Check if person exists
+      const { data: existingPerson } = await supabase
         .from("people")
-        .update({ name: personName })
-        .eq("id", personId);
-      
-      // Refresh data if it's the current person
-      if (person && person.id === personId) {
-        fetchPersonAndPhotos();
+        .select("id")
+        .eq("id", personId)
+        .maybeSingle();
+
+      if (!existingPerson) {
+        // Person doesn't exist, create them
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) return;
+
+        const { data: currentUserData } = await supabase
+          .from("users")
+          .select("id")
+          .eq("supabase_user_id", currentUser.id)
+          .single();
+
+        if (!currentUserData) return;
+
+        const { data: collectionData } = await supabase
+          .from("collection_members")
+          .select("collection_id")
+          .eq("user_id", currentUserData.id)
+          .limit(1)
+          .single();
+
+        if (!collectionData) return;
+
+        await supabase
+          .from("people")
+          .insert({
+            id: personId,
+            name: personName,
+            collection_id: collectionData.collection_id,
+            thumbnail_url: photoPath,
+          });
+      } else {
+        // Person exists, update their name
+        await supabase
+          .from("people")
+          .update({ name: personName })
+          .eq("id", personId);
       }
+      
+      // Refresh all data
+      fetchPersonAndPhotos();
     } catch (error: any) {
       toast({
         title: "Error updating person",

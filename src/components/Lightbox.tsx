@@ -1,4 +1,5 @@
 import { Photo, FaceDetection } from "@/types/photo";
+import { PersonCluster } from "@/types/person";
 import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -6,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { FaceBoundingBox } from "@/components/FaceBoundingBox";
 import { EditPersonDialog } from "@/components/EditPersonDialog";
-import { mockPeople } from "@/data/mockPeople";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -21,9 +21,10 @@ interface LightboxProps {
   onToggleFavorite?: (photoId: string) => void;
   onUpdateFaces?: (photoId: string, faces: FaceDetection[]) => void;
   onUpdatePeople?: (personId: string, personName: string, photoPath: string) => void;
+  allPeople?: PersonCluster[];
 }
 
-export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleFavorite, onUpdateFaces, onUpdatePeople }: LightboxProps) {
+export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleFavorite, onUpdateFaces, onUpdatePeople, allPeople = [] }: LightboxProps) {
   const [showInfo, setShowInfo] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showFaces, setShowFaces] = useState(false);
@@ -216,7 +217,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   const handleSelectPerson = (personId: string, personName: string | null) => {
     if (editingFace && photo) {
-      const targetPerson = mockPeople.find(p => p.id === personId);
+      const targetPerson = allPeople.find(p => p.id === personId);
       
       // If target person is unnamed/unknown, trigger naming dialog
       if (targetPerson && targetPerson.name === null) {
@@ -455,7 +456,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         face={editingFace}
         isOpen={!!editingFace}
         onClose={() => setEditingFace(null)}
-        allPeople={mockPeople}
+        allPeople={allPeople}
         onSelectPerson={handleSelectPerson}
         onCreateNew={handleCreateNewPerson}
       />

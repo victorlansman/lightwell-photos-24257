@@ -12,6 +12,7 @@ import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Photo, FaceDetection } from "@/types/photo";
+import { PersonCluster } from "@/types/person";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ const Index = () => {
   const [showDates, setShowDates] = useState(true);
   const [cropSquare, setCropSquare] = useState(true);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [allPeople, setAllPeople] = useState<PersonCluster[]>([]);
   const [loading, setLoading] = useState(true);
   const [showShareDialog, setShowShareDialog] = useState(false);
 
@@ -64,6 +66,48 @@ const Index = () => {
       }
 
       const collectionIds = collectionsData.map(c => c.collection_id);
+
+      // Fetch ALL people from user's collections for the EditPersonDialog
+      const { data: allPeopleData } = await supabase
+        .from("people")
+        .select(`
+          id,
+          name,
+          thumbnail_url,
+          collection_id,
+          photo_people (
+            photo:photos (
+              id,
+              path
+            )
+          )
+        `)
+        .in("collection_id", collectionIds);
+
+      // Transform all people data
+      const peopleList: PersonCluster[] = (allPeopleData || []).map(person => {
+        const photos = person.photo_people?.map((pp: any) => pp.photo.path) || [];
+        const thumbnailUrl = person.thumbnail_url || 
+          (photos.length > 0 
+            ? (photos[0].startsWith('/') 
+                ? photos[0] 
+                : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${photos[0]}`)
+            : "/placeholder.svg");
+            
+        return {
+          id: person.id,
+          name: person.name,
+          thumbnailPath: thumbnailUrl,
+          photoCount: photos.length,
+          photos: photos.map((path: string) => 
+            path.startsWith('/') 
+              ? path 
+              : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/photos/${path}`
+          ),
+        };
+      });
+
+      setAllPeople(peopleList);
 
       // Fetch all photos from user's collections
       const { data: photosData, error } = await supabase
@@ -269,38 +313,103 @@ const Index = () => {
     }
   };
 
-  const handleUpdateFaces = (photoId: string, faces: FaceDetection[]) => {
-    setPhotos((prevPhotos) =>
-      prevPhotos.map((p) =>
-        p.id === photoId ? { ...p, faces } : p
-      )
-    );
-    if (lightboxPhoto && lightboxPhoto.id === photoId) {
-      setLightboxPhoto({ ...lightboxPhoto, faces });
+  const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
+    try {
+      // Delete all existing face tags for this photo
+      await supabase
+        .from("photo_people")
+        .delete()
+        .eq("photo_id", photoId);
+
+      // Insert new face tags
+      const insertData = faces.map(face => ({
+        photo_id: photoId,
+        person_id: face.personId,
+        face_bbox: face.boundingBox,
+      }));
+
+      if (insertData.length > 0) {
+        await supabase
+          .from("photo_people")
+          .insert(insertData);
+      }
+
+      // Update local state
+      setPhotos((prevPhotos) =>
+        prevPhotos.map((p) =>
+          p.id === photoId ? { ...p, faces } : p
+        )
+      );
+      if (lightboxPhoto && lightboxPhoto.id === photoId) {
+        setLightboxPhoto({ ...lightboxPhoto, faces });
+      }
+
+      // Refresh people data
+      fetchPhotos();
+    } catch (error: any) {
+      toast({
+        title: "Error updating face tags",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
   const handleUpdatePeople = async (personId: string, personName: string, photoPath: string) => {
-    // Update or create person in database
     try {
+      // Check if person exists
       const { data: existingPerson } = await supabase
         .from("people")
-        .select("*")
+        .select("id")
         .eq("id", personId)
-        .single();
+        .maybeSingle();
 
-      if (existingPerson) {
-        // Update name if changed
-        if (existingPerson.name !== personName) {
-          await supabase
-            .from("people")
-            .update({ name: personName })
-            .eq("id", personId);
-        }
+      if (!existingPerson) {
+        // Person doesn't exist, create them
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) return;
+
+        const { data: currentUserData } = await supabase
+          .from("users")
+          .select("id")
+          .eq("supabase_user_id", currentUser.id)
+          .single();
+
+        if (!currentUserData) return;
+
+        const { data: collectionData } = await supabase
+          .from("collection_members")
+          .select("collection_id")
+          .eq("user_id", currentUserData.id)
+          .limit(1)
+          .single();
+
+        if (!collectionData) return;
+
+        await supabase
+          .from("people")
+          .insert({
+            id: personId,
+            name: personName,
+            collection_id: collectionData.collection_id,
+            thumbnail_url: photoPath,
+          });
+      } else {
+        // Person exists, update their name
+        await supabase
+          .from("people")
+          .update({ name: personName })
+          .eq("id", personId);
       }
-      // If person doesn't exist, it will be created when face is tagged
+      
+      // Refresh all data
+      fetchPhotos();
     } catch (error: any) {
-      console.error("Error updating person:", error);
+      toast({
+        title: "Error updating person",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -421,6 +530,7 @@ const Index = () => {
         onToggleFavorite={handleToggleFavorite}
         onUpdateFaces={handleUpdateFaces}
         onUpdatePeople={handleUpdatePeople}
+        allPeople={allPeople}
       />
 
       <SharePhotosDialog
