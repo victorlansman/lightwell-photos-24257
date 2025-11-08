@@ -39,7 +39,7 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
           ? "bg-yellow-500 text-black" 
           : "bg-primary text-primary-foreground"
       )}>
-        <span>{face.personName || "Unknown"}</span>
+        <span>{face.personName || "Unnamed person"}</span>
         <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"

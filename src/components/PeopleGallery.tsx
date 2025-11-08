@@ -55,7 +55,7 @@ export function PeopleGallery({
         <div>
           <h1 className="text-3xl font-bold text-foreground">People</h1>
           <p className="text-muted-foreground mt-1">
-            {namedPeople.length} named, {unknownPeople.length} unknown
+            {namedPeople.length} named, {unknownPeople.length} unnamed
           </p>
         </div>
         <Button
@@ -97,9 +97,9 @@ export function PeopleGallery({
         </div>
       )}
 
-      {/* Unknown People Section */}
+      {/* Unnamed People Section */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-foreground">Unknown People</h2>
+        <h2 className="text-3xl font-bold text-foreground">Unnamed People</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 animate-fade-in">
           {/* Browse all photos cluster */}
           <div
@@ -119,8 +119,8 @@ export function PeopleGallery({
             </div>
           </div>
 
-          {/* Unknown person clusters */}
-          {unknownPeople.map((cluster) => (
+          {/* Unnamed person clusters */}
+          {unknownPeople.map((cluster, index) => (
             <PersonClusterCard
               key={cluster.id}
               cluster={cluster}
@@ -128,6 +128,7 @@ export function PeopleGallery({
               isSelectionMode={isSelectionMode}
               onSelect={onSelectCluster}
               onClick={() => navigate(`/people/${cluster.id}`)}
+              unnamedIndex={index + 1}
             />
           ))}
         </div>

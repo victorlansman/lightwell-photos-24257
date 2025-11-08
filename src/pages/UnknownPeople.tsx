@@ -5,10 +5,12 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { PhotoGrid } from "@/components/PhotoGrid";
 import { Lightbox } from "@/components/Lightbox";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
+import { ArrowLeft } from "lucide-react";
 
 export default function UnknownPeople() {
   const navigate = useNavigate();
@@ -205,7 +207,16 @@ export default function UnknownPeople() {
           <main className="flex-1 p-6">
             <div className="space-y-6">
               <div>
-                <h1 className="text-3xl font-bold text-foreground">Unknown People</h1>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mb-4"
+                  onClick={() => navigate("/people")}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to People
+                </Button>
+                <h1 className="text-3xl font-bold text-foreground">Unnamed People</h1>
                 <p className="text-muted-foreground mt-1">
                   {photos.length} {photos.length === 1 ? "photo" : "photos"} with untagged faces
                 </p>
@@ -213,7 +224,7 @@ export default function UnknownPeople() {
 
               {photos.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <p className="text-muted-foreground">No photos with unknown faces</p>
+                  <p className="text-muted-foreground">No photos with unnamed faces</p>
                   <p className="text-sm text-muted-foreground mt-2">All faces have been tagged!</p>
                 </div>
               ) : (

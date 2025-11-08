@@ -194,7 +194,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       if (photo && onUpdateFaces) {
         await onUpdateFaces(photo.id, updatedFaces);
       }
-      toast.success("Person unmarked");
+      toast.success("Face unmarked");
     } else {
       // If unnamed, show confirmation dialog
       setFaceToDelete(face);
@@ -413,7 +413,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                             key={idx}
                             className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded"
                           >
-                            {face.personName || "Unknown"}
+                            {face.personName || "Unnamed person"}
                           </span>
                         ))}
                       </div>

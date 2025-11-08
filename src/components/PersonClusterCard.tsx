@@ -8,6 +8,7 @@ interface PersonClusterCardProps {
   isSelectionMode: boolean;
   onSelect: (id: string) => void;
   onClick: () => void;
+  unnamedIndex?: number;
 }
 
 export function PersonClusterCard({
@@ -16,6 +17,7 @@ export function PersonClusterCard({
   isSelectionMode,
   onSelect,
   onClick,
+  unnamedIndex,
 }: PersonClusterCardProps) {
   return (
     <div
@@ -57,13 +59,11 @@ export function PersonClusterCard({
       {/* Label */}
       <div className="text-center">
         <div className="font-medium text-foreground">
-          {cluster.name || "Name?"}
+          {cluster.name || (unnamedIndex ? `Unnamed person ${unnamedIndex}` : "Name?")}
         </div>
-        {cluster.name && (
-          <div className="text-sm text-muted-foreground">
-            {cluster.photoCount} {cluster.photoCount === 1 ? "photo" : "photos"}
-          </div>
-        )}
+        <div className="text-sm text-muted-foreground">
+          {cluster.photoCount} {cluster.photoCount === 1 ? "photo" : "photos"}
+        </div>
       </div>
     </div>
   );

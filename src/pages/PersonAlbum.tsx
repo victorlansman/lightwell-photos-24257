@@ -433,7 +433,39 @@ export default function PersonAlbum() {
           .eq("id", personId);
       }
       
-      // Refresh all data
+      // Update local state immediately
+      setAllPeople(prevPeople => 
+        prevPeople.map(p => 
+          p.id === personId ? { ...p, name: personName } : p
+        )
+      );
+      
+      // Update the current person if it's the one being renamed
+      if (person?.id === personId) {
+        setPerson(prev => prev ? { ...prev, name: personName } : null);
+      }
+      
+      // Update faces in photos to reflect the new name
+      setPhotos(prevPhotos => 
+        prevPhotos.map(photo => ({
+          ...photo,
+          faces: photo.faces.map(face => 
+            face.personId === personId ? { ...face, personName } : face
+          )
+        }))
+      );
+      
+      // Update lightbox photo if open
+      if (lightboxPhoto) {
+        setLightboxPhoto(prev => prev ? {
+          ...prev,
+          faces: prev.faces.map(face => 
+            face.personId === personId ? { ...face, personName } : face
+          )
+        } : null);
+      }
+      
+      // Refresh all data in background
       fetchPersonAndPhotos();
     } catch (error: any) {
       toast({
