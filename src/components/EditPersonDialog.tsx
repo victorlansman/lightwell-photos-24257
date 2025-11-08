@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { UserPlus, Search } from "lucide-react";
+import { UserPlus, Search, Plus } from "lucide-react";
 import { useState, useMemo } from "react";
 
 interface EditPersonDialogProps {
@@ -32,18 +32,53 @@ export function EditPersonDialog({
   onDisassociate,
 }: EditPersonDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
-  // Filter to only show named people, sort by photo count (descending) and filter by search query
-  const filteredAndSortedPeople = useMemo(() => {
-    return allPeople
-      .filter(person => person.name !== null) // Only show named people
-      .filter(person => {
-        if (!searchQuery.trim()) return true;
-        const query = searchQuery.toLowerCase();
-        return person.name?.toLowerCase().includes(query);
-      })
-      .sort((a, b) => b.photoCount - a.photoCount);
-  }, [allPeople, searchQuery]);
+  // Filter and sort people based on search, showAll state
+  const { displayedPeople, hasMore, canAddNew } = useMemo(() => {
+    const namedPeople = allPeople.filter(person => person.name !== null);
+    const query = searchQuery.trim().toLowerCase();
+    
+    // Filter by search query
+    let filtered = namedPeople.filter(person => {
+      if (!query) return true;
+      return person.name?.toLowerCase().includes(query);
+    });
+
+    // Sort by photo count
+    filtered.sort((a, b) => b.photoCount - a.photoCount);
+
+    // Determine if we can add a new person (search doesn't match any existing person)
+    const canAddNew = query.length > 0 && !namedPeople.some(p => p.name?.toLowerCase() === query);
+
+    // If searching and match found, show even people with 0 photos
+    if (query.length > 0) {
+      return {
+        displayedPeople: filtered,
+        hasMore: false,
+        canAddNew
+      };
+    }
+
+    // Without search: show only people with > 0 photos initially
+    const peopleWithPhotos = filtered.filter(p => p.photoCount > 0);
+    
+    if (showAll) {
+      return {
+        displayedPeople: filtered,
+        hasMore: false,
+        canAddNew
+      };
+    }
+
+    // Show only first 6 people with photos
+    const hasMore = peopleWithPhotos.length > 6;
+    return {
+      displayedPeople: peopleWithPhotos.slice(0, 6),
+      hasMore,
+      canAddNew
+    };
+  }, [allPeople, searchQuery, showAll]);
 
   if (!face) return null;
 
@@ -70,7 +105,7 @@ export function EditPersonDialog({
           </div>
 
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {filteredAndSortedPeople.map((person) => (
+            {displayedPeople.map((person) => (
               <Button
                 key={person.id}
                 variant="outline"
@@ -95,6 +130,30 @@ export function EditPersonDialog({
               </Button>
             ))}
           </div>
+
+          {hasMore && !showAll && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowAll(true)}
+            >
+              Show all
+            </Button>
+          )}
+
+          {canAddNew && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                onCreateNew();
+                onClose();
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add {searchQuery.trim()}
+            </Button>
+          )}
 
           <Button
             variant="outline"

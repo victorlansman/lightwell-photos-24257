@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { User, Edit2, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface FaceBoundingBoxProps {
   face: FaceDetection;
@@ -16,6 +17,7 @@ interface FaceBoundingBoxProps {
 }
 
 export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemove, onUpdateBoundingBox, allPeople = [] }: FaceBoundingBoxProps) {
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [editBox, setEditBox] = useState(face.boundingBox);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -101,12 +103,16 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
     setIsEditing(false);
   };
 
-  // Determine display name
+  // Determine display name and clickability
   let displayName = "Unnamed person";
   const isUnnamed = !face.personName;
+  let isClickable = false;
+  let personIdForNav: string | null = null;
   
-  if (face.personName) {
+  if (face.personName && face.personId) {
     displayName = face.personName;
+    isClickable = true;
+    personIdForNav = face.personId;
   } else if (face.personId && allPeople.length > 0) {
     const person = allPeople.find(p => p.id === face.personId);
     if (person && person.photoCount > 1) {
@@ -117,9 +123,18 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
       const clusterIndex = unnamedClusters.findIndex(p => p.id === person.id);
       if (clusterIndex !== -1) {
         displayName = `Unnamed person ${clusterIndex + 1}`;
+        isClickable = true;
+        personIdForNav = person.id;
       }
     }
   }
+
+  const handleNameClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isClickable && personIdForNav) {
+      navigate(`/person/${personIdForNav}`);
+    }
+  };
   
   return (
     <div
@@ -157,7 +172,12 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
           ? "bg-yellow-500 text-black" 
           : "bg-primary text-primary-foreground"
       )}>
-        <span>{displayName}</span>
+        <span 
+          className={cn(isClickable && "cursor-pointer hover:underline")}
+          onClick={handleNameClick}
+        >
+          {displayName}
+        </span>
         <div className="flex items-center gap-0.5">
           {isEditing ? (
             <>
