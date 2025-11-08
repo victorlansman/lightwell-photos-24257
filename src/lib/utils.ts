@@ -36,8 +36,8 @@ export async function getSignedPhotoUrl(path: string): Promise<string> {
     .createSignedUrl(path, 3600); // Valid for 1 hour
   
   if (error || !data) {
-    console.error('Error generating signed URL:', error);
-    return getPhotoUrl(path); // Fallback
+    console.error('Error generating signed URL for path:', path, 'Error:', error);
+    return getPhotoUrl(path); // Fallback to authenticated URL
   }
   
   return data.signedUrl;
