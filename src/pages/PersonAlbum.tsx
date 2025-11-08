@@ -32,7 +32,6 @@ export default function PersonAlbum() {
   const [showDates, setShowDates] = useState(false);
   const [cropSquare, setCropSquare] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [showFaces, setShowFaces] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -506,8 +505,6 @@ export default function PersonAlbum() {
             onToggleDates={() => setShowDates(!showDates)}
             cropSquare={cropSquare}
             onToggleCropSquare={() => setCropSquare(!cropSquare)}
-            showFaces={showFaces}
-            onToggleFaces={() => setShowFaces(!showFaces)}
           />
           <main className="flex-1 p-4 md:p-6">
             <div className="space-y-4 md:space-y-6">

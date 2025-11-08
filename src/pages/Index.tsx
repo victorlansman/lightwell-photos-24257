@@ -28,7 +28,6 @@ const Index = () => {
   const [allPeople, setAllPeople] = useState<PersonCluster[]>([]);
   const [loading, setLoading] = useState(true);
   const [showShareDialog, setShowShareDialog] = useState(false);
-  const [showFaces, setShowFaces] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -443,8 +442,6 @@ const Index = () => {
             onToggleDates={() => setShowDates(!showDates)}
             cropSquare={cropSquare}
             onToggleCropSquare={() => setCropSquare(!cropSquare)}
-            showFaces={showFaces}
-            onToggleFaces={() => setShowFaces(!showFaces)}
           />
           <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
             <div className="space-y-4 md:space-y-6">
