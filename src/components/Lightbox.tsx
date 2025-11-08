@@ -1,6 +1,6 @@
 import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
-import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users, UserPlus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [faceToDelete, setFaceToDelete] = useState<FaceDetection | null>(null);
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+  const [newBox, setNewBox] = useState<FaceDetection | null>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -315,6 +316,51 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     }
   };
 
+  const handleAddNewPerson = () => {
+    // Create a new bounding box in the center of the image
+    const newFace: FaceDetection = {
+      boundingBox: {
+        x: 40, // Center horizontally (with 20% width)
+        y: 40, // Center vertically (with 20% height)
+        width: 20,
+        height: 20,
+      },
+      personId: null,
+      personName: null,
+    };
+    setNewBox(newFace);
+  };
+
+  const handleConfirmNewBox = () => {
+    if (newBox && photo) {
+      // Add the new box to faces and open EditPersonDialog
+      setFaces(prevFaces => [...prevFaces, newBox]);
+      setEditingFace(newBox);
+      setNewBox(null);
+    }
+  };
+
+  const handleCancelNewBox = () => {
+    if (newBox && photo) {
+      // Add as unnamed person
+      setFaces(prevFaces => {
+        const updatedFaces = [...prevFaces, newBox];
+        if (onUpdateFaces) {
+          onUpdateFaces(photo.id, updatedFaces);
+        }
+        return updatedFaces;
+      });
+      setNewBox(null);
+      toast.success("Added as unnamed person");
+    }
+  };
+
+  const handleUpdateNewBox = (newBoundingBox: { x: number; y: number; width: number; height: number }) => {
+    if (newBox) {
+      setNewBox({ ...newBox, boundingBox: newBoundingBox });
+    }
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -398,6 +444,16 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                         allPeople={allPeople}
                       />
                     ))}
+                    {newBox && (
+                      <NewBoundingBox
+                        face={newBox}
+                        imageWidth={imageDimensions.width}
+                        imageHeight={imageDimensions.height}
+                        onConfirm={handleConfirmNewBox}
+                        onCancel={handleCancelNewBox}
+                        onUpdateBoundingBox={handleUpdateNewBox}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -497,6 +553,17 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
           >
             <ChevronRight className="h-6 w-6" />
           </Button>
+
+          {/* Add new person button */}
+          {showFaces && !newBox && (
+            <Button
+              className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 shadow-lg"
+              onClick={handleAddNewPerson}
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add new person
+            </Button>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -573,5 +640,135 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Component for creating new bounding boxes
+interface NewBoundingBoxProps {
+  face: FaceDetection;
+  imageWidth: number;
+  imageHeight: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+  onUpdateBoundingBox: (newBox: { x: number; y: number; width: number; height: number }) => void;
+}
+
+function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onCancel, onUpdateBoundingBox }: NewBoundingBoxProps) {
+  const [editBox, setEditBox] = useState(face.boundingBox);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0, boxX: 0, boxY: 0 });
+  const resizeHandleRef = useRef<string | null>(null);
+
+  const left = (editBox.x / 100) * imageWidth;
+  const top = (editBox.y / 100) * imageHeight;
+  const width = (editBox.width / 100) * imageWidth;
+  const height = (editBox.height / 100) * imageHeight;
+
+  const handleMouseDown = (e: React.MouseEvent, handle?: string) => {
+    e.stopPropagation();
+    
+    isDraggingRef.current = true;
+    resizeHandleRef.current = handle || null;
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      boxX: editBox.x,
+      boxY: editBox.y,
+    };
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+
+      const deltaX = ((moveEvent.clientX - dragStartRef.current.x) / imageWidth) * 100;
+      const deltaY = ((moveEvent.clientY - dragStartRef.current.y) / imageHeight) * 100;
+
+      if (resizeHandleRef.current) {
+        // Resizing
+        const newBox = { ...editBox };
+        
+        if (resizeHandleRef.current.includes('top')) {
+          newBox.y = Math.max(0, Math.min(100 - newBox.height, dragStartRef.current.boxY + deltaY));
+          newBox.height = editBox.height - (newBox.y - editBox.y);
+        }
+        if (resizeHandleRef.current.includes('bottom')) {
+          newBox.height = Math.max(5, Math.min(100 - newBox.y, editBox.height + deltaY));
+        }
+        if (resizeHandleRef.current.includes('left')) {
+          newBox.x = Math.max(0, Math.min(100 - newBox.width, dragStartRef.current.boxX + deltaX));
+          newBox.width = editBox.width - (newBox.x - editBox.x);
+        }
+        if (resizeHandleRef.current.includes('right')) {
+          newBox.width = Math.max(5, Math.min(100 - newBox.x, editBox.width + deltaX));
+        }
+        
+        setEditBox(newBox);
+        onUpdateBoundingBox(newBox);
+      } else {
+        // Moving
+        const newX = Math.max(0, Math.min(100 - editBox.width, dragStartRef.current.boxX + deltaX));
+        const newY = Math.max(0, Math.min(100 - editBox.height, dragStartRef.current.boxY + deltaY));
+        const newBox = { ...editBox, x: newX, y: newY };
+        setEditBox(newBox);
+        onUpdateBoundingBox(newBox);
+      }
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+      resizeHandleRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  return (
+    <div
+      ref={boxRef}
+      className="absolute border-2 border-primary cursor-move"
+      style={{
+        left: `${left}px`,
+        top: `${top}px`,
+        width: `${width}px`,
+        height: `${height}px`,
+      }}
+      onMouseDown={(e) => handleMouseDown(e)}
+    >
+      {/* Resize handles */}
+      <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-nw-resize" onMouseDown={(e) => handleMouseDown(e, 'top-left')} />
+      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rounded-full cursor-n-resize" onMouseDown={(e) => handleMouseDown(e, 'top')} />
+      <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-ne-resize" onMouseDown={(e) => handleMouseDown(e, 'top-right')} />
+      <div className="absolute top-1/2 -translate-y-1/2 -left-1 w-3 h-3 bg-primary rounded-full cursor-w-resize" onMouseDown={(e) => handleMouseDown(e, 'left')} />
+      <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-3 h-3 bg-primary rounded-full cursor-e-resize" onMouseDown={(e) => handleMouseDown(e, 'right')} />
+      <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-sw-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-left')} />
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rounded-full cursor-s-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom')} />
+      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-se-resize" onMouseDown={(e) => handleMouseDown(e, 'bottom-right')} />
+      
+      {/* Person name flag with confirm/cancel */}
+      <div className="absolute -top-8 left-0 px-2 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-lg bg-primary text-primary-foreground">
+        <span>New person</span>
+        <div className="flex items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 hover:bg-primary-foreground/20"
+            onClick={onConfirm}
+          >
+            <Check className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 hover:bg-primary-foreground/20"
+            onClick={onCancel}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
