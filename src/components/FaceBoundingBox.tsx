@@ -130,10 +130,10 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
   }
 
   const handleNameClick = (e: React.MouseEvent) => {
+    if (!isClickable || !personIdForNav) return;
+    e.preventDefault();
     e.stopPropagation();
-    if (isClickable && personIdForNav) {
-      navigate(`/people/${personIdForNav}`);
-    }
+    navigate(`/people/${personIdForNav}`);
   };
   
   return (
@@ -173,12 +173,21 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
           : "bg-primary text-primary-foreground"
       )}>
         <span 
-          className={cn(isClickable && "cursor-pointer hover:underline")}
+          className={cn(
+            "pointer-events-auto select-none",
+            isClickable && "cursor-pointer hover:underline"
+          )}
           onClick={handleNameClick}
+          onMouseDown={(e) => {
+            // Prevent drag from interfering with click
+            if (isClickable) {
+              e.stopPropagation();
+            }
+          }}
         >
           {displayName}
         </span>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
           {isEditing ? (
             <>
               <Button
