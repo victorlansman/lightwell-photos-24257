@@ -33,19 +33,34 @@ serve(async (req) => {
     
     console.log('Generating thumbnail for:', { photoPath, bbox, faceId });
 
-    // Strip leading /photos/ or photos/ from path since we're already in the photos bucket
-    const cleanPath = photoPath.replace(/^\/?photos\//, '');
-    console.log('Clean path for download:', cleanPath);
+    let photoData: Blob;
 
-    // Download the original photo from storage
-    const { data: photoData, error: downloadError } = await supabaseClient
-      .storage
-      .from('photos')
-      .download(cleanPath);
+    // Check if this is a public asset path (starts with /photos/)
+    if (photoPath.startsWith('/photos/')) {
+      // Fetch from public URL (static assets)
+      const publicUrl = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/photos${photoPath}`;
+      console.log('Fetching from public URL:', publicUrl);
+      
+      const response = await fetch(publicUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch photo from public URL: ${response.statusText}`);
+      }
+      photoData = await response.blob();
+    } else {
+      // Download from storage using storage client
+      const cleanPath = photoPath.replace(/^\/?photos\//, '');
+      console.log('Downloading from storage:', cleanPath);
 
-    if (downloadError || !photoData) {
-      console.error('Error downloading photo:', downloadError);
-      throw new Error(`Failed to download photo: ${downloadError?.message}`);
+      const { data, error: downloadError } = await supabaseClient
+        .storage
+        .from('photos')
+        .download(cleanPath);
+
+      if (downloadError || !data) {
+        console.error('Error downloading photo:', downloadError);
+        throw new Error(`Failed to download photo: ${downloadError?.message}`);
+      }
+      photoData = data;
     }
 
     // Convert blob to array buffer
