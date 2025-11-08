@@ -349,8 +349,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   const handleConfirmNewBox = () => {
     if (newBox && photo) {
-      // Add the new box to faces and open EditPersonDialog
-      setFaces(prevFaces => [...prevFaces, newBox]);
+      // Add the new box to faces and persist to database immediately
+      setFaces(prevFaces => {
+        const updatedFaces = [...prevFaces, newBox];
+        // Persist the face tag with null person_id so it appears in "Browse all photos"
+        if (onUpdateFaces) {
+          onUpdateFaces(photo.id, updatedFaces);
+        }
+        return updatedFaces;
+      });
       setEditingFace(newBox);
       setNewBox(null);
     }
