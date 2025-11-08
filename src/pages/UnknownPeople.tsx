@@ -141,16 +141,6 @@ export default function UnknownPeople() {
 
   const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
     try {
-      // Update local state immediately for responsive UI
-      setPhotos(prev => 
-        prev.map(p => p.id === photoId ? { ...p, faces } : p)
-          .filter(p => p.faces.some(face => face.personId === null))
-      );
-
-      if (selectedPhoto?.id === photoId) {
-        setSelectedPhoto(prev => prev ? { ...prev, faces } : null);
-      }
-
       // Delete existing photo_people entries
       await supabase
         .from("photo_people")
@@ -170,28 +160,98 @@ export default function UnknownPeople() {
           .insert(insertData);
       }
 
-      // Refresh in background (don't await to avoid race conditions)
-      fetchData();
+      // Wait for database operations to complete before updating state
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Update local state after database is updated
+      setPhotos(prev => 
+        prev.map(p => p.id === photoId ? { ...p, faces } : p)
+          .filter(p => p.faces.some(face => face.personId === null))
+      );
+
+      if (selectedPhoto?.id === photoId) {
+        setSelectedPhoto(prev => prev ? { ...prev, faces } : null);
+      }
     } catch (error: any) {
       toast({
         title: "Error updating face tags",
         description: error.message,
         variant: "destructive",
       });
-      // Revert on error
-      fetchData();
+      // Reload data on error
+      await fetchData();
     }
   };
 
-  const handleUpdatePeople = async (personId: string, newName: string) => {
-    await supabase
-      .from("people")
-      .update({ name: newName })
-      .eq("id", personId);
+  const handleUpdatePeople = async (personId: string, newName: string, photoPath: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    setAllPeople(prev => 
-      prev.map(p => p.id === personId ? { ...p, name: newName } : p)
-    );
+      const { data: userData } = await supabase
+        .from("users")
+        .select("id")
+        .eq("supabase_user_id", user.id)
+        .single();
+
+      if (!userData) return;
+
+      const { data: collectionsData } = await supabase
+        .from("collection_members")
+        .select("collection_id")
+        .eq("user_id", userData.id)
+        .limit(1)
+        .single();
+
+      if (!collectionsData) return;
+
+      // Check if person already exists
+      const { data: existingPerson } = await supabase
+        .from("people")
+        .select("id")
+        .eq("id", personId)
+        .maybeSingle();
+
+      if (existingPerson) {
+        // Update existing person
+        await supabase
+          .from("people")
+          .update({ name: newName })
+          .eq("id", personId);
+      } else {
+        // Create new person
+        await supabase
+          .from("people")
+          .insert({
+            id: personId,
+            name: newName,
+            collection_id: collectionsData.collection_id,
+          });
+      }
+
+      // Update local state
+      setAllPeople(prev => {
+        const existing = prev.find(p => p.id === personId);
+        if (existing) {
+          return prev.map(p => p.id === personId ? { ...p, name: newName } : p);
+        } else {
+          return [...prev, {
+            id: personId,
+            name: newName,
+            thumbnailPath: "/placeholder.svg",
+            photoCount: 0,
+            photos: [],
+          }];
+        }
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating person",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
 
   if (loading) {

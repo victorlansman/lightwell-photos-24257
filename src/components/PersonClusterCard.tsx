@@ -35,7 +35,7 @@ export function PersonClusterCard({
           src={cluster.thumbnailPath}
           alt={cluster.name || "Unlabeled person"}
           className={cn(
-            "w-32 h-32 rounded-3xl object-cover transition-all duration-200",
+            "w-32 h-32 rounded-3xl object-contain bg-muted transition-all duration-200",
             isSelected && "ring-4 ring-primary",
             "group-hover:shadow-elevation-hover group-hover:scale-[1.02]"
           )}
