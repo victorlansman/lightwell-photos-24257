@@ -316,6 +316,16 @@ const Index = () => {
 
   const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
     try {
+      // Update local state immediately for responsive UI
+      setPhotos((prevPhotos) =>
+        prevPhotos.map((p) =>
+          p.id === photoId ? { ...p, faces } : p
+        )
+      );
+      if (lightboxPhoto && lightboxPhoto.id === photoId) {
+        setLightboxPhoto(prev => prev ? { ...prev, faces } : null);
+      }
+
       // Delete all existing face tags for this photo
       await supabase
         .from("photo_people")
@@ -335,17 +345,7 @@ const Index = () => {
           .insert(insertData);
       }
 
-      // Update local state
-      setPhotos((prevPhotos) =>
-        prevPhotos.map((p) =>
-          p.id === photoId ? { ...p, faces } : p
-        )
-      );
-      if (lightboxPhoto && lightboxPhoto.id === photoId) {
-        setLightboxPhoto({ ...lightboxPhoto, faces });
-      }
-
-      // Refresh people data
+      // Refresh people data in background (don't await to avoid race conditions)
       fetchPhotos();
     } catch (error: any) {
       toast({
@@ -353,6 +353,8 @@ const Index = () => {
         description: error.message,
         variant: "destructive",
       });
+      // Revert on error
+      fetchPhotos();
     }
   };
 

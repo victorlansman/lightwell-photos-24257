@@ -354,6 +354,17 @@ export default function PersonAlbum() {
 
   const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
     try {
+      // Update local state immediately for responsive UI
+      setPhotos((prevPhotos) =>
+        prevPhotos.map((p) =>
+          p.id === photoId ? { ...p, faces } : p
+        )
+      );
+      
+      if (lightboxPhoto && lightboxPhoto.id === photoId) {
+        setLightboxPhoto(prev => prev ? { ...prev, faces } : null);
+      }
+
       // Delete all existing face tags for this photo
       await supabase
         .from("photo_people")
@@ -373,18 +384,7 @@ export default function PersonAlbum() {
           .insert(insertData);
       }
 
-      // Update local state
-      setPhotos((prevPhotos) =>
-        prevPhotos.map((p) =>
-          p.id === photoId ? { ...p, faces } : p
-        )
-      );
-      
-      if (lightboxPhoto && lightboxPhoto.id === photoId) {
-        setLightboxPhoto({ ...lightboxPhoto, faces });
-      }
-
-      // Refresh data to update counts
+      // Refresh data in background to update counts (don't await to avoid race conditions)
       fetchPersonAndPhotos();
     } catch (error: any) {
       toast({
@@ -392,6 +392,8 @@ export default function PersonAlbum() {
         description: error.message,
         variant: "destructive",
       });
+      // Revert on error
+      fetchPersonAndPhotos();
     }
   };
 

@@ -141,33 +141,46 @@ export default function UnknownPeople() {
   };
 
   const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
-    // Delete existing photo_people entries
-    await supabase
-      .from("photo_people")
-      .delete()
-      .eq("photo_id", photoId);
+    try {
+      // Update local state immediately for responsive UI
+      setPhotos(prev => 
+        prev.map(p => p.id === photoId ? { ...p, faces } : p)
+          .filter(p => p.faces.some(face => face.personId === null))
+      );
 
-    // Insert new face tags
-    const insertData = faces.map(face => ({
-      photo_id: photoId,
-      person_id: face.personId,
-      face_bbox: face.boundingBox,
-    }));
+      if (selectedPhoto?.id === photoId) {
+        setSelectedPhoto(prev => prev ? { ...prev, faces } : null);
+      }
 
-    if (insertData.length > 0) {
+      // Delete existing photo_people entries
       await supabase
         .from("photo_people")
-        .insert(insertData);
-    }
+        .delete()
+        .eq("photo_id", photoId);
 
-    // Update local state
-    setPhotos(prev => 
-      prev.map(p => p.id === photoId ? { ...p, faces } : p)
-        .filter(p => p.faces.some(face => face.personId === null))
-    );
+      // Insert new face tags
+      const insertData = faces.map(face => ({
+        photo_id: photoId,
+        person_id: face.personId,
+        face_bbox: face.boundingBox,
+      }));
 
-    if (selectedPhoto?.id === photoId) {
-      setSelectedPhoto(prev => prev ? { ...prev, faces } : null);
+      if (insertData.length > 0) {
+        await supabase
+          .from("photo_people")
+          .insert(insertData);
+      }
+
+      // Refresh in background (don't await to avoid race conditions)
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error updating face tags",
+        description: error.message,
+        variant: "destructive",
+      });
+      // Revert on error
+      fetchData();
     }
   };
 

@@ -185,13 +185,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleUpdateBoundingBox = async (face: FaceDetection, newBox: { x: number; y: number; width: number; height: number }) => {
-    const updatedFaces = faces.map(f => 
-      f === face ? { ...f, boundingBox: newBox } : f
-    );
-    setFaces(updatedFaces);
-    if (photo && onUpdateFaces) {
-      await onUpdateFaces(photo.id, updatedFaces);
-    }
+    setFaces(prevFaces => {
+      const updatedFaces = prevFaces.map(f => 
+        f === face ? { ...f, boundingBox: newBox } : f
+      );
+      if (photo && onUpdateFaces) {
+        onUpdateFaces(photo.id, updatedFaces);
+      }
+      return updatedFaces;
+    });
     toast.success("Bounding box updated");
   };
 
@@ -203,13 +205,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   const handleDisassociateFace = async () => {
     if (editingFace && photo) {
-      const updatedFaces = faces.map(f => 
-        f === editingFace ? { ...f, personName: null, personId: null } : f
-      );
-      setFaces(updatedFaces);
-      if (onUpdateFaces) {
-        await onUpdateFaces(photo.id, updatedFaces);
-      }
+      setFaces(prevFaces => {
+        const updatedFaces = prevFaces.map(f => 
+          f === editingFace ? { ...f, personName: null, personId: null } : f
+        );
+        if (onUpdateFaces) {
+          onUpdateFaces(photo.id, updatedFaces);
+        }
+        return updatedFaces;
+      });
       toast.success("Face disassociated");
       setEditingFace(null);
     }
@@ -217,11 +221,13 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   const handleConfirmDelete = async () => {
     if (faceToDelete && photo) {
-      const updatedFaces = faces.filter(f => f !== faceToDelete);
-      setFaces(updatedFaces);
-      if (onUpdateFaces) {
-        await onUpdateFaces(photo.id, updatedFaces);
-      }
+      setFaces(prevFaces => {
+        const updatedFaces = prevFaces.filter(f => f !== faceToDelete);
+        if (onUpdateFaces) {
+          onUpdateFaces(photo.id, updatedFaces);
+        }
+        return updatedFaces;
+      });
       toast.success("Face tag deleted");
       setFaceToDelete(null);
       setShowDeleteDialog(false);
@@ -238,20 +244,23 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         setShowNamingDialog(true);
         setEditingFace(null);
       } else {
-        const updatedFaces = faces.map(f => 
-          f === editingFace ? { ...f, personId, personName } : f
-        );
-        setFaces(updatedFaces);
-        
-        // Update people database FIRST if assigning to a named person
-        if (personName && onUpdatePeople) {
-          await onUpdatePeople(personId, personName, photo.path);
-        }
-        
-        // Then update faces in database
-        if (onUpdateFaces) {
-          await onUpdateFaces(photo.id, updatedFaces);
-        }
+        setFaces(prevFaces => {
+          const updatedFaces = prevFaces.map(f => 
+            f === editingFace ? { ...f, personId, personName } : f
+          );
+          
+          // Update people database FIRST if assigning to a named person
+          if (personName && onUpdatePeople) {
+            onUpdatePeople(personId, personName, photo.path);
+          }
+          
+          // Then update faces in database
+          if (onUpdateFaces) {
+            onUpdateFaces(photo.id, updatedFaces);
+          }
+          
+          return updatedFaces;
+        });
         
         toast.success(`Reassigned to ${personName || "Unnamed"}`);
         setEditingFace(null);
@@ -271,26 +280,30 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     if (personToName && newPersonName.trim() && photo) {
       // Generate a proper UUID for the new person
       const newPersonId = crypto.randomUUID();
-      // Update the face with the new name and proper UUID
-      const updatedFace = { 
-        ...personToName, 
-        personName: newPersonName.trim(),
-        personId: newPersonId
-      };
-      const updatedFaces = faces.map(f => 
-        f === personToName ? updatedFace : f
-      );
-      setFaces(updatedFaces);
       
-      // Create person in database FIRST
-      if (onUpdatePeople) {
-        await onUpdatePeople(newPersonId, newPersonName.trim(), photo.path);
-      }
-      
-      // Then update faces in database
-      if (onUpdateFaces) {
-        await onUpdateFaces(photo.id, updatedFaces);
-      }
+      setFaces(prevFaces => {
+        // Update the face with the new name and proper UUID
+        const updatedFace = { 
+          ...personToName, 
+          personName: newPersonName.trim(),
+          personId: newPersonId
+        };
+        const updatedFaces = prevFaces.map(f => 
+          f === personToName ? updatedFace : f
+        );
+        
+        // Create person in database FIRST
+        if (onUpdatePeople) {
+          onUpdatePeople(newPersonId, newPersonName.trim(), photo.path);
+        }
+        
+        // Then update faces in database
+        if (onUpdateFaces) {
+          onUpdateFaces(photo.id, updatedFaces);
+        }
+        
+        return updatedFaces;
+      });
       
       toast.success(`Named person as ${newPersonName.trim()}`);
       setPersonToName(null);
