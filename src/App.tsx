@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Collections from "./pages/Collections";
 import People from "./pages/People";
 import PersonAlbum from "./pages/PersonAlbum";
+import UnknownPeople from "./pages/UnknownPeople";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ function App() {
             <Route path="/albums" element={<Collections />} />
             <Route path="/people" element={<People />} />
             <Route path="/people/:id" element={<PersonAlbum />} />
+            <Route path="/unknown" element={<UnknownPeople />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

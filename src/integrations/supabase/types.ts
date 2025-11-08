@@ -125,21 +125,21 @@ export type Database = {
           collection_id: string
           created_at: string | null
           id: string
-          name: string
+          name: string | null
           thumbnail_url: string | null
         }
         Insert: {
           collection_id: string
           created_at?: string | null
           id?: string
-          name: string
+          name?: string | null
           thumbnail_url?: string | null
         }
         Update: {
           collection_id?: string
           created_at?: string | null
           id?: string
-          name?: string
+          name?: string | null
           thumbnail_url?: string | null
         }
         Relationships: [
