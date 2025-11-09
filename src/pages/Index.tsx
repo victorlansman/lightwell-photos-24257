@@ -127,33 +127,6 @@ const Index = () => {
     setIsSelectionMode(false);
   };
 
-  const handleDelete = async () => {
-    try {
-      // Delete photos
-      for (const photoId of Array.from(selectedPhotos)) {
-        await supabase
-          .from("photos")
-          .delete()
-          .eq("id", photoId);
-      }
-
-      toast({
-        title: "Success",
-        description: `Deleted ${selectedPhotos.size} photo(s)`,
-      });
-
-      // Data will auto-refresh via React Query
-      setSelectedPhotos(new Set());
-      setIsSelectionMode(false);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleToggleFavorite = async (photoId: string) => {
     const photo = photos.find(p => p.id === photoId);
     if (!photo) return;
@@ -358,7 +331,6 @@ const Index = () => {
                           }}
                           onToggleSelectAll={handleToggleSelectAll}
                           onShare={handleShare}
-                          onDelete={handleDelete}
                         />
                       </div>
                       <Button
@@ -396,7 +368,6 @@ const Index = () => {
                       }}
                       onToggleSelectAll={handleToggleSelectAll}
                       onShare={handleShare}
-                      onDelete={handleDelete}
                     />
                   </div>
                 )}
