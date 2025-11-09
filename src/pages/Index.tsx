@@ -15,6 +15,7 @@ import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
 import { useCollections } from "@/hooks/useCollections";
 import { useCollectionPhotos, useToggleFavorite } from "@/hooks/usePhotos";
+import { useUpdatePhotoFaces, useCreatePerson, useUpdatePerson } from "@/hooks/useFaces";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -36,6 +37,9 @@ const Index = () => {
 
   const { data: azurePhotos, isLoading } = useCollectionPhotos(firstCollectionId);
   const toggleFavoriteMutation = useToggleFavorite();
+  const updateFacesMutation = useUpdatePhotoFaces();
+  const createPersonMutation = useCreatePerson();
+  const updatePersonMutation = useUpdatePerson();
 
   // Transform Azure API photos to local Photo type
   const photos: Photo[] = (azurePhotos || []).map(photo => ({
@@ -152,133 +156,74 @@ const Index = () => {
   };
 
   const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
-    try {
-      // Get the photo path for thumbnail generation
-      const photo = photos.find(p => p.id === photoId);
-      if (!photo) return;
+    // Transform FaceDetection[] to FaceTag[]
+    const faceTags = faces.map(face => ({
+      person_id: face.personId,
+      bbox: face.boundingBox
+    }));
 
-      // Delete all existing face tags for this photo
-      await supabase
-        .from("photo_people")
-        .delete()
-        .eq("photo_id", photoId);
-
-      // Insert new face tags (including unknown faces with null person_id)
-      const insertData = faces.map(face => ({
-        photo_id: photoId,
-        person_id: face.personId,
-        face_bbox: face.boundingBox,
-      }));
-
-      if (insertData.length > 0) {
-        const { data: insertedFaces, error: insertError } = await supabase
-          .from("photo_people")
-          .insert(insertData)
-          .select();
-
-        if (insertError) throw insertError;
-
-        // Only generate thumbnails for uploaded photos (not static demo assets)
-        const isUploadedPhoto = !photo.path.startsWith('/photos/');
-
-        if (insertedFaces && isUploadedPhoto) {
-          // Generate thumbnails in background for uploaded photos only
-          Promise.all(
-            insertedFaces.map(async (face) => {
-              try {
-                const { data, error } = await supabase.functions.invoke('generate-thumbnail', {
-                  body: {
-                    photoPath: photo.path,
-                    bbox: face.face_bbox,
-                    faceId: face.id
-                  }
-                });
-
-                if (data?.success && data?.thumbnailUrl) {
-                  await supabase
-                    .from('photo_people')
-                    .update({ thumbnail_url: data.thumbnailUrl })
-                    .eq('id', face.id);
-
-                  if (face.person_id) {
-                    await supabase
-                      .from('people')
-                      .update({ thumbnail_url: data.thumbnailUrl })
-                      .eq('id', face.person_id);
-                  }
-                }
-              } catch (err) {
-                console.error('Error generating thumbnail for face:', face.id, err);
-              }
-            })
-          ).catch(err => console.error('Error in thumbnail generation batch:', err));
+    updateFacesMutation.mutate(
+      { photoId, faces: faceTags },
+      {
+        onError: (error: any) => {
+          toast({
+            title: "Error updating face tags",
+            description: error.message,
+            variant: "destructive",
+          });
         }
       }
-
-      // Data will auto-refresh via React Query
-    } catch (error: any) {
-      toast({
-        title: "Error updating face tags",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    );
   };
 
   const handleUpdatePeople = async (personId: string, personName: string, photoPath: string) => {
-    try {
-      // Check if person exists
-      const { data: existingPerson } = await supabase
-        .from("people")
-        .select("id")
-        .eq("id", personId)
-        .maybeSingle();
+    // Check if we're creating or updating
+    // Frontend-generated UUID (not in allPeople list) means create, existing UUID means update
+    const isNewPerson = !allPeople.some(p => p.id === personId);
 
-      if (!existingPerson) {
-        // Person doesn't exist, create them with the provided personId
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        if (!currentUser) return;
-
-        const { data: currentUserData } = await supabase
-          .from("users")
-          .select("id")
-          .eq("supabase_user_id", currentUser.id)
-          .single();
-
-        if (!currentUserData) return;
-
-        const { data: collectionData } = await supabase
-          .from("collection_members")
-          .select("collection_id")
-          .eq("user_id", currentUserData.id)
-          .limit(1)
-          .single();
-
-        if (!collectionData) return;
-
-        await supabase
-          .from("people")
-          .insert({
-            id: personId,
-            name: personName,
-            collection_id: collectionData.collection_id,
-            thumbnail_url: photoPath,
-          });
-      } else {
-        // Person exists, update their name
-        await supabase
-          .from("people")
-          .update({ name: personName })
-          .eq("id", personId);
+    if (isNewPerson) {
+      // Create new person
+      if (!firstCollectionId) {
+        toast({
+          title: "Error",
+          description: "No collection found",
+          variant: "destructive",
+        });
+        return;
       }
 
-      // Data will auto-refresh via React Query
-    } catch (error: any) {
-      toast({
-        title: "Error updating person",
-        description: error.message,
-        variant: "destructive",
-      });
+      createPersonMutation.mutate(
+        {
+          name: personName,
+          collection_id: firstCollectionId
+        },
+        {
+          onError: (error: any) => {
+            toast({
+              title: "Error creating person",
+              description: error.message,
+              variant: "destructive",
+            });
+          }
+        }
+      );
+    } else {
+      // Update existing person
+      updatePersonMutation.mutate(
+        {
+          personId,
+          request: { name: personName }
+        },
+        {
+          onError: (error: any) => {
+            toast({
+              title: "Error updating person",
+              description: error.message,
+              variant: "destructive",
+            });
+          }
+        }
+      );
     }
   };
 
