@@ -5,28 +5,19 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2, LogOut, Users, Image } from "lucide-react";
 import { CreateCollectionDialog } from "@/components/CreateCollectionDialog";
-
-interface Collection {
-  id: string;
-  name: string;
-  shopify_order_id: string | null;
-  created_at: string;
-  photo_count: number;
-  member_count: number;
-  user_role: string;
-}
+import { useCollections } from "@/hooks/useCollections";
 
 export default function Collections() {
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Use Azure API instead of Supabase queries
+  const { data: collections, isLoading, error } = useCollections();
+
   useEffect(() => {
     checkAuth();
-    fetchCollections();
   }, []);
 
   const checkAuth = async () => {
@@ -38,76 +29,20 @@ export default function Collections() {
     setUser(session.user);
   };
 
-  const fetchCollections = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get user's internal ID
-      const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("supabase_user_id", user.id)
-        .single();
-
-      if (!userData) return;
-
-      // Fetch collections with member info
-      const { data: memberData, error } = await supabase
-        .from("collection_members")
-        .select(`
-          role,
-          collection:collections (
-            id,
-            name,
-            shopify_order_id,
-            created_at
-          )
-        `)
-        .eq("user_id", userData.id);
-
-      if (error) throw error;
-
-      // Fetch photo counts for each collection
-      const collectionsWithCounts = await Promise.all(
-        (memberData || []).map(async (member: any) => {
-          const { count: photoCount } = await supabase
-            .from("photos")
-            .select("*", { count: "exact", head: true })
-            .eq("collection_id", member.collection.id);
-
-          const { count: memberCount } = await supabase
-            .from("collection_members")
-            .select("*", { count: "exact", head: true })
-            .eq("collection_id", member.collection.id);
-
-          return {
-            ...member.collection,
-            photo_count: photoCount || 0,
-            member_count: memberCount || 0,
-            user_role: member.role,
-          };
-        })
-      );
-
-      setCollections(collectionsWithCounts);
-    } catch (error: any) {
-      toast({
-        title: "Error loading collections",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (error) {
+    toast({
+      title: "Error loading collections",
+      description: error.message,
+      variant: "destructive",
+    });
+  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -134,7 +69,7 @@ export default function Collections() {
               Photo Collections
             </h2>
             <p className="text-sm text-muted-foreground">
-              {collections.length} {collections.length === 1 ? "collection" : "collections"}
+              {collections?.length || 0} {collections?.length === 1 ? "collection" : "collections"}
             </p>
           </div>
           <Button onClick={() => setShowCreateDialog(true)}>
@@ -143,7 +78,7 @@ export default function Collections() {
           </Button>
         </div>
 
-        {collections.length === 0 ? (
+        {!collections || collections.length === 0 ? (
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
               <Image className="h-8 w-8 text-muted-foreground" />
@@ -200,7 +135,13 @@ export default function Collections() {
       <CreateCollectionDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
-        onCollectionCreated={fetchCollections}
+        onCollectionCreated={() => {
+          // Refetch collections (React Query handles this)
+          toast({
+            title: "Collection created",
+            description: "Your new collection is ready!",
+          });
+        }}
       />
     </div>
   );
