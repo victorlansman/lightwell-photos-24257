@@ -70,6 +70,51 @@ export interface YearEstimationUpdate {
   user_year_reasoning?: string;
 }
 
+// ==================== Face & People Types ====================
+
+export interface FaceBoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface FaceTag {
+  person_id: string | null;
+  bbox: FaceBoundingBox;
+}
+
+export interface UpdateFacesRequest {
+  faces: FaceTag[];
+}
+
+export interface FaceTagResponse {
+  id: string;
+  person_id: string | null;
+  bbox: FaceBoundingBox;
+}
+
+export interface UpdateFacesResponse {
+  photo_id: string;
+  faces: FaceTagResponse[];
+}
+
+export interface CreatePersonRequest {
+  name: string;
+  collection_id: string;
+}
+
+export interface UpdatePersonRequest {
+  name: string;
+}
+
+export interface PersonResponse {
+  id: string;
+  name: string;
+  collection_id: string;
+  thumbnail_url: string | null;
+}
+
 class AzureApiClient {
   private baseUrl: string;
   private token: string | null = null;
@@ -198,6 +243,39 @@ class AzureApiClient {
     return this.request(`/v1/photos/${photoId}/year-estimation`, {
       method: 'PATCH',
       body: JSON.stringify(update),
+    });
+  }
+
+  // ==================== Face Tagging ====================
+
+  async updatePhotoFaces(
+    photoId: string,
+    faces: FaceTag[]
+  ): Promise<UpdateFacesResponse> {
+    return this.request(`/v1/photos/${photoId}/faces`, {
+      method: 'POST',
+      body: JSON.stringify({ faces }),
+    });
+  }
+
+  // ==================== People Management ====================
+
+  async createPerson(
+    request: CreatePersonRequest
+  ): Promise<PersonResponse> {
+    return this.request('/v1/people', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async updatePerson(
+    personId: string,
+    request: UpdatePersonRequest
+  ): Promise<PersonResponse> {
+    return this.request(`/v1/people/${personId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(request),
     });
   }
 
