@@ -13,6 +13,8 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
+import { useCollections } from "@/hooks/useCollections";
+import { useCollectionPhotos, useToggleFavorite } from "@/hooks/usePhotos";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -24,139 +26,41 @@ const Index = () => {
   const [zoomLevel, setZoomLevel] = useState(4);
   const [showDates, setShowDates] = useState(true);
   const [cropSquare, setCropSquare] = useState(true);
-  const [photos, setPhotos] = useState<Photo[]>([]);
   const [allPeople, setAllPeople] = useState<PersonCluster[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showShareDialog, setShowShareDialog] = useState(false);
+
+  // TODO: Multi-collection support - currently showing first collection only
+  // Original implementation fetched from all collections, but Azure API is collection-specific
+  const { data: collections } = useCollections();
+  const firstCollectionId = collections?.[0]?.id;
+
+  const { data: azurePhotos, isLoading } = useCollectionPhotos(firstCollectionId);
+  const toggleFavoriteMutation = useToggleFavorite();
+
+  // Transform Azure API photos to local Photo type
+  const photos: Photo[] = (azurePhotos || []).map(photo => ({
+    id: photo.id,
+    path: photo.path,
+    created_at: photo.created_at,
+    filename: photo.title || undefined,
+    is_favorite: photo.is_favorite,
+    faces: photo.people.map(person => ({
+      personId: person.id,
+      personName: person.name,
+      boundingBox: person.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
+    })),
+    taken_at: null,
+    tags: photo.tags,
+  }));
 
   useEffect(() => {
     checkAuth();
-    fetchPhotos();
   }, []);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       navigate("/auth");
-    }
-  };
-
-  const fetchPhotos = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get user's collections
-      const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("supabase_user_id", user.id)
-        .single();
-
-      if (!userData) return;
-
-      const { data: collectionsData } = await supabase
-        .from("collection_members")
-        .select("collection_id")
-        .eq("user_id", userData.id);
-
-      if (!collectionsData || collectionsData.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      const collectionIds = collectionsData.map(c => c.collection_id);
-
-      // Fetch ALL people from user's collections for the EditPersonDialog
-      const { data: allPeopleData } = await supabase
-        .from("people")
-        .select(`
-          id,
-          name,
-          thumbnail_url,
-          collection_id,
-          photo_people (
-            photo:photos (
-              id,
-              path
-            )
-          )
-        `)
-        .in("collection_id", collectionIds);
-
-      // Transform all people data
-      const peopleList: PersonCluster[] = (allPeopleData || []).map(person => {
-        const photos = person.photo_people?.map((pp: any) => pp.photo.path) || [];
-        const thumbnailUrl = person.thumbnail_url || 
-          (photos.length > 0 ? photos[0] : "/placeholder.svg");
-            
-        return {
-          id: person.id,
-          name: person.name,
-          thumbnailPath: thumbnailUrl,
-          photoCount: photos.length,
-          photos: photos, // Store raw paths
-        };
-      });
-
-      setAllPeople(peopleList);
-
-      // Fetch all photos from user's collections
-      const { data: photosData, error } = await supabase
-        .from("photos")
-        .select(`
-          *,
-          photo_people (
-            person_id,
-            person:people (
-              id,
-              name
-            ),
-            face_bbox
-          )
-        `)
-        .in("collection_id", collectionIds)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      // Get favorites
-      const { data: favoritesData } = await supabase
-        .from("favorites")
-        .select("photo_id")
-        .eq("user_id", userData.id);
-
-      const favoriteIds = new Set(favoritesData?.map(f => f.photo_id) || []);
-
-      // Transform photos
-      const transformedPhotos: Photo[] = (photosData || []).map(photo => {
-        const faces: FaceDetection[] = photo.photo_people?.map((pp: any) => ({
-          personId: pp.person_id,
-          personName: pp.person?.name || null,
-          boundingBox: pp.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
-        })) || [];
-
-        return {
-          id: photo.id,
-          path: photo.path, // Store raw path, PhotoCard will generate signed URL
-          created_at: photo.created_at,
-          filename: photo.original_filename,
-          is_favorite: favoriteIds.has(photo.id),
-          faces,
-          taken_at: photo.taken_at,
-          tags: photo.tags || [],
-        };
-      });
-
-      setPhotos(transformedPhotos);
-    } catch (error: any) {
-      toast({
-        title: "Error loading photos",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -238,8 +142,7 @@ const Index = () => {
         description: `Deleted ${selectedPhotos.size} photo(s)`,
       });
 
-      // Refresh data
-      fetchPhotos();
+      // Data will auto-refresh via React Query
       setSelectedPhotos(new Set());
       setIsSelectionMode(false);
     } catch (error: any) {
@@ -252,66 +155,31 @@ const Index = () => {
   };
 
   const handleToggleFavorite = async (photoId: string) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    const photo = photos.find(p => p.id === photoId);
+    if (!photo) return;
 
-      const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("supabase_user_id", user.id)
-        .single();
-
-      if (!userData) return;
-
-      const photo = photos.find(p => p.id === photoId);
-      if (!photo) return;
-
-      if (photo.is_favorite) {
-        await supabase
-          .from("favorites")
-          .delete()
-          .eq("user_id", userData.id)
-          .eq("photo_id", photoId);
-      } else {
-        await supabase
-          .from("favorites")
-          .insert({
-            user_id: userData.id,
-            photo_id: photoId,
+    toggleFavoriteMutation.mutate(
+      { photoId, isFavorited: photo.is_favorite },
+      {
+        onSuccess: () => {
+          // Update lightbox photo if it's the one being toggled
+          if (lightboxPhoto && lightboxPhoto.id === photoId) {
+            setLightboxPhoto({ ...lightboxPhoto, is_favorite: !lightboxPhoto.is_favorite });
+          }
+        },
+        onError: (error: any) => {
+          toast({
+            title: "Error",
+            description: error.message,
+            variant: "destructive",
           });
+        },
       }
-
-      // Update local state
-      setPhotos((prevPhotos) =>
-        prevPhotos.map((p) =>
-          p.id === photoId ? { ...p, is_favorite: !p.is_favorite } : p
-        )
-      );
-      if (lightboxPhoto && lightboxPhoto.id === photoId) {
-        setLightboxPhoto({ ...lightboxPhoto, is_favorite: !lightboxPhoto.is_favorite });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    );
   };
 
   const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
     try {
-      // Update local state immediately for responsive UI
-      setPhotos((prevPhotos) =>
-        prevPhotos.map((p) =>
-          p.id === photoId ? { ...p, faces } : p
-        )
-      );
-      if (lightboxPhoto && lightboxPhoto.id === photoId) {
-        setLightboxPhoto(prev => prev ? { ...prev, faces } : null);
-      }
-
       // Get the photo path for thumbnail generation
       const photo = photos.find(p => p.id === photoId);
       if (!photo) return;
@@ -339,7 +207,7 @@ const Index = () => {
 
         // Only generate thumbnails for uploaded photos (not static demo assets)
         const isUploadedPhoto = !photo.path.startsWith('/photos/');
-        
+
         if (insertedFaces && isUploadedPhoto) {
           // Generate thumbnails in background for uploaded photos only
           Promise.all(
@@ -374,15 +242,13 @@ const Index = () => {
         }
       }
 
-      // Refresh people data in background
-      fetchPhotos();
+      // Data will auto-refresh via React Query
     } catch (error: any) {
       toast({
         title: "Error updating face tags",
         description: error.message,
         variant: "destructive",
       });
-      fetchPhotos();
     }
   };
 
@@ -432,9 +298,8 @@ const Index = () => {
           .update({ name: personName })
           .eq("id", personId);
       }
-      
-      // Refresh all data
-      fetchPhotos();
+
+      // Data will auto-refresh via React Query
     } catch (error: any) {
       toast({
         title: "Error updating person",
@@ -444,7 +309,7 @@ const Index = () => {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <SidebarProvider>
         <div className="min-h-screen flex w-full bg-background">
