@@ -13,7 +13,6 @@ export function useCollectionPhotos(
     queryKey: ['collections', collectionId, 'photos', filters],
     queryFn: () => azureApi.getCollectionPhotos(collectionId!, filters),
     enabled: !!collectionId,
-    select: (data) => data.photos,
   });
 }
 

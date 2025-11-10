@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { azureApi } from '@/lib/azureApiClient';
 
@@ -9,11 +9,14 @@ import { azureApi } from '@/lib/azureApiClient';
 
 interface ApiAuthContextType {
   isConfigured: boolean;
+  isReady: boolean; // Track when token is set
 }
 
-const ApiAuthContext = createContext<ApiAuthContextType>({ isConfigured: false });
+const ApiAuthContext = createContext<ApiAuthContextType>({ isConfigured: false, isReady: false });
 
 export function ApiAuthProvider({ children }: { children: React.ReactNode }) {
+  const [isReady, setIsReady] = useState(false);
+
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -21,6 +24,7 @@ export function ApiAuthProvider({ children }: { children: React.ReactNode }) {
         console.log('[ApiAuth] Setting Azure API token from initial session');
         azureApi.setToken(session.access_token);
       }
+      setIsReady(true); // Mark as ready even if no session (user logged out)
     });
 
     // Listen for auth changes
@@ -40,7 +44,7 @@ export function ApiAuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <ApiAuthContext.Provider value={{ isConfigured: true }}>
+    <ApiAuthContext.Provider value={{ isConfigured: true, isReady }}>
       {children}
     </ApiAuthContext.Provider>
   );

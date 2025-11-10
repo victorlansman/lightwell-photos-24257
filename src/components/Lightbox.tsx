@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { FaceBoundingBox } from "@/components/FaceBoundingBox";
 import { EditPersonDialog } from "@/components/EditPersonDialog";
-import { cn, getSignedPhotoUrl } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -48,17 +48,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [newBox, setNewBox] = useState<FaceDetection | null>(null);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
-  const [photoUrl, setPhotoUrl] = useState<string>('');
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (photo) {
-      getSignedPhotoUrl(photo.path).then(setPhotoUrl);
-    }
-  }, [photo]);
 
   useEffect(() => {
     if (photo?.faces) {
@@ -178,25 +171,30 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleDownload = async () => {
+    if (!photo?.thumbnail_url) {
+      toast.error("Photo URL not available");
+      return;
+    }
+
     try {
       // Fetch the image as a blob
-      const response = await fetch(photoUrl);
+      const response = await fetch(photo.thumbnail_url);
       const blob = await response.blob();
-      
+
       // Create a temporary URL for the blob
       const url = window.URL.createObjectURL(blob);
-      
+
       // Create and trigger download
       const link = document.createElement('a');
       link.href = url;
-      link.download = photo.filename || 'photo.jpg';
+      link.download = photo.original_filename || photo.filename || 'photo.jpg';
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       toast.success("Download started");
     } catch (error) {
       console.error('Download failed:', error);
@@ -471,7 +469,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               <div className="relative max-w-full max-h-full flex items-center justify-center">
                 <img
                   ref={imgRef}
-                  src={photoUrl}
+                  src={photo?.thumbnail_url || ''}
                   alt="Photo"
                   className="max-w-full max-h-[calc(100vh-8rem)] object-contain animate-fade-in"
                 />

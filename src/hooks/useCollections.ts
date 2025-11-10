@@ -1,17 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { azureApi } from '@/lib/azureApiClient';
+import { useApiAuth } from '@/contexts/ApiAuthContext';
 
 /**
  * Hook to fetch collections from Azure backend.
  * Replaces Supabase collection queries.
  */
 export function useCollections() {
+  const { isReady } = useApiAuth();
+
   return useQuery({
     queryKey: ['collections'],
     queryFn: () => azureApi.getCollections(),
-    select: (data) => data.collections,
-    // Only fetch if user is logged in (token is set)
-    enabled: true,
+    // Only fetch after auth token is set
+    enabled: isReady,
   });
 }
 

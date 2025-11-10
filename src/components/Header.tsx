@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTheme } from "next-themes";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useCollections } from "@/hooks/useCollections";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,35 +18,10 @@ import {
 export function Header() {
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
-  const [collectionId, setCollectionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchUserCollection();
-  }, []);
-
-  const fetchUserCollection = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: userData } = await supabase
-      .from("users")
-      .select("id")
-      .eq("supabase_user_id", user.id)
-      .single();
-
-    if (!userData) return;
-
-    const { data: memberData } = await supabase
-      .from("collection_members")
-      .select("collection_id")
-      .eq("user_id", userData.id)
-      .limit(1)
-      .single();
-
-    if (memberData) {
-      setCollectionId(memberData.collection_id);
-    }
-  };
+  // Use Azure API to fetch collections
+  const { data: collections } = useCollections();
+  const collectionId = collections?.[0]?.id || null;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

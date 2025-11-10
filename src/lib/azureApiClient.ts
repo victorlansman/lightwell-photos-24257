@@ -180,7 +180,7 @@ class AzureApiClient {
 
   // ==================== Collections ====================
 
-  async getCollections(): Promise<{ collections: Collection[] }> {
+  async getCollections(): Promise<Collection[]> {
     return this.request('/v1/collections');
   }
 
@@ -191,7 +191,7 @@ class AzureApiClient {
   async getCollectionPhotos(
     collectionId: string,
     filters?: PhotoFilters
-  ): Promise<{ photos: Photo[]; total: number; has_more: boolean }> {
+  ): Promise<Photo[]> {
     const params = new URLSearchParams();
 
     if (filters) {

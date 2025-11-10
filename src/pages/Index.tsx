@@ -45,16 +45,26 @@ const Index = () => {
   const photos: Photo[] = (azurePhotos || []).map(photo => ({
     id: photo.id,
     path: photo.path,
+    thumbnail_url: photo.thumbnail_url,
+    original_filename: photo.original_filename,
     created_at: photo.created_at,
     filename: photo.title || undefined,
+    title: photo.title,
+    description: photo.description,
+    width: photo.width,
+    height: photo.height,
+    rotation: photo.rotation,
+    estimated_year: photo.estimated_year,
+    user_corrected_year: photo.user_corrected_year,
     is_favorite: photo.is_favorite,
+    tags: photo.tags,
+    people: photo.people,
     faces: photo.people.map(person => ({
       personId: person.id,
       personName: person.name,
       boundingBox: person.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
     })),
     taken_at: null,
-    tags: photo.tags,
   }));
 
   useEffect(() => {
