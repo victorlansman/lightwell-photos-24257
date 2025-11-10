@@ -5,6 +5,20 @@
  * Uses Supabase JWT tokens for authentication.
  */
 
+import {
+  ServerId,
+  Person,
+  FaceTag
+} from '@/types/identifiers';
+import {
+  UiBoundingBox,
+  ApiBoundingBox,
+  uiBboxToApi,
+  apiBboxToUi,
+  createUiBbox,
+  apiCoord,
+} from '@/types/coordinates';
+
 const API_BASE_URL = import.meta.env.VITE_AZURE_API_URL ||
   'https://image-annotation-tool-api.azurewebsites.net';
 
@@ -20,7 +34,7 @@ export interface Collection {
 }
 
 export interface Photo {
-  id: string;
+  id: ServerId;  // Changed from string
   path: string;
   thumbnail_url: string | null;
   created_at: string;
@@ -37,14 +51,9 @@ export interface Photo {
   // Filtering
   tags: string[];
   people: Array<{
-    id: string;
+    id: ServerId;  // Changed from string
     name: string;
-    face_bbox: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    } | null;
+    face_bbox: UiBoundingBox | null;  // Changed to use typed coords
   }>;
   is_favorite: boolean;
 
@@ -72,36 +81,27 @@ export interface YearEstimationUpdate {
 
 // ==================== Face & People Types ====================
 
-export interface FaceBoundingBox {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface FaceTag {
-  person_id: string | null;
-  bbox: FaceBoundingBox;
-}
+// Remove old FaceBoundingBox interface, use UiBoundingBox instead
+// Remove old FaceTag interface, import from types instead
 
 export interface UpdateFacesRequest {
-  faces: FaceTag[];
+  faces: FaceTag[];  // Uses imported type
 }
 
 export interface FaceTagResponse {
-  id: string;
-  person_id: string | null;
-  bbox: FaceBoundingBox;
+  id: ServerId;  // Changed from string
+  person_id: ServerId | null;  // Changed from string | null
+  bbox: UiBoundingBox;  // Uses UI coordinates
 }
 
 export interface UpdateFacesResponse {
-  photo_id: string;
+  photo_id: ServerId;  // Changed from string
   faces: FaceTagResponse[];
 }
 
 export interface CreatePersonRequest {
   name: string;
-  collection_id: string;
+  collection_id: ServerId;  // Changed from string
 }
 
 export interface UpdatePersonRequest {
@@ -109,9 +109,9 @@ export interface UpdatePersonRequest {
 }
 
 export interface PersonResponse {
-  id: string;
+  id: ServerId;  // Changed from string
   name: string;
-  collection_id: string;
+  collection_id: ServerId;  // Changed from string
   thumbnail_url: string | null;
 }
 
