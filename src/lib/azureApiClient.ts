@@ -299,9 +299,20 @@ class AzureApiClient {
     photoId: string,
     faces: FaceTag[]
   ): Promise<UpdateFacesResponse> {
+    // Convert bbox coordinates from 0-100 (frontend) to 0-1 (backend)
+    const normalizedFaces = faces.map(face => ({
+      person_id: face.person_id,
+      bbox: {
+        x: face.bbox.x / 100,
+        y: face.bbox.y / 100,
+        width: face.bbox.width / 100,
+        height: face.bbox.height / 100,
+      },
+    }));
+
     return this.request(`/v1/photos/${photoId}/faces`, {
       method: 'POST',
-      body: JSON.stringify({ faces }),
+      body: JSON.stringify({ faces: normalizedFaces }),
     });
   }
 
