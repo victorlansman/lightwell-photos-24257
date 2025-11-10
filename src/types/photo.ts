@@ -1,16 +1,14 @@
+import { ServerId } from './identifiers';
+import { UiBoundingBox } from './coordinates';
+
 export interface FaceDetection {
-  personId: string | null;
+  personId: ServerId | null;
   personName: string | null;
-  boundingBox: {
-    x: number; // percentage from left
-    y: number; // percentage from top
-    width: number; // percentage of image width
-    height: number; // percentage of image height
-  };
+  boundingBox: UiBoundingBox;
 }
 
 export interface Photo {
-  id: string;
+  id: ServerId;
   path: string;
   thumbnail_url: string | null;  // DEPRECATED - now generated via getPhotoUrl()
   original_filename: string | null;
@@ -25,14 +23,9 @@ export interface Photo {
   user_corrected_year: number | null;
   tags: string[];
   people: Array<{
-    id: string;
+    id: ServerId;
     name: string;
-    face_bbox: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    } | null;
+    face_bbox: UiBoundingBox | null;
   }>;
   // Legacy fields (kept for backwards compatibility)
   filename?: string;
