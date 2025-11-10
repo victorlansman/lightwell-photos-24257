@@ -246,6 +246,53 @@ class AzureApiClient {
     });
   }
 
+  // ==================== Photo Access ====================
+
+  /**
+   * Get secure photo URL that proxies through backend.
+   * This replaces direct SAS URLs to enforce collection membership.
+   */
+  getPhotoUrl(photoId: string, options?: { thumbnail?: boolean }): string {
+    const params = new URLSearchParams();
+    if (options?.thumbnail) {
+      params.append('thumbnail', 'true');
+    }
+
+    const query = params.toString();
+    const endpoint = `/v1/photos/${photoId}/image${query ? `?${query}` : ''}`;
+
+    // Return full URL including token in Authorization header
+    // Frontend will use this with fetch + auth header
+    return `${this.baseUrl}${endpoint}`;
+  }
+
+  /**
+   * Fetch photo blob with authentication.
+   * Use this for downloading or displaying images.
+   */
+  async fetchPhoto(photoId: string, options?: { thumbnail?: boolean }): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (options?.thumbnail) {
+      params.append('thumbnail', 'true');
+    }
+
+    const query = params.toString();
+    const endpoint = `/v1/photos/${photoId}/image${query ? `?${query}` : ''}`;
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      headers: {
+        ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(error.message || `HTTP ${response.status}`);
+    }
+
+    return response.blob();
+  }
+
   // ==================== Face Tagging ====================
 
   async updatePhotoFaces(

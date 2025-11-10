@@ -12,7 +12,7 @@ export interface FaceDetection {
 export interface Photo {
   id: string;
   path: string;
-  thumbnail_url: string | null;
+  thumbnail_url: string | null;  // DEPRECATED - now generated via getPhotoUrl()
   original_filename: string | null;
   created_at: string;
   is_favorite: boolean;
