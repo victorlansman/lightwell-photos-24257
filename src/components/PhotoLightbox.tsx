@@ -1,4 +1,4 @@
-import { X, Heart, MapPin, Camera, Calendar, Tag as TagIcon } from "lucide-react";
+import { X, Heart, MapPin, Camera, Calendar, Tag as TagIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -61,11 +61,19 @@ export function PhotoLightbox({
 
       <div className="h-full flex flex-col lg:flex-row">
         {/* Image */}
-        <div className="flex-1 flex items-center justify-center p-16">
+        <div className="flex-1 flex items-center justify-center p-16 relative">
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
           <img
             src={photoUrl || ''}
             alt={photo.title || photo.original_filename}
-            className="max-w-full max-h-[calc(100vh-8rem)] object-contain"
+            className={cn(
+              "max-w-full max-h-[calc(100vh-8rem)] object-contain",
+              loading && "opacity-0"
+            )}
           />
         </div>
 

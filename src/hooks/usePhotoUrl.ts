@@ -54,7 +54,7 @@ export function usePhotoUrl(photoId: string, options?: { thumbnail?: boolean }) 
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [photoId, thumbnail, options]);
+  }, [photoId, thumbnail]);
 
   return { url, loading, error };
 }

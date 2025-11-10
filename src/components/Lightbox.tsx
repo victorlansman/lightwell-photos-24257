@@ -1,6 +1,6 @@
 import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
-import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users, UserPlus, Check } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users, UserPlus, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -461,7 +461,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             onTouchEnd={handleTouchEnd}
           >
             {/* Image */}
-            <div 
+            <div
               ref={imageRef}
               className={cn(
                 "flex-1 flex items-center justify-center p-16 transition-all relative z-0",
@@ -469,11 +469,19 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               )}
             >
               <div className="relative max-w-full max-h-full flex items-center justify-center">
+                {photoLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                )}
                 <img
                   ref={imgRef}
                   src={photoUrl || ''}
                   alt="Photo"
-                  className="max-w-full max-h-[calc(100vh-8rem)] object-contain animate-fade-in"
+                  className={cn(
+                    "max-w-full max-h-[calc(100vh-8rem)] object-contain animate-fade-in",
+                    photoLoading && "opacity-0"
+                  )}
                 />
                 {showFaces && imageDimensions.width > 0 && (
                   <div 
