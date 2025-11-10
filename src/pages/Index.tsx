@@ -62,7 +62,15 @@ const Index = () => {
     faces: photo.people.map(person => ({
       personId: person.id,
       personName: person.name,
-      boundingBox: person.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
+      // Convert bbox from 0-1 (backend) to 0-100 (frontend)
+      boundingBox: person.face_bbox
+        ? {
+            x: person.face_bbox.x * 100,
+            y: person.face_bbox.y * 100,
+            width: person.face_bbox.width * 100,
+            height: person.face_bbox.height * 100,
+          }
+        : { x: 0, y: 0, width: 10, height: 10 },
     })),
     taken_at: null,
   }));
@@ -186,7 +194,7 @@ const Index = () => {
     );
   };
 
-  const handleUpdatePeople = async (personId: string, personName: string, photoPath: string) => {
+  const handleUpdatePeople = async (personId: string, personName: string, photoPath: string): Promise<string> => {
     // Check if we're creating or updating
     // Frontend-generated UUID (not in allPeople list) means create, existing UUID means update
     const isNewPerson = !allPeople.some(p => p.id === personId);
@@ -199,41 +207,39 @@ const Index = () => {
           description: "No collection found",
           variant: "destructive",
         });
-        return;
+        return Promise.reject(new Error("No collection found"));
       }
 
-      createPersonMutation.mutate(
-        {
+      try {
+        const person = await createPersonMutation.mutateAsync({
           name: personName,
           collection_id: firstCollectionId
-        },
-        {
-          onError: (error: any) => {
-            toast({
-              title: "Error creating person",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
-        }
-      );
+        });
+        return person.id;
+      } catch (error: any) {
+        toast({
+          title: "Error creating person",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
     } else {
       // Update existing person
-      updatePersonMutation.mutate(
-        {
+      try {
+        await updatePersonMutation.mutateAsync({
           personId,
           request: { name: personName }
-        },
-        {
-          onError: (error: any) => {
-            toast({
-              title: "Error updating person",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
-        }
-      );
+        });
+        return personId;
+      } catch (error: any) {
+        toast({
+          title: "Error updating person",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
     }
   };
 

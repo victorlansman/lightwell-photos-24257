@@ -13,8 +13,9 @@ import { Photo as AzurePhoto } from "@/lib/azureApiClient";
 import { Photo, FaceDetection } from "@/types/photo";
 import { useCollection } from "@/hooks/useCollections";
 import { useCollectionPhotos, useToggleFavorite } from "@/hooks/usePhotos";
-import { useUpdatePhotoFaces, useUpdatePerson } from "@/hooks/useFaces";
+import { useUpdatePhotoFaces, useUpdatePerson, useCreatePerson } from "@/hooks/useFaces";
 import { useApiAuth } from "@/contexts/ApiAuthContext";
+import { PersonCluster } from "@/types/person";
 
 export default function CollectionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -28,8 +29,10 @@ export default function CollectionDetail() {
   const toggleFavoriteMutation = useToggleFavorite();
   const updateFacesMutation = useUpdatePhotoFaces();
   const updatePersonMutation = useUpdatePerson();
+  const createPersonMutation = useCreatePerson();
 
   const [filteredPhotos, setFilteredPhotos] = useState<Photo[]>([]);
+  const [allPeople, setAllPeople] = useState<PersonCluster[]>([]);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
@@ -60,7 +63,15 @@ export default function CollectionDetail() {
       const faces: FaceDetection[] = azurePhoto.people.map(person => ({
         personId: person.id,
         personName: person.name,
-        boundingBox: person.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
+        // Convert bbox from 0-1 (backend) to 0-100 (frontend)
+        boundingBox: person.face_bbox
+          ? {
+              x: person.face_bbox.x * 100,
+              y: person.face_bbox.y * 100,
+              width: person.face_bbox.width * 100,
+              height: person.face_bbox.height * 100,
+            }
+          : { x: 0, y: 0, width: 10, height: 10 },
       }));
 
       return {
@@ -115,6 +126,28 @@ export default function CollectionDetail() {
 
     setFilteredPhotos(filtered);
   }, [photos, yearRange, selectedPeople, selectedTags, showFavoritesOnly]);
+
+  // Extract unique people from photos for person selection
+  useEffect(() => {
+    const peopleMap = new Map<string, PersonCluster>();
+
+    photos.forEach(photo => {
+      photo.people.forEach(person => {
+        if (!peopleMap.has(person.id)) {
+          peopleMap.set(person.id, {
+            id: person.id,
+            name: person.name,
+            photoCount: 1,
+          });
+        } else {
+          const existing = peopleMap.get(person.id)!;
+          existing.photoCount += 1;
+        }
+      });
+    });
+
+    setAllPeople(Array.from(peopleMap.values()));
+  }, [photos]);
 
   const handleToggleFavorite = async (photoId: string) => {
     const photo = photos.find(p => p.id === photoId);
@@ -207,18 +240,58 @@ export default function CollectionDetail() {
     }
   };
 
-  const handleUpdatePeople = async (personId: string, personName: string, photoPath: string) => {
-    try {
-      await updatePersonMutation.mutateAsync({
-        personId,
-        request: { name: personName },
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error updating person",
-        description: error.message || "Failed to update person",
-        variant: "destructive",
-      });
+  const handleUpdatePeople = async (personId: string, personName: string, photoPath: string): Promise<string> => {
+    console.log('[handleUpdatePeople] Called with:', { personId, personName, photoPath, collectionId: id, allPeopleCount: allPeople.length });
+
+    const isNewPerson = !allPeople.some(p => p.id === personId);
+    console.log('[handleUpdatePeople] isNewPerson:', isNewPerson);
+
+    if (isNewPerson) {
+      if (!id) {
+        console.error('[handleUpdatePeople] No collection ID!');
+        toast({
+          title: "Error",
+          description: "No collection found",
+          variant: "destructive",
+        });
+        return Promise.reject(new Error("No collection found"));
+      }
+
+      console.log('[handleUpdatePeople] Creating person with collection_id:', id);
+      try {
+        const person = await createPersonMutation.mutateAsync({
+          name: personName,
+          collection_id: id
+        });
+        console.log('[handleUpdatePeople] Person created:', person);
+        return person.id;
+      } catch (error: any) {
+        console.error('[handleUpdatePeople] Error creating person:', error);
+        toast({
+          title: "Error creating person",
+          description: error.message || "Failed to create person",
+          variant: "destructive",
+        });
+        throw error;
+      }
+    } else {
+      console.log('[handleUpdatePeople] Updating existing person:', personId);
+      try {
+        await updatePersonMutation.mutateAsync({
+          personId,
+          request: { name: personName },
+        });
+        console.log('[handleUpdatePeople] Person updated');
+        return personId;
+      } catch (error: any) {
+        console.error('[handleUpdatePeople] Error updating person:', error);
+        toast({
+          title: "Error updating person",
+          description: error.message || "Failed to update person",
+          variant: "destructive",
+        });
+        throw error;
+      }
     }
   };
 
@@ -323,6 +396,7 @@ export default function CollectionDetail() {
         onToggleFavorite={handleToggleFavorite}
         onUpdateFaces={handleUpdateFaces}
         onUpdatePeople={handleUpdatePeople}
+        allPeople={allPeople}
       />
     </div>
   );

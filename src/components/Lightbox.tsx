@@ -32,7 +32,7 @@ interface LightboxProps {
   onNext: () => void;
   onToggleFavorite?: (photoId: string) => void;
   onUpdateFaces?: (photoId: string, faces: FaceDetection[]) => Promise<void>;
-  onUpdatePeople?: (personId: string, personName: string, photoPath: string) => Promise<void>;
+  onUpdatePeople?: (personId: string, personName: string, photoPath: string) => Promise<string>;
   allPeople?: PersonCluster[];
 }
 
@@ -261,32 +261,31 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const handleSelectPerson = async (personId: string, personName: string | null) => {
     if (editingFace && photo) {
       const targetPerson = allPeople.find(p => p.id === personId);
-      
+
       // If target person is unnamed/unknown, trigger naming dialog
       if (targetPerson && targetPerson.name === null) {
         setPersonToName({ ...editingFace, personId, personName });
         setShowNamingDialog(true);
         setEditingFace(null);
       } else {
-        // Update people database FIRST if assigning to a named person (and await it!)
+        // Update people database FIRST and get actual person ID
+        let actualPersonId = personId;
         if (personName && onUpdatePeople) {
-          await onUpdatePeople(personId, personName, photo.path);
+          actualPersonId = await onUpdatePeople(personId, personName, photo.path);
         }
-        
-        // Then update faces in local state and database
-        setFaces(prevFaces => {
-          const updatedFaces = prevFaces.map(f => 
-            f === editingFace ? { ...f, personId, personName } : f
-          );
-          
-          // Update faces in database after person is created
-          if (onUpdateFaces) {
-            onUpdateFaces(photo.id, updatedFaces);
-          }
-          
-          return updatedFaces;
-        });
-        
+
+        // Then update faces in local state and database using actual ID
+        const updatedFaces = faces.map(f =>
+          f === editingFace ? { ...f, personId: actualPersonId, personName } : f
+        );
+
+        setFaces(updatedFaces);
+
+        // Update faces in database after person is created (and AWAIT it!)
+        if (onUpdateFaces) {
+          await onUpdateFaces(photo.id, updatedFaces);
+        }
+
         toast.success(`Reassigned to ${personName || "Unnamed"}`);
         setEditingFace(null);
       }
@@ -303,34 +302,32 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   const handleNamePerson = async () => {
     if (personToName && newPersonName.trim() && photo) {
-      // Generate a proper UUID for the new person
-      const newPersonId = crypto.randomUUID();
-      
-      // Create person in database FIRST (and await it!)
+      // Generate a placeholder UUID (backend will create its own)
+      const placeholderUUID = crypto.randomUUID();
+
+      // Create person in database FIRST and get server-generated ID
+      let actualPersonId = placeholderUUID;
       if (onUpdatePeople) {
-        await onUpdatePeople(newPersonId, newPersonName.trim(), photo.path);
+        actualPersonId = await onUpdatePeople(placeholderUUID, newPersonName.trim(), photo.path);
       }
-      
-      // Then update faces in local state and database
-      setFaces(prevFaces => {
-        // Update the face with the new name and proper UUID
-        const updatedFace = { 
-          ...personToName, 
-          personName: newPersonName.trim(),
-          personId: newPersonId
-        };
-        const updatedFaces = prevFaces.map(f => 
-          f === personToName ? updatedFace : f
-        );
-        
-        // Update faces in database after person is created
-        if (onUpdateFaces) {
-          onUpdateFaces(photo.id, updatedFaces);
-        }
-        
-        return updatedFaces;
-      });
-      
+
+      // Then update faces in local state and database using server ID
+      const updatedFace = {
+        ...personToName,
+        personName: newPersonName.trim(),
+        personId: actualPersonId
+      };
+      const updatedFaces = faces.map(f =>
+        f === personToName ? updatedFace : f
+      );
+
+      setFaces(updatedFaces);
+
+      // Update faces in database after person is created (and AWAIT it!)
+      if (onUpdateFaces) {
+        await onUpdateFaces(photo.id, updatedFaces);
+      }
+
       toast.success(`Named person as ${newPersonName.trim()}`);
       setPersonToName(null);
       setNewPersonName("");
@@ -356,15 +353,9 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   const handleConfirmNewBox = () => {
     if (newBox && photo) {
-      // Add the new box to faces and persist to database immediately
-      setFaces(prevFaces => {
-        const updatedFaces = [...prevFaces, newBox];
-        // Persist the face tag with null person_id so it appears in "Browse all photos"
-        if (onUpdateFaces) {
-          onUpdateFaces(photo.id, updatedFaces);
-        }
-        return updatedFaces;
-      });
+      // Add the new box to local faces array but DON'T persist yet
+      // Wait until person is assigned before saving to database
+      setFaces(prevFaces => [...prevFaces, newBox]);
       setEditingFace(newBox);
       setNewBox(null);
     }
@@ -620,6 +611,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                 <Button
                   className="pointer-events-auto shadow-lg"
                   onClick={handleAddNewPerson}
+                  disabled={imageDimensions.width === 0 || imageDimensions.height === 0}
                 >
                   <UserPlus className="h-4 w-4 mr-2" />
                   Add new person
