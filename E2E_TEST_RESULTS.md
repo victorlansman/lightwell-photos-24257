@@ -11,10 +11,10 @@
 ## Testing Checklist
 
 ### Authentication
-- [ ] Login with magic link
-- [ ] Session persists on refresh
-- [ ] Logout works
-- [ ] Console shows: "[ApiAuth] Setting Azure API token"
+- [N/A] Login with magic link (only password auth in test environment)
+- [✅] Session persists on refresh (UI state like zoom resets - expected)
+- [✅] Logout works
+- [✅] Console shows: "[ApiAuth] Setting Azure API token"
 
 ### Collections
 - [ ] View collections list
@@ -30,11 +30,19 @@
 - [ ] Network: POST /v1/photos/{id}/favorite
 
 ### Photo Security
-- [ ] Photos load via /v1/photos/{id}/image
+**IMPORTANT:** Blob URLs (blob:http://localhost:...) are expected and secure (client-side only).
+**Test the BACKEND endpoint** to verify security:
+1. Open DevTools Network tab
+2. Find request: GET /v1/photos/{id}/image?thumbnail=true
+3. Copy URL (http://localhost:8000/v1/photos/...)
+4. Open incognito window
+5. Paste URL → Should get 401 Unauthorized
+
+- [ ] Photos load via /v1/photos/{id}/image (check Network tab)
 - [ ] Thumbnails use ?thumbnail=true
 - [ ] Download gets full resolution
-- [ ] No SAS URLs in network tab
-- [ ] Opening photo URL in incognito WITHOUT token = 401
+- [ ] No SAS URLs in network tab (only backend URLs + blob URLs)
+- [ ] Backend photo URL in incognito WITHOUT token = 401 ✅
 
 ### Face Tagging
 - [ ] Open photo lightbox
