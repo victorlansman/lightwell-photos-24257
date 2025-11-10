@@ -47,8 +47,12 @@ export interface ApiBoundingBox {
 
 /**
  * Create UI coordinate from raw number (use for user input, CSS)
+ * Warns (non-throwing) for out-of-range to handle user input gracefully
  */
 export function uiCoord(value: number): UiCoordinate {
+  if (!isFinite(value)) {
+    throw new Error(`UI coordinate must be finite number, got ${value}`);
+  }
   if (value < 0 || value > 100) {
     console.warn(`UI coordinate ${value} outside expected range [0, 100]`);
   }
@@ -57,8 +61,12 @@ export function uiCoord(value: number): UiCoordinate {
 
 /**
  * Create API coordinate from raw number (use when receiving from backend)
+ * Throws for invalid values to enforce strict API contract
  */
 export function apiCoord(value: number): ApiCoordinate {
+  if (!isFinite(value)) {
+    throw new Error(`API coordinate must be finite number, got ${value}`);
+  }
   if (value < 0 || value > 1) {
     throw new Error(`API coordinate ${value} outside valid range [0, 1]`);
   }
