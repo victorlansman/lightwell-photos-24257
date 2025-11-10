@@ -29,7 +29,7 @@ export function usePhotoUrl(photoId: string, options?: { thumbnail?: boolean }) 
         setLoading(true);
         setError(null);
 
-        const blob = await azureApi.fetchPhoto(photoId, options);
+        const blob = await azureApi.fetchPhoto(photoId, { thumbnail });
         if (cancelled) return;
 
         objectUrl = URL.createObjectURL(blob);
