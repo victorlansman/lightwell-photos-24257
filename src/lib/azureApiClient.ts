@@ -207,7 +207,24 @@ class AzureApiClient {
     const query = params.toString();
     const endpoint = `/v1/collections/${collectionId}/photos${query ? `?${query}` : ''}`;
 
-    return this.request(endpoint);
+    const photos = await this.request<Photo[]>(endpoint);
+
+    // COORDINATE CONVERSION: API (0-1) → UI (0-100)
+    // Backend returns 0-1 normalized, transform to UI coordinates
+    return photos.map(photo => ({
+      ...photo,
+      people: photo.people.map(person => ({
+        ...person,
+        face_bbox: person.face_bbox
+          ? apiBboxToUi({
+              x: apiCoord(person.face_bbox.x as any),
+              y: apiCoord(person.face_bbox.y as any),
+              width: apiCoord(person.face_bbox.width as any),
+              height: apiCoord(person.face_bbox.height as any),
+            })
+          : null,
+      })),
+    }));
   }
 
   // ==================== Favorites ====================
@@ -296,24 +313,36 @@ class AzureApiClient {
   // ==================== Face Tagging ====================
 
   async updatePhotoFaces(
-    photoId: string,
+    photoId: ServerId,
     faces: FaceTag[]
   ): Promise<UpdateFacesResponse> {
-    // Convert bbox coordinates from 0-100 (frontend) to 0-1 (backend)
+    // COORDINATE CONVERSION: UI (0-100) → API (0-1)
+    // Components use UI coords, backend expects 0-1 normalized
     const normalizedFaces = faces.map(face => ({
       person_id: face.person_id,
-      bbox: {
-        x: face.bbox.x / 100,
-        y: face.bbox.y / 100,
-        width: face.bbox.width / 100,
-        height: face.bbox.height / 100,
-      },
+      bbox: uiBboxToApi(face.bbox),
     }));
 
-    return this.request(`/v1/photos/${photoId}/faces`, {
+    const response = await this.request<any>(`/v1/photos/${photoId}/faces`, {
       method: 'POST',
       body: JSON.stringify({ faces: normalizedFaces }),
     });
+
+    // COORDINATE CONVERSION: API (0-1) → UI (0-100)
+    // Transform response back to UI coordinates
+    return {
+      photo_id: response.photo_id,
+      faces: response.faces.map((face: any) => ({
+        id: face.id,
+        person_id: face.person_id,
+        bbox: apiBboxToUi({
+          x: apiCoord(face.bbox.x),
+          y: apiCoord(face.bbox.y),
+          width: apiCoord(face.bbox.width),
+          height: apiCoord(face.bbox.height),
+        }),
+      })),
+    };
   }
 
   // ==================== People Management ====================
