@@ -2,11 +2,12 @@ import { Photo } from "@/types/photo";
 import { Check } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 
 interface PhotoCardProps {
   photo: Photo;
   isSelected: boolean;
-  onSelect: (id: string) => void;
+  onSelect: () => void;
   onClick: () => void;
   cropSquare?: boolean;
   isSelectionMode?: boolean;
@@ -14,10 +15,11 @@ interface PhotoCardProps {
 
 export function PhotoCard({ photo, isSelected, onSelect, onClick, cropSquare = true, isSelectionMode = false }: PhotoCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const { url: photoUrl, loading } = usePhotoUrl(photo.id, { thumbnail: true });
 
   const handleCardClick = () => {
     if (isSelectionMode) {
-      onSelect(photo.id);
+      onSelect();
     } else {
       onClick();
     }
@@ -26,49 +28,42 @@ export function PhotoCard({ photo, isSelected, onSelect, onClick, cropSquare = t
   return (
     <div
       className={cn(
-        "relative aspect-square group cursor-pointer",
-        !cropSquare && "bg-muted"
+        "relative cursor-pointer transition-all duration-200",
+        cropSquare ? "aspect-square" : "aspect-auto"
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleCardClick}
     >
-      <img
-        src={photo.thumbnail_url || ''}
-        alt="Photo"
-        className={cn(
-          "w-full h-full rounded-lg transition-all duration-200",
-          cropSquare ? "object-cover" : "object-contain",
-          isSelected && "ring-4 ring-primary",
-          "hover:shadow-elevation-hover hover:scale-[1.02]"
-        )}
-      />
-      
-      {/* Checkbox overlay - only shown in selection mode */}
-      {isSelectionMode && (
-        <div
+      {loading ? (
+        <div className="w-full h-full bg-gray-200 rounded-lg animate-pulse" />
+      ) : (
+        <img
+          src={photoUrl || ''}
+          alt="Photo"
           className={cn(
-            "absolute top-3 left-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200",
-            isSelected
-              ? "bg-primary border-primary"
-              : "bg-card/80 border-card backdrop-blur-sm"
+            "w-full h-full rounded-lg transition-all duration-200",
+            cropSquare ? "object-cover" : "object-contain",
+            isHovered && "scale-105"
           )}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect(photo.id);
-          }}
-        >
-          {isSelected && <Check className="h-4 w-4 text-primary-foreground" />}
-        </div>
+        />
       )}
 
-      {/* Hover overlay */}
-      <div
-        className={cn(
-          "absolute inset-0 bg-background/10 rounded-lg transition-opacity duration-200",
-          isHovered && !isSelected ? "opacity-100" : "opacity-0"
-        )}
-      />
+      {/* Selection checkbox */}
+      {(isSelectionMode || isSelected) && (
+        <div className="absolute top-2 right-2 z-10">
+          <div
+            className={cn(
+              "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
+              isSelected
+                ? "bg-blue-500 border-blue-500"
+                : "bg-white/80 border-gray-300"
+            )}
+          >
+            {isSelected && <Check className="w-4 h-4 text-white" />}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -761,7 +761,7 @@ export default function PersonAlbum() {
                       key={photo.id}
                       photo={photo}
                       isSelected={selectedPhotos.has(photo.id)}
-                      onSelect={handleSelectPhoto}
+                      onSelect={() => handleSelectPhoto(photo.id)}
                       onClick={() => handlePhotoClick(photo)}
                       isSelectionMode={isSelectionMode}
                       cropSquare={cropSquare}

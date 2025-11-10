@@ -1,6 +1,7 @@
 import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 
 interface Photo {
   id: string;
@@ -8,13 +9,29 @@ interface Photo {
   thumbnail_url: string | null;
   original_filename: string;
   title: string | null;
-  is_favorite?: boolean;
+  is_favorite: boolean;
 }
 
 interface CollectionPhotoGridProps {
   photos: Photo[];
-  onPhotoClick: (photo: any) => void;
+  onPhotoClick: (photo: Photo) => void;
   onToggleFavorite: (photoId: string) => void;
+}
+
+function PhotoThumbnail({ photo }: { photo: Photo }) {
+  const { url, loading } = usePhotoUrl(photo.id, { thumbnail: true });
+
+  if (loading) {
+    return <div className="w-full h-full bg-gray-200 animate-pulse" />;
+  }
+
+  return (
+    <img
+      src={url || ''}
+      alt={photo.title || photo.original_filename}
+      className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+    />
+  );
 }
 
 export function CollectionPhotoGrid({
@@ -22,11 +39,10 @@ export function CollectionPhotoGrid({
   onPhotoClick,
   onToggleFavorite,
 }: CollectionPhotoGridProps) {
-
   if (photos.length === 0) {
     return (
-      <div className="text-center py-16">
-        <p className="text-muted-foreground">No photos match your filters</p>
+      <div className="text-center py-12 text-muted-foreground">
+        No photos in this collection yet
       </div>
     );
   }
@@ -36,21 +52,18 @@ export function CollectionPhotoGrid({
       {photos.map((photo) => (
         <div
           key={photo.id}
-          className="group relative aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer"
+          className="relative aspect-square bg-muted rounded-lg overflow-hidden group cursor-pointer"
           onClick={() => onPhotoClick(photo)}
         >
-          <img
-            src={photo.thumbnail_url || ''}
-            alt={photo.title || photo.original_filename}
-            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-          />
+          <PhotoThumbnail photo={photo} />
 
-          {/* Favorite button */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+
           <Button
-            variant="ghost"
             size="icon"
+            variant="ghost"
             className={cn(
-              "absolute top-2 right-2 bg-card/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity",
+              "absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity",
               photo.is_favorite && "opacity-100"
             )}
             onClick={(e) => {
@@ -60,20 +73,11 @@ export function CollectionPhotoGrid({
           >
             <Heart
               className={cn(
-                "h-4 w-4",
-                photo.is_favorite && "fill-primary text-primary"
+                "h-5 w-5",
+                photo.is_favorite && "fill-red-500 text-red-500"
               )}
             />
           </Button>
-
-          {/* Overlay on hover */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            <div className="absolute bottom-0 left-0 right-0 p-3">
-              <p className="text-white text-sm font-medium line-clamp-1">
-                {photo.title || photo.original_filename}
-              </p>
-            </div>
-          </div>
         </div>
       ))}
     </div>

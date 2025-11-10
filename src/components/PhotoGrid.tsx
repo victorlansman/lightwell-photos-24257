@@ -54,7 +54,7 @@ export function PhotoGrid({
               key={photo.id}
               photo={photo}
               isSelected={selectedPhotos.has(photo.id)}
-              onSelect={onSelectPhoto}
+              onSelect={() => onSelectPhoto(photo.id)}
               onClick={() => onPhotoClick(photo)}
               cropSquare={cropSquare}
               isSelectionMode={isSelectionMode}
@@ -78,7 +78,7 @@ export function PhotoGrid({
               key={photo.id}
               photo={photo}
               isSelected={selectedPhotos.has(photo.id)}
-              onSelect={onSelectPhoto}
+              onSelect={() => onSelectPhoto(photo.id)}
               onClick={() => onPhotoClick(photo)}
               cropSquare={cropSquare}
               isSelectionMode={isSelectionMode}

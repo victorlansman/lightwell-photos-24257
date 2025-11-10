@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { azureApi } from "@/lib/azureApiClient";
+import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 
 interface LightboxProps {
   photo: Photo | null;
@@ -52,6 +54,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
+  const { url: photoUrl, loading: photoLoading } = usePhotoUrl(photo?.id || '', { thumbnail: false });
 
   useEffect(() => {
     if (photo?.faces) {
@@ -171,20 +174,19 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleDownload = async () => {
-    if (!photo?.thumbnail_url) {
-      toast.error("Photo URL not available");
+    if (!photo?.id) {
+      toast.error("Photo not available");
       return;
     }
 
     try {
-      // Fetch the image as a blob
-      const response = await fetch(photo.thumbnail_url);
-      const blob = await response.blob();
+      // Fetch photo via authenticated endpoint
+      const blob = await azureApi.fetchPhoto(photo.id, { thumbnail: false });
 
-      // Create a temporary URL for the blob
+      // Create temporary URL for download
       const url = window.URL.createObjectURL(blob);
 
-      // Create and trigger download
+      // Trigger download
       const link = document.createElement('a');
       link.href = url;
       link.download = photo.original_filename || photo.filename || 'photo.jpg';
@@ -469,7 +471,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               <div className="relative max-w-full max-h-full flex items-center justify-center">
                 <img
                   ref={imgRef}
-                  src={photo?.thumbnail_url || ''}
+                  src={photoUrl || ''}
                   alt="Photo"
                   className="max-w-full max-h-[calc(100vh-8rem)] object-contain animate-fade-in"
                 />

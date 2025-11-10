@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 
 interface Photo {
   id: string;
@@ -30,6 +31,7 @@ export function PhotoLightbox({
   onClose,
   onToggleFavorite,
 }: PhotoLightboxProps) {
+  const { url: photoUrl, loading } = usePhotoUrl(photo.id, { thumbnail: false });
 
   return (
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
@@ -61,7 +63,7 @@ export function PhotoLightbox({
         {/* Image */}
         <div className="flex-1 flex items-center justify-center p-16">
           <img
-            src={photo.thumbnail_url || ''}
+            src={photoUrl || ''}
             alt={photo.title || photo.original_filename}
             className="max-w-full max-h-[calc(100vh-8rem)] object-contain"
           />
