@@ -13,8 +13,7 @@ import { Photo as AzurePhoto } from "@/lib/azureApiClient";
 import { Photo, FaceDetection } from "@/types/photo";
 import { useCollection } from "@/hooks/useCollections";
 import { useCollectionPhotos, useToggleFavorite } from "@/hooks/usePhotos";
-import { useUpdateFaces } from "@/hooks/useFaces";
-import { useUpdatePerson } from "@/hooks/usePeople";
+import { useUpdatePhotoFaces, useUpdatePerson } from "@/hooks/useFaces";
 import { useApiAuth } from "@/contexts/ApiAuthContext";
 
 export default function CollectionDetail() {
@@ -27,7 +26,7 @@ export default function CollectionDetail() {
   const { data: collection, isLoading: collectionLoading } = useCollection(id);
   const { data: photos = [], isLoading: photosLoading, refetch: refetchPhotos } = useCollectionPhotos(id);
   const toggleFavoriteMutation = useToggleFavorite();
-  const updateFacesMutation = useUpdateFaces();
+  const updateFacesMutation = useUpdatePhotoFaces();
   const updatePersonMutation = useUpdatePerson();
 
   const [filteredPhotos, setFilteredPhotos] = useState<Photo[]>([]);
@@ -212,7 +211,7 @@ export default function CollectionDetail() {
     try {
       await updatePersonMutation.mutateAsync({
         personId,
-        name: personName,
+        request: { name: personName },
       });
     } catch (error: any) {
       toast({
