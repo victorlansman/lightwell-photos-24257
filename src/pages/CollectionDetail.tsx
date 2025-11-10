@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, Users } from "lucide-react";
@@ -10,180 +9,89 @@ import { UploadPhotosDialog } from "@/components/UploadPhotosDialog";
 import { InviteMemberDialog } from "@/components/InviteMemberDialog";
 import { Lightbox } from "@/components/Lightbox";
 import { AlbumViewControls } from "@/components/AlbumViewControls";
+import { Photo as AzurePhoto } from "@/lib/azureApiClient";
 import { Photo, FaceDetection } from "@/types/photo";
-
-
-interface Collection {
-  id: string;
-  name: string;
-  shopify_order_id: string | null;
-  user_role: string;
-}
+import { useCollection } from "@/hooks/useCollections";
+import { useCollectionPhotos, useToggleFavorite } from "@/hooks/usePhotos";
+import { useUpdateFaces } from "@/hooks/useFaces";
+import { useUpdatePerson } from "@/hooks/usePeople";
+import { useApiAuth } from "@/contexts/ApiAuthContext";
 
 export default function CollectionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isAuthenticated } = useApiAuth();
 
-  const [collection, setCollection] = useState<Collection | null>(null);
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  // Fetch collection and photos from Azure API
+  const { data: collection, isLoading: collectionLoading } = useCollection(id);
+  const { data: photos = [], isLoading: photosLoading, refetch: refetchPhotos } = useCollectionPhotos(id);
+  const toggleFavoriteMutation = useToggleFavorite();
+  const updateFacesMutation = useUpdateFaces();
+  const updatePersonMutation = useUpdatePerson();
+
   const [filteredPhotos, setFilteredPhotos] = useState<Photo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  
+
   // View controls
   const [zoomLevel, setZoomLevel] = useState(4);
   const [showDates, setShowDates] = useState(true);
   const [cropSquare, setCropSquare] = useState(true);
-  
+
   // Filter states
   const [yearRange, setYearRange] = useState<[number, number]>([1900, new Date().getFullYear()]);
   const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
+  // Redirect if not authenticated
   useEffect(() => {
-    checkAuth();
-    fetchCollection();
-    fetchPhotos();
-  }, [id]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [photos, yearRange, selectedPeople, selectedTags, showFavoritesOnly]);
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    if (!isAuthenticated) {
       navigate("/auth");
     }
-  };
+  }, [isAuthenticated, navigate]);
 
-  const fetchCollection = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  // Convert Azure API photos to local Photo type and apply filters
+  useEffect(() => {
+    const convertedPhotos: Photo[] = photos.map((azurePhoto: AzurePhoto) => {
+      const faces: FaceDetection[] = azurePhoto.people.map(person => ({
+        personId: person.id,
+        personName: person.name,
+        boundingBox: person.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
+      }));
 
-      const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("supabase_user_id", user.id)
-        .single();
+      return {
+        id: azurePhoto.id,
+        path: azurePhoto.path,
+        thumbnail_url: azurePhoto.thumbnail_url,
+        original_filename: azurePhoto.path.split('/').pop() || null,
+        created_at: azurePhoto.created_at,
+        is_favorite: azurePhoto.is_favorite,
+        title: azurePhoto.title,
+        description: azurePhoto.description,
+        width: azurePhoto.width,
+        height: azurePhoto.height,
+        rotation: azurePhoto.rotation,
+        estimated_year: azurePhoto.estimated_year,
+        user_corrected_year: azurePhoto.user_corrected_year,
+        tags: azurePhoto.tags,
+        people: azurePhoto.people,
+        faces,
+        taken_at: null, // Not provided by Azure API yet
+        filename: azurePhoto.path.split('/').pop() || undefined,
+      };
+    });
 
-      if (!userData) return;
-
-      const { data: memberData, error } = await supabase
-        .from("collection_members")
-        .select(`
-          role,
-          collection:collections (
-            id,
-            name,
-            shopify_order_id
-          )
-        `)
-        .eq("collection_id", id)
-        .eq("user_id", userData.id)
-        .single();
-
-      if (error) throw error;
-
-      setCollection({
-        ...memberData.collection,
-        user_role: memberData.role,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error loading collection",
-        description: error.message,
-        variant: "destructive",
-      });
-      navigate("/collections");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPhotos = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("supabase_user_id", user.id)
-        .single();
-
-      if (!userData) return;
-
-      const { data: photosData, error } = await supabase
-        .from("photos")
-        .select(`
-          *,
-          photo_people (
-            person_id,
-            person:people (
-              id,
-              name
-            ),
-            face_bbox
-          )
-        `)
-        .eq("collection_id", id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      // Check favorites
-      const { data: favoritesData } = await supabase
-        .from("favorites")
-        .select("photo_id")
-        .eq("user_id", userData.id);
-
-      const favoriteIds = new Set(favoritesData?.map(f => f.photo_id) || []);
-
-      const photosWithFavorites: Photo[] = (photosData || []).map(photo => {
-        const faces: FaceDetection[] = photo.photo_people?.map((pp: any) => ({
-          personId: pp.person_id,
-          personName: pp.person?.name || null,
-          boundingBox: pp.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
-        })) || [];
-
-        return {
-          id: photo.id,
-          path: photo.path,
-          created_at: photo.created_at,
-          filename: photo.original_filename,
-          is_favorite: favoriteIds.has(photo.id),
-          faces,
-          user_notes: photo.description,
-          taken_at: photo.taken_at,
-          tags: photo.tags || [],
-        };
-      });
-
-      setPhotos(photosWithFavorites);
-    } catch (error: any) {
-      toast({
-        title: "Error loading photos",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const applyFilters = () => {
-    let filtered = [...photos];
+    let filtered = [...convertedPhotos];
 
     // Year filter
     filtered = filtered.filter(photo => {
-      if (!photo.taken_at) return true;
-      const year = new Date(photo.taken_at).getFullYear();
+      const year = photo.user_corrected_year || photo.estimated_year;
+      if (!year) return true;
       return year >= yearRange[0] && year <= yearRange[1];
     });
 
@@ -207,46 +115,25 @@ export default function CollectionDetail() {
     }
 
     setFilteredPhotos(filtered);
-  };
+  }, [photos, yearRange, selectedPeople, selectedTags, showFavoritesOnly]);
 
   const handleToggleFavorite = async (photoId: string) => {
+    const photo = photos.find(p => p.id === photoId);
+    if (!photo) return;
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      await toggleFavoriteMutation.mutateAsync({
+        photoId,
+        isFavorited: !photo.is_favorite,
+      });
 
-      const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("supabase_user_id", user.id)
-        .single();
-
-      if (!userData) return;
-
-      const photo = photos.find(p => p.id === photoId);
-      if (!photo) return;
-
-      if (photo.is_favorite) {
-        await supabase
-          .from("favorites")
-          .delete()
-          .eq("user_id", userData.id)
-          .eq("photo_id", photoId);
-      } else {
-        await supabase
-          .from("favorites")
-          .insert({
-            user_id: userData.id,
-            photo_id: photoId,
-          });
-      }
-
-      setPhotos(photos.map(p =>
-        p.id === photoId ? { ...p, is_favorite: !p.is_favorite } : p
-      ));
+      toast({
+        title: photo.is_favorite ? "Removed from favorites" : "Added to favorites",
+      });
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to update favorite",
         variant: "destructive",
       });
     }
@@ -287,12 +174,56 @@ export default function CollectionDetail() {
   };
 
   const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
-    setPhotos(photos.map(p => p.id === photoId ? { ...p, faces } : p));
-    if (lightboxPhoto?.id === photoId) {
-      setLightboxPhoto({ ...lightboxPhoto, faces });
+    try {
+      // Convert FaceDetection to FaceTag format for API
+      const faceTags = faces.map(face => ({
+        person_id: face.personId,
+        bbox: face.boundingBox,
+      }));
+
+      await updateFacesMutation.mutateAsync({
+        photoId,
+        faces: faceTags,
+      });
+
+      // Update local state
+      const updatedPhotos = filteredPhotos.map(p =>
+        p.id === photoId ? { ...p, faces } : p
+      );
+      setFilteredPhotos(updatedPhotos);
+
+      if (lightboxPhoto?.id === photoId) {
+        setLightboxPhoto({ ...lightboxPhoto, faces });
+      }
+
+      toast({
+        title: "Faces updated",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating faces",
+        description: error.message || "Failed to update face tags",
+        variant: "destructive",
+      });
     }
   };
 
+  const handleUpdatePeople = async (personId: string, personName: string, photoPath: string) => {
+    try {
+      await updatePersonMutation.mutateAsync({
+        personId,
+        name: personName,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating person",
+        description: error.message || "Failed to update person",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loading = collectionLoading || photosLoading;
   const canUpload = collection?.user_role === "owner" || collection?.user_role === "admin";
   const canInvite = collection?.user_role === "owner";
 
@@ -337,7 +268,7 @@ export default function CollectionDetail() {
 
       <main className="container mx-auto px-4 py-8">
         <PhotoFilters
-          photos={photos}
+          photos={filteredPhotos}
           yearRange={yearRange}
           onYearRangeChange={setYearRange}
           selectedPeople={selectedPeople}
@@ -375,7 +306,7 @@ export default function CollectionDetail() {
         open={showUploadDialog}
         onOpenChange={setShowUploadDialog}
         collectionId={id!}
-        onUploadComplete={fetchPhotos}
+        onUploadComplete={refetchPhotos}
       />
 
       <InviteMemberDialog
@@ -392,6 +323,7 @@ export default function CollectionDetail() {
         onNext={handleNext}
         onToggleFavorite={handleToggleFavorite}
         onUpdateFaces={handleUpdateFaces}
+        onUpdatePeople={handleUpdatePeople}
       />
     </div>
   );
