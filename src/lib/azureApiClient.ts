@@ -366,6 +366,71 @@ class AzureApiClient {
     });
   }
 
+  /**
+   * Create person and return server-generated ID.
+   *
+   * ARCHITECTURE: Backend is sole authority for IDs.
+   * This helper makes the pattern explicit: create → get server ID → use it.
+   *
+   * @returns Server-generated person ID (for immediate use in face tagging)
+   */
+  async createPersonAndReturnId(
+    name: string,
+    collectionId: ServerId
+  ): Promise<ServerId> {
+    const response = await this.createPerson({
+      name,
+      collection_id: collectionId,
+    });
+
+    return response.id;
+  }
+
+  /**
+   * Create person, tag face, update photo in single operation.
+   *
+   * ARCHITECTURE: Sequences async operations explicitly.
+   * Eliminates race conditions by forcing order:
+   * 1. Create person (if new)
+   * 2. Wait for server ID
+   * 3. Tag face with server ID
+   * 4. Return result
+   *
+   * @param photoId - Photo to tag
+   * @param personName - Person name (creates new if doesn't exist)
+   * @param bbox - Face bounding box in UI coordinates (0-100)
+   * @param collectionId - Collection ID (for person creation)
+   * @param existingPersonId - If provided, uses existing person instead of creating
+   */
+  async tagFaceWithPerson(params: {
+    photoId: ServerId;
+    personName: string;
+    bbox: UiBoundingBox;
+    collectionId: ServerId;
+    existingPersonId?: ServerId;
+  }): Promise<{
+    personId: ServerId;
+    updatedFaces: FaceTagResponse[];
+  }> {
+    // Step 1: Get or create person
+    const personId = params.existingPersonId
+      || await this.createPersonAndReturnId(params.personName, params.collectionId);
+
+    // Step 2: Update faces with server ID
+    const faceTag: FaceTag = {
+      person_id: personId,
+      bbox: params.bbox,
+    };
+
+    const response = await this.updatePhotoFaces(params.photoId, [faceTag]);
+
+    // Step 3: Return server ID and updated faces
+    return {
+      personId,
+      updatedFaces: response.faces,
+    };
+  }
+
   // ==================== Health Check ====================
 
   async healthCheck(): Promise<{ status: string }> {
