@@ -69,6 +69,7 @@ export default function CollectionDetail() {
 
       return {
         id: azurePhoto.id,
+        collection_id: azurePhoto.collection_id,
         path: azurePhoto.path,
         thumbnail_url: azurePhoto.thumbnail_url,
         original_filename: azurePhoto.path.split('/').pop() || null,

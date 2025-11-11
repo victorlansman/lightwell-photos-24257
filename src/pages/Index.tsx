@@ -40,6 +40,7 @@ const Index = () => {
   // Transform Azure API photos to local Photo type
   const photos: Photo[] = (azurePhotos || []).map(photo => ({
     id: photo.id,
+    collection_id: photo.collection_id,
     path: photo.path,
     thumbnail_url: photo.thumbnail_url,
     original_filename: photo.original_filename,
@@ -67,6 +68,28 @@ const Index = () => {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Extract unique people from photos for person selection
+  useEffect(() => {
+    const peopleMap = new Map<string, PersonCluster>();
+
+    photos.forEach(photo => {
+      photo.people.forEach(person => {
+        if (!peopleMap.has(person.id)) {
+          peopleMap.set(person.id, {
+            id: person.id,
+            name: person.name,
+            photoCount: 1,
+          });
+        } else {
+          const existing = peopleMap.get(person.id)!;
+          existing.photoCount += 1;
+        }
+      });
+    });
+
+    setAllPeople(Array.from(peopleMap.values()));
+  }, [photos]);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();

@@ -9,6 +9,7 @@ export interface FaceDetection {
 
 export interface Photo {
   id: ServerId;
+  collection_id: ServerId;  // Collection this photo belongs to
   path: string;
   thumbnail_url: string | null;  // DEPRECATED - now generated via getPhotoUrl()
   original_filename: string | null;
