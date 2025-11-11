@@ -400,27 +400,31 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     try {
       setIsSaving(true);
 
-      // Use functional update to avoid stale closure
-      let facesToSave: FaceDetection[] = [];
-      setFaces(prevFaces => {
-        const updatedFaces = [...prevFaces, newBox];
-        facesToSave = updatedFaces;
-        console.log('[handleConfirmNewBox] Saving faces:', {
-          previousCount: prevFaces.length,
-          newCount: updatedFaces.length,
-          newBox,
-          allFaces: updatedFaces
-        });
-        return updatedFaces;
+      // Build the complete face list INCLUDING the new box
+      const allFaces = [...faces, newBox];
+
+      console.log('[handleConfirmNewBox] Current faces + new:', {
+        currentFacesCount: faces.length,
+        newBoxAdded: true,
+        totalToSave: allFaces.length,
+        allFaces
       });
 
+      // Update local state
+      setFaces(allFaces);
+
       // Persist to backend
-      const faceTags: FaceTag[] = facesToSave.map(f => ({
+      const faceTags: FaceTag[] = allFaces.map(f => ({
         person_id: f.personId,
         bbox: f.boundingBox,
       }));
 
-      console.log('[handleConfirmNewBox] Sending to backend:', { photoId: photo.id, faceCount: faceTags.length });
+      console.log('[handleConfirmNewBox] Sending to backend:', {
+        photoId: photo.id,
+        faceCount: faceTags.length,
+        faceTags
+      });
+
       await azureApi.updatePhotoFaces(photo.id, faceTags);
 
       // Refresh photo data
