@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { azureApi } from "@/lib/azureApiClient";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
+import { ServerId } from "@/types/identifiers";
 
 interface LightboxProps {
   photo: Photo | null;
@@ -31,12 +32,13 @@ interface LightboxProps {
   onPrevious: () => void;
   onNext: () => void;
   onToggleFavorite?: (photoId: string) => void;
-  onUpdateFaces?: (photoId: string, faces: FaceDetection[]) => Promise<void>;
-  onUpdatePeople?: (personId: string, personName: string, photoPath: string) => Promise<string>;
+  onUpdateFaces?: (photoId: ServerId) => Promise<void>;
+  onPersonCreated?: (personId: ServerId, name: string) => void;
   allPeople?: PersonCluster[];
+  collectionId: ServerId;
 }
 
-export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleFavorite, onUpdateFaces, onUpdatePeople, allPeople = [] }: LightboxProps) {
+export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleFavorite, onUpdateFaces, onPersonCreated, allPeople = [], collectionId }: LightboxProps) {
   const [showInfo, setShowInfo] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showFaces, setShowFaces] = useState(false);
@@ -50,6 +52,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [newBox, setNewBox] = useState<FaceDetection | null>(null);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -259,36 +262,51 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleSelectPerson = async (personId: string, personName: string | null) => {
-    if (editingFace && photo) {
-      const targetPerson = allPeople.find(p => p.id === personId);
+    if (!editingFace || !photo) return;
 
-      // If target person is unnamed/unknown, trigger naming dialog
-      if (targetPerson && targetPerson.name === null) {
-        setPersonToName({ ...editingFace, personId, personName });
-        setShowNamingDialog(true);
-        setEditingFace(null);
-      } else {
-        // Update people database FIRST and get actual person ID
-        let actualPersonId = personId;
-        if (personName && onUpdatePeople) {
-          actualPersonId = await onUpdatePeople(personId, personName, photo.path);
-        }
+    const targetPerson = allPeople.find(p => p.id === personId);
 
-        // Then update faces in local state and database using actual ID
-        const updatedFaces = faces.map(f =>
-          f === editingFace ? { ...f, personId: actualPersonId, personName } : f
-        );
+    // If target person is unnamed, trigger naming dialog
+    if (targetPerson && targetPerson.name === null) {
+      setPersonToName({ ...editingFace, personId, personName });
+      setShowNamingDialog(true);
+      setEditingFace(null);
+      return;
+    }
 
-        setFaces(updatedFaces);
+    try {
+      setIsSaving(true);
 
-        // Update faces in database after person is created (and AWAIT it!)
-        if (onUpdateFaces) {
-          await onUpdateFaces(photo.id, updatedFaces);
-        }
+      // Use API helper with existing person ID
+      const result = await azureApi.tagFaceWithPerson({
+        photoId: photo.id,
+        personName: personName || 'Unknown',
+        bbox: editingFace.boundingBox,  // Already in UI coords
+        collectionId: collectionId,
+        existingPersonId: personId,  // Use existing person
+      });
 
-        toast.success(`Reassigned to ${personName || "Unnamed"}`);
-        setEditingFace(null);
+      // Update local state
+      setFaces(prevFaces =>
+        prevFaces.map(f =>
+          f === editingFace
+            ? { ...f, personId: result.personId, personName }
+            : f
+        )
+      );
+
+      // Refresh photo
+      if (onUpdateFaces) {
+        await onUpdateFaces(photo.id);
       }
+
+      toast.success(`Reassigned to ${personName || 'Unknown'}`);
+      setEditingFace(null);
+    } catch (error) {
+      console.error('Failed to reassign person:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to reassign');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -301,38 +319,45 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleNamePerson = async () => {
-    if (personToName && newPersonName.trim() && photo) {
-      // Generate a placeholder UUID (backend will create its own)
-      const placeholderUUID = crypto.randomUUID();
+    if (!personToName || !newPersonName.trim() || !photo) return;
 
-      // Create person in database FIRST and get server-generated ID
-      let actualPersonId = placeholderUUID;
-      if (onUpdatePeople) {
-        actualPersonId = await onUpdatePeople(placeholderUUID, newPersonName.trim(), photo.path);
-      }
+    try {
+      setIsSaving(true);
 
-      // Then update faces in local state and database using server ID
-      const updatedFace = {
-        ...personToName,
+      // Use API helper - handles sequencing automatically
+      const result = await azureApi.tagFaceWithPerson({
+        photoId: photo.id,
         personName: newPersonName.trim(),
-        personId: actualPersonId
-      };
-      const updatedFaces = faces.map(f =>
-        f === personToName ? updatedFace : f
+        bbox: personToName.boundingBox,  // Already in UI coords (0-100)
+        collectionId: collectionId,
+      });
+
+      // Update local state with server ID
+      setFaces(prevFaces =>
+        prevFaces.map(f =>
+          f === personToName
+            ? { ...f, personId: result.personId, personName: newPersonName.trim() }
+            : f
+        )
       );
 
-      setFaces(updatedFaces);
+      // Notify parent of new person (for people list refresh)
+      onPersonCreated?.(result.personId, newPersonName.trim());
 
-      // Update faces in database after person is created (and AWAIT it!)
+      // Refresh photo to get updated faces from server
       if (onUpdateFaces) {
-        await onUpdateFaces(photo.id, updatedFaces);
+        await onUpdateFaces(photo.id);
       }
 
-      toast.success(`Named person as ${newPersonName.trim()}`);
-      setPersonToName(null);
-      setNewPersonName("");
+      toast.success(`Created ${newPersonName.trim()}`);
       setShowNamingDialog(false);
-      setEditingFace(null); // Clear editingFace after successful naming
+      setNewPersonName("");
+      setPersonToName(null);
+    } catch (error) {
+      console.error('Failed to create person:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create person');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -671,10 +696,11 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               <Button variant="outline" onClick={() => {
                 setShowNamingDialog(false);
                 setNewPersonName("");
-              }}>
+              }} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleNamePerson} disabled={!newPersonName.trim()}>
+              <Button onClick={handleNamePerson} disabled={!newPersonName.trim() || isSaving}>
+                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                 Save
               </Button>
             </div>
