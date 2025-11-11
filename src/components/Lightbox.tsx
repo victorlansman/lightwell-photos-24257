@@ -63,8 +63,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   useEffect(() => {
     if (photo?.faces) {
+      console.log('[Lightbox useEffect] Photo changed, setting faces:', {
+        photoId: photo.id,
+        faceCount: photo.faces.length,
+        faces: photo.faces,
+        unnamedCount: photo.faces.filter(f => !f.personId).length
+      });
       setFaces(photo.faces);
     } else {
+      console.log('[Lightbox useEffect] Photo has no faces, clearing');
       setFaces([]);
     }
     // Don't reset showFaces - let user control visibility
