@@ -71,9 +71,11 @@ const Index = () => {
 
   // Extract unique people from photos for person selection
   useEffect(() => {
+    if (!azurePhotos) return;
+
     const peopleMap = new Map<string, PersonCluster>();
 
-    photos.forEach(photo => {
+    azurePhotos.forEach(photo => {
       photo.people.forEach(person => {
         if (!peopleMap.has(person.id)) {
           peopleMap.set(person.id, {
@@ -89,7 +91,7 @@ const Index = () => {
     });
 
     setAllPeople(Array.from(peopleMap.values()));
-  }, [photos]);
+  }, [azurePhotos]);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
