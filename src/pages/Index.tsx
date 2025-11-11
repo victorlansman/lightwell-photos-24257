@@ -15,7 +15,6 @@ import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
 import { useCollections } from "@/hooks/useCollections";
 import { useCollectionPhotos, useToggleFavorite } from "@/hooks/usePhotos";
-import { useUpdatePhotoFaces, useCreatePerson, useUpdatePerson } from "@/hooks/useFaces";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -35,11 +34,8 @@ const Index = () => {
   const { data: collections } = useCollections();
   const firstCollectionId = collections?.[0]?.id;
 
-  const { data: azurePhotos, isLoading } = useCollectionPhotos(firstCollectionId);
+  const { data: azurePhotos, isLoading, refetch: refetchPhotos } = useCollectionPhotos(firstCollectionId);
   const toggleFavoriteMutation = useToggleFavorite();
-  const updateFacesMutation = useUpdatePhotoFaces();
-  const createPersonMutation = useCreatePerson();
-  const updatePersonMutation = useUpdatePerson();
 
   // Transform Azure API photos to local Photo type
   const photos: Photo[] = (azurePhotos || []).map(photo => ({
@@ -62,15 +58,8 @@ const Index = () => {
     faces: photo.people.map(person => ({
       personId: person.id,
       personName: person.name,
-      // Convert bbox from 0-1 (backend) to 0-100 (frontend)
-      boundingBox: person.face_bbox
-        ? {
-            x: person.face_bbox.x * 100,
-            y: person.face_bbox.y * 100,
-            width: person.face_bbox.width * 100,
-            height: person.face_bbox.height * 100,
-          }
-        : { x: 0, y: 0, width: 10, height: 10 },
+      // Coordinates already in UI format (0-100) from API client
+      boundingBox: person.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
     })),
     taken_at: null,
   }));
@@ -173,74 +162,14 @@ const Index = () => {
     );
   };
 
-  const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
-    // Transform FaceDetection[] to FaceTag[]
-    const faceTags = faces.map(face => ({
-      person_id: face.personId,
-      bbox: face.boundingBox
-    }));
-
-    updateFacesMutation.mutate(
-      { photoId, faces: faceTags },
-      {
-        onError: (error: any) => {
-          toast({
-            title: "Error updating face tags",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
-      }
-    );
+  const handleUpdateFaces = async (photoId: string) => {
+    // Refresh photos from server to get updated faces
+    await refetchPhotos();
   };
 
-  const handleUpdatePeople = async (personId: string, personName: string, photoPath: string): Promise<string> => {
-    // Check if we're creating or updating
-    // Frontend-generated UUID (not in allPeople list) means create, existing UUID means update
-    const isNewPerson = !allPeople.some(p => p.id === personId);
-
-    if (isNewPerson) {
-      // Create new person
-      if (!firstCollectionId) {
-        toast({
-          title: "Error",
-          description: "No collection found",
-          variant: "destructive",
-        });
-        return Promise.reject(new Error("No collection found"));
-      }
-
-      try {
-        const person = await createPersonMutation.mutateAsync({
-          name: personName,
-          collection_id: firstCollectionId
-        });
-        return person.id;
-      } catch (error: any) {
-        toast({
-          title: "Error creating person",
-          description: error.message,
-          variant: "destructive",
-        });
-        throw error;
-      }
-    } else {
-      // Update existing person
-      try {
-        await updatePersonMutation.mutateAsync({
-          personId,
-          request: { name: personName }
-        });
-        return personId;
-      } catch (error: any) {
-        toast({
-          title: "Error updating person",
-          description: error.message,
-          variant: "destructive",
-        });
-        throw error;
-      }
-    }
+  const handlePersonCreated = (_personId: string, _name: string) => {
+    // Refresh photos to get updated people list
+    refetchPhotos();
   };
 
   if (isLoading) {
@@ -357,8 +286,9 @@ const Index = () => {
         onNext={handleNext}
         onToggleFavorite={handleToggleFavorite}
         onUpdateFaces={handleUpdateFaces}
-        onUpdatePeople={handleUpdatePeople}
+        onPersonCreated={handlePersonCreated}
         allPeople={allPeople}
+        collectionId={lightboxPhoto?.collection_id || ''}
       />
 
       <SharePhotosDialog

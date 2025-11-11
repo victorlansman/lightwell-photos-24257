@@ -35,6 +35,7 @@ export interface Collection {
 
 export interface Photo {
   id: ServerId;  // Changed from string
+  collection_id: ServerId;  // Collection this photo belongs to
   path: string;
   thumbnail_url: string | null;
   created_at: string;
@@ -378,11 +379,22 @@ class AzureApiClient {
     name: string,
     collectionId: ServerId
   ): Promise<ServerId> {
+    console.log('[createPersonAndReturnId] Input:', { name, collectionId });
+
+    if (!name || !name.trim()) {
+      throw new Error('Person name is required');
+    }
+
+    if (!collectionId) {
+      throw new Error('Collection ID is required');
+    }
+
     const response = await this.createPerson({
       name,
       collection_id: collectionId,
     });
 
+    console.log('[createPersonAndReturnId] Response:', response);
     return response.id;
   }
 
