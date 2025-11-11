@@ -204,9 +204,9 @@ export function EditPersonDialog({
               variant="outline"
               className="w-full"
               onClick={() => {
-                const newPersonId = crypto.randomUUID();
-                const newPersonName = searchQuery.trim();
-                onSelectPerson(newPersonId, newPersonName);
+                // Trigger person creation with pre-filled name
+                // Don't generate UUID here - backend is ID authority
+                onCreateNew();
                 onClose();
               }}
             >
