@@ -39,6 +39,8 @@ interface LightboxProps {
 }
 
 export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleFavorite, onUpdateFaces, onPersonCreated, allPeople = [], collectionId }: LightboxProps) {
+  console.log('[Lightbox] Received collectionId:', collectionId);
+
   const [showInfo, setShowInfo] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showFaces, setShowFaces] = useState(false);

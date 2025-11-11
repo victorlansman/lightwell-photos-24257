@@ -303,7 +303,10 @@ export default function CollectionDetail() {
       <Lightbox
         photo={lightboxPhoto}
         isOpen={!!lightboxPhoto}
-        onClose={() => setLightboxPhoto(null)}
+        onClose={() => {
+          console.log('[CollectionDetail] Closing lightbox, collectionId was:', id);
+          setLightboxPhoto(null);
+        }}
         onPrevious={handlePrevious}
         onNext={handleNext}
         onToggleFavorite={handleToggleFavorite}
