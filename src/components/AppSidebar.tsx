@@ -15,7 +15,9 @@ import {
 const navItems = [
   { title: "Timeline", url: "/", icon: Clock },
   { title: "Albums", url: "/albums", icon: FolderOpen },
-  { title: "People", url: "/people", icon: UsersRound },
+  // TODO: Re-enable after migrating People page to Azure API
+  // People page currently uses Supabase, so it can't see Azure-created people
+  // { title: "People", url: "/people", icon: UsersRound },
   { title: "Shared photos", url: "/shared", icon: Users },
 ];
 
