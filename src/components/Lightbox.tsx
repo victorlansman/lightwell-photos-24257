@@ -364,6 +364,20 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleAddNewPerson = () => {
+    // Defensive: Don't create box if image dimensions are invalid
+    if (imageDimensions.width === 0 || imageDimensions.height === 0) {
+      console.warn('[handleAddNewPerson] Invalid image dimensions, retrying...', imageDimensions);
+      toast.error('Please wait for image to load');
+
+      // Retry after short delay
+      setTimeout(() => {
+        if (imageDimensions.width > 0 && imageDimensions.height > 0) {
+          handleAddNewPerson();
+        }
+      }, 100);
+      return;
+    }
+
     // Create a new bounding box in the center of the image
     const newFace: FaceDetection = {
       boundingBox: {
@@ -375,44 +389,57 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       personId: null,
       personName: null,
     };
+
+    console.log('[handleAddNewPerson] Creating new box with dimensions:', imageDimensions, 'box:', newFace.boundingBox);
     setNewBox(newFace);
   };
 
   const handleConfirmNewBox = async () => {
-    if (newBox && photo) {
-      try {
-        setIsSaving(true);
+    if (!newBox || !photo) return;
 
-        // Add to local state immediately for responsive UI
-        const updatedFaces = [...faces, newBox];
-        setFaces(updatedFaces);
+    try {
+      setIsSaving(true);
 
-        // Persist to backend immediately (supports null person_id for unnamed faces)
-        const faceTags: FaceTag[] = updatedFaces.map(f => ({
-          person_id: f.personId,
-          bbox: f.boundingBox,
-        }));
+      // Use functional update to avoid stale closure
+      let facesToSave: FaceDetection[] = [];
+      setFaces(prevFaces => {
+        const updatedFaces = [...prevFaces, newBox];
+        facesToSave = updatedFaces;
+        console.log('[handleConfirmNewBox] Saving faces:', {
+          previousCount: prevFaces.length,
+          newCount: updatedFaces.length,
+          newBox,
+          allFaces: updatedFaces
+        });
+        return updatedFaces;
+      });
 
-        await azureApi.updatePhotoFaces(photo.id, faceTags);
+      // Persist to backend
+      const faceTags: FaceTag[] = facesToSave.map(f => ({
+        person_id: f.personId,
+        bbox: f.boundingBox,
+      }));
 
-        // Refresh photo data
-        if (onUpdateFaces) {
-          await onUpdateFaces(photo.id);
-        }
+      console.log('[handleConfirmNewBox] Sending to backend:', { photoId: photo.id, faceCount: faceTags.length });
+      await azureApi.updatePhotoFaces(photo.id, faceTags);
 
-        // Now open dialog to assign person
-        setEditingFace(newBox);
-        setNewBox(null);
-
-        toast.success("Face bounding box saved");
-      } catch (error) {
-        console.error('Failed to save face:', error);
-        toast.error('Failed to save bounding box');
-        // Revert local state on error
-        setFaces(faces);
-      } finally {
-        setIsSaving(false);
+      // Refresh photo data
+      if (onUpdateFaces) {
+        await onUpdateFaces(photo.id);
       }
+
+      // Now open dialog to assign person
+      setEditingFace(newBox);
+      setNewBox(null);
+
+      toast.success("Face bounding box saved");
+    } catch (error) {
+      console.error('Failed to save face:', error);
+      toast.error('Failed to save bounding box');
+      // Revert: remove the newBox we just added
+      setFaces(prevFaces => prevFaces.filter(f => f !== newBox));
+    } finally {
+      setIsSaving(false);
     }
   };
 
