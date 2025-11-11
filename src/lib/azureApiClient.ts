@@ -114,6 +114,7 @@ export interface PersonResponse {
   name: string;
   collection_id: ServerId;  // Changed from string
   thumbnail_url: string | null;
+  photo_count: number;
 }
 
 class AzureApiClient {
@@ -365,6 +366,15 @@ class AzureApiClient {
       method: 'PATCH',
       body: JSON.stringify(request),
     });
+  }
+
+  /**
+   * List all people in a collection.
+   * Returns people sorted by photo_count desc, then name asc.
+   */
+  async getPeople(collectionId: string): Promise<PersonResponse[]> {
+    const params = new URLSearchParams({ collection_id: collectionId });
+    return this.request(`/v1/people?${params.toString()}`);
   }
 
   /**
