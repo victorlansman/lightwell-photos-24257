@@ -29,6 +29,12 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
     setEditBox(face.boundingBox);
   }, [face.boundingBox]);
 
+  // Defensive check: Don't render if image dimensions are invalid
+  if (imageWidth === 0 || imageHeight === 0) {
+    console.warn('[FaceBoundingBox] Invalid image dimensions:', { imageWidth, imageHeight, face });
+    return null;
+  }
+
   const currentBox = isEditing ? editBox : face.boundingBox;
   const left = (currentBox.x / 100) * imageWidth;
   const top = (currentBox.y / 100) * imageHeight;

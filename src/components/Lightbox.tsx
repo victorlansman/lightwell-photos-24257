@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { azureApi } from "@/lib/azureApiClient";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
-import { ServerId } from "@/types/identifiers";
+import { ServerId, FaceTag } from "@/types/identifiers";
 
 interface LightboxProps {
   photo: Photo | null;
@@ -378,13 +378,41 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     setNewBox(newFace);
   };
 
-  const handleConfirmNewBox = () => {
+  const handleConfirmNewBox = async () => {
     if (newBox && photo) {
-      // Add the new box to local faces array but DON'T persist yet
-      // Wait until person is assigned before saving to database
-      setFaces(prevFaces => [...prevFaces, newBox]);
-      setEditingFace(newBox);
-      setNewBox(null);
+      try {
+        setIsSaving(true);
+
+        // Add to local state immediately for responsive UI
+        const updatedFaces = [...faces, newBox];
+        setFaces(updatedFaces);
+
+        // Persist to backend immediately (supports null person_id for unnamed faces)
+        const faceTags: FaceTag[] = updatedFaces.map(f => ({
+          person_id: f.personId,
+          bbox: f.boundingBox,
+        }));
+
+        await azureApi.updatePhotoFaces(photo.id, faceTags);
+
+        // Refresh photo data
+        if (onUpdateFaces) {
+          await onUpdateFaces(photo.id);
+        }
+
+        // Now open dialog to assign person
+        setEditingFace(newBox);
+        setNewBox(null);
+
+        toast.success("Face bounding box saved");
+      } catch (error) {
+        console.error('Failed to save face:', error);
+        toast.error('Failed to save bounding box');
+        // Revert local state on error
+        setFaces(faces);
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -770,6 +798,12 @@ function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onDiscard, o
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0, boxX: 0, boxY: 0 });
   const resizeHandleRef = useRef<string | null>(null);
+
+  // Defensive check: Don't render if image dimensions are invalid
+  if (imageWidth === 0 || imageHeight === 0) {
+    console.warn('[NewBoundingBox] Invalid image dimensions:', { imageWidth, imageHeight });
+    return null;
+  }
 
   const left = (editBox.x / 100) * imageWidth;
   const top = (editBox.y / 100) * imageHeight;
