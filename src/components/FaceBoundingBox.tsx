@@ -137,12 +137,16 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
     }
     e.preventDefault();
     e.stopPropagation();
-    console.log('Navigating to:', `/people/${personIdForNav}`);
-    
-    // Use setTimeout to ensure navigation happens outside the event loop
-    setTimeout(() => {
-      navigate(`/people/${personIdForNav}`);
-    }, 0);
+
+    // TODO: Re-enable after migrating PersonAlbum page to Azure API
+    // PersonAlbum page still uses Supabase, so navigation doesn't work yet
+    console.warn('PersonAlbum navigation disabled - page not migrated to Azure API yet');
+    return;
+
+    // console.log('Navigating to:', `/people/${personIdForNav}`);
+    // setTimeout(() => {
+    //   navigate(`/people/${personIdForNav}`);
+    // }, 0);
   };
   
   return (
