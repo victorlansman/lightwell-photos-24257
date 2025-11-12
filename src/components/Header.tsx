@@ -1,4 +1,4 @@
-import { Search, Upload, Moon, Sun, User, MoreVertical, LogOut } from "lucide-react";
+import { Search, Upload, Moon, Sun, User, MoreVertical, LogOut, Settings, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTheme } from "next-themes";
@@ -41,10 +41,6 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="hidden md:flex">
-          <Upload className="h-5 w-5" />
-        </Button>
-        
         <Button 
           variant="ghost" 
           size="icon"
@@ -71,6 +67,15 @@ export function Header() {
                 <DropdownMenuSeparator />
               </>
             )}
+            <DropdownMenuItem onClick={() => navigate("/settings")}>
+              <Settings className="h-4 w-4 mr-2" />
+              My Collections
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/settings?tab=account")}>
+              <UserCog className="h-4 w-4 mr-2" />
+              Account Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Log out
@@ -86,10 +91,6 @@ export function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
               {theme === "dark" ? (
                 <>
@@ -112,6 +113,15 @@ export function Header() {
                 <DropdownMenuSeparator />
               </>
             )}
+            <DropdownMenuItem onClick={() => navigate("/settings")}>
+              <Settings className="h-4 w-4 mr-2" />
+              My Collections
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/settings?tab=account")}>
+              <UserCog className="h-4 w-4 mr-2" />
+              Account Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Log out
