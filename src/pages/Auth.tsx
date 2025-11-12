@@ -19,7 +19,7 @@ export default function Auth() {
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate("/collections");
+        navigate("/");
       }
       setCheckingAuth(false);
     });
@@ -27,7 +27,7 @@ export default function Auth() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
-        navigate("/collections");
+        navigate("/");
       }
     });
 
@@ -44,7 +44,7 @@ export default function Auth() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/collections`,
+            emailRedirectTo: `${window.location.origin}/`,
           },
         });
         if (error) throw error;
