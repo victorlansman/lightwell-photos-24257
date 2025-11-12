@@ -14,9 +14,10 @@ interface FaceBoundingBoxProps {
   onRemove: (face: FaceDetection) => void;
   onUpdateBoundingBox: (face: FaceDetection, newBox: { x: number; y: number; width: number; height: number }) => void;
   allPeople?: PersonCluster[];
+  onCloseLightbox?: () => void;
 }
 
-export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemove, onUpdateBoundingBox, allPeople = [] }: FaceBoundingBoxProps) {
+export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemove, onUpdateBoundingBox, allPeople = [], onCloseLightbox }: FaceBoundingBoxProps) {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [editBox, setEditBox] = useState(face.boundingBox);
@@ -61,24 +62,34 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
       const deltaY = ((moveEvent.clientY - dragStartRef.current.y) / imageHeight) * 100;
 
       if (resizeHandleRef.current) {
-        // Resizing
-        const newBox = { ...currentBox };
-        
+        // Resizing - calculate new position and size separately to avoid locking
+        let newBox = { ...currentBox };
+
         if (resizeHandleRef.current.includes('top')) {
-          newBox.y = Math.max(0, Math.min(100 - newBox.height, dragStartRef.current.boxY + deltaY));
+          // Resize from top: move Y down, reduce height
+          // Allow Y to move to: [0, currentBox.y + currentBox.height - 5] (min 5px height)
+          const maxY = currentBox.y + currentBox.height - 5;
+          newBox.y = Math.max(0, Math.min(maxY, dragStartRef.current.boxY + deltaY));
           newBox.height = currentBox.height - (newBox.y - currentBox.y);
         }
         if (resizeHandleRef.current.includes('bottom')) {
-          newBox.height = Math.max(5, Math.min(100 - newBox.y, currentBox.height + deltaY));
+          // Resize from bottom: increase/decrease height
+          // Allow height to be: [5, 100 - currentBox.y] (min 5px, fits in space below)
+          newBox.height = Math.max(5, Math.min(100 - currentBox.y, currentBox.height + deltaY));
         }
         if (resizeHandleRef.current.includes('left')) {
-          newBox.x = Math.max(0, Math.min(100 - newBox.width, dragStartRef.current.boxX + deltaX));
+          // Resize from left: move X right, reduce width
+          // Allow X to move to: [0, currentBox.x + currentBox.width - 5] (min 5px width)
+          const maxX = currentBox.x + currentBox.width - 5;
+          newBox.x = Math.max(0, Math.min(maxX, dragStartRef.current.boxX + deltaX));
           newBox.width = currentBox.width - (newBox.x - currentBox.x);
         }
         if (resizeHandleRef.current.includes('right')) {
-          newBox.width = Math.max(5, Math.min(100 - newBox.x, currentBox.width + deltaX));
+          // Resize from right: increase/decrease width
+          // Allow width to be: [5, 100 - currentBox.x] (min 5px, fits in space to right)
+          newBox.width = Math.max(5, Math.min(100 - currentBox.x, currentBox.width + deltaX));
         }
-        
+
         setEditBox(newBox);
       } else {
         // Moving
@@ -145,6 +156,8 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
     e.stopPropagation();
 
     console.log('Navigating to:', `/people/${personIdForNav}`);
+    // Close lightbox first, then navigate
+    onCloseLightbox?.();
     setTimeout(() => {
       navigate(`/people/${personIdForNav}`);
     }, 0);

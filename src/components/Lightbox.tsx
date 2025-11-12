@@ -81,46 +81,54 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   useEffect(() => {
     const updateDimensions = () => {
       if (imgRef.current) {
-        setImageDimensions({
-          width: imgRef.current.width,
-          height: imgRef.current.height,
-        });
+        // Use getBoundingClientRect to get RENDERED dimensions (after CSS layout)
+        // NOT img.width/height which return natural/intrinsic dimensions
+        const rect = imgRef.current.getBoundingClientRect();
+        const newWidth = rect.width;
+        const newHeight = rect.height;
+
+        // Only update if dimensions are valid and changed
+        if (newWidth > 0 && newHeight > 0) {
+          setImageDimensions(prev => {
+            // Avoid unnecessary updates if dimensions haven't changed
+            if (prev.width !== newWidth || prev.height !== newHeight) {
+              console.log('[Lightbox] Image dimensions updated:', { width: newWidth, height: newHeight });
+              return { width: newWidth, height: newHeight };
+            }
+            return prev;
+          });
+        }
       }
     };
 
     const img = imgRef.current;
-    if (img) {
-      // Update on load
-      img.addEventListener('load', updateDimensions);
-      // Update immediately if already loaded
-      if (img.complete) {
-        updateDimensions();
-      }
+    if (!img) return;
+
+    // Use ResizeObserver to track dimension changes continuously
+    const resizeObserver = new ResizeObserver(() => {
+      updateDimensions();
+    });
+    resizeObserver.observe(img);
+
+    // Update on load
+    img.addEventListener('load', updateDimensions);
+
+    // Update immediately if already loaded
+    if (img.complete) {
+      updateDimensions();
     }
 
-    // Update on window resize
-    window.addEventListener('resize', updateDimensions);
-    
-    // Update when info panel toggles and when photo changes
-    const timeoutId = setTimeout(updateDimensions, 300);
-    
-    // Also try to update after a short delay to catch cached images
+    // Also update after a brief delay to catch any layout shifts
     const rafId = requestAnimationFrame(() => {
-      updateDimensions();
-      // Try again after a brief delay
-      setTimeout(updateDimensions, 50);
-      setTimeout(updateDimensions, 150);
+      setTimeout(updateDimensions, 10);
     });
 
     return () => {
-      if (img) {
-        img.removeEventListener('load', updateDimensions);
-      }
-      window.removeEventListener('resize', updateDimensions);
-      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+      img.removeEventListener('load', updateDimensions);
       cancelAnimationFrame(rafId);
     };
-  }, [showInfo, photo]);
+  }, [showInfo, photo, showFaces]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -221,16 +229,35 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleUpdateBoundingBox = async (face: FaceDetection, newBox: { x: number; y: number; width: number; height: number }) => {
-    setFaces(prevFaces => {
-      const updatedFaces = prevFaces.map(f => 
+    if (!photo) return;
+
+    try {
+      // Update local state
+      const updatedFaces = faces.map(f =>
         f === face ? { ...f, boundingBox: newBox } : f
       );
-      if (photo && onUpdateFaces) {
-        onUpdateFaces(photo.id, updatedFaces);
+      setFaces(updatedFaces);
+
+      // Persist to backend
+      const faceTags: FaceTag[] = updatedFaces.map(f => ({
+        person_id: f.personId,
+        bbox: f.boundingBox,
+      }));
+
+      await azureApi.updatePhotoFaces(photo.id, faceTags);
+
+      // Refresh from server to confirm
+      if (onUpdateFaces) {
+        await onUpdateFaces(photo.id, updatedFaces);
       }
-      return updatedFaces;
-    });
-    toast.success("Bounding box updated");
+
+      toast.success("Bounding box updated");
+    } catch (error) {
+      console.error('Failed to update bounding box:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update bounding box');
+      // Revert on error
+      setFaces(faces);
+    }
   };
 
   const handleRemoveFace = async (face: FaceDetection) => {
@@ -286,23 +313,21 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     try {
       setIsSaving(true);
 
-      // Use API helper with existing person ID
-      const result = await azureApi.tagFaceWithPerson({
-        photoId: photo.id,
-        personName: personName || 'Unknown',
-        bbox: editingFace.boundingBox,  // Already in UI coords
-        collectionId: collectionId,
-        existingPersonId: personId,  // Use existing person
-      });
-
-      // Update local state
-      setFaces(prevFaces =>
-        prevFaces.map(f =>
-          f === editingFace
-            ? { ...f, personId: result.personId, personName }
-            : f
-        )
+      // Update local state first
+      const updatedFaces = faces.map(f =>
+        f === editingFace
+          ? { ...f, personId, personName }
+          : f
       );
+      setFaces(updatedFaces);
+
+      // Send ALL faces to backend (preserve existing faces)
+      const faceTags: FaceTag[] = updatedFaces.map(f => ({
+        person_id: f.personId,
+        bbox: f.boundingBox,
+      }));
+
+      await azureApi.updatePhotoFaces(photo.id, faceTags);
 
       // Refresh photo
       if (onUpdateFaces) {
@@ -333,25 +358,30 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     try {
       setIsSaving(true);
 
-      // Use API helper - handles sequencing automatically
-      const result = await azureApi.tagFaceWithPerson({
-        photoId: photo.id,
-        personName: newPersonName.trim(),
-        bbox: personToName.boundingBox,  // Already in UI coords (0-100)
-        collectionId: collectionId,
-      });
-
-      // Update local state with server ID
-      setFaces(prevFaces =>
-        prevFaces.map(f =>
-          f === personToName
-            ? { ...f, personId: result.personId, personName: newPersonName.trim() }
-            : f
-        )
+      // Step 1: Create person and get server ID
+      const personId = await azureApi.createPersonAndReturnId(
+        newPersonName.trim(),
+        collectionId
       );
 
+      // Step 2: Update local state with server ID
+      const updatedFaces = faces.map(f =>
+        f === personToName
+          ? { ...f, personId, personName: newPersonName.trim() }
+          : f
+      );
+      setFaces(updatedFaces);
+
+      // Step 3: Send ALL faces to backend (preserve existing faces)
+      const faceTags: FaceTag[] = updatedFaces.map(f => ({
+        person_id: f.personId,
+        bbox: f.boundingBox,
+      }));
+
+      await azureApi.updatePhotoFaces(photo.id, faceTags);
+
       // Notify parent of new person (for people list refresh)
-      onPersonCreated?.(result.personId, newPersonName.trim());
+      onPersonCreated?.(personId, newPersonName.trim());
 
       // Refresh photo to get updated faces from server
       if (onUpdateFaces) {
@@ -585,6 +615,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                         onRemove={handleRemoveFace}
                         onUpdateBoundingBox={handleUpdateBoundingBox}
                         allPeople={allPeople}
+                        onCloseLightbox={onClose}
                       />
                     ))}
                     {newBox && (

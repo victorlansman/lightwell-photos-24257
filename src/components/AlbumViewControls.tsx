@@ -56,9 +56,9 @@ export function AlbumViewControls({
             disabled={currentIndex === 0}
             className="h-9 w-9"
           >
-            <ZoomOut className="h-4 w-4" />
+            <ZoomIn className="h-4 w-4" />
           </Button>
-          
+
           <Slider
             value={[currentIndex]}
             onValueChange={handleSliderChange}
@@ -75,7 +75,7 @@ export function AlbumViewControls({
             disabled={currentIndex === ZOOM_LEVELS.length - 1}
             className="h-9 w-9"
           >
-            <ZoomIn className="h-4 w-4" />
+            <ZoomOut className="h-4 w-4" />
           </Button>
         </div>
 

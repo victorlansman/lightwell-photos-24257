@@ -19,7 +19,7 @@ export function usePeople(collectionId: string | undefined) {
         id: person.id,
         name: person.name,
         thumbnailPath: person.thumbnail_url || '',
-        thumbnailBbox: null, // Backend doesn't provide bbox yet
+        thumbnailBbox: person.thumbnail_bbox || null,
         photoCount: person.photo_count,
         photos: [], // Backend doesn't provide photo list yet
       }));

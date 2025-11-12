@@ -1,4 +1,4 @@
-import { Clock, Heart, FolderOpen, Video, Users, Archive, UsersRound } from "lucide-react";
+import { Clock, UsersRound } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,
@@ -14,9 +14,7 @@ import {
 
 const navItems = [
   { title: "Timeline", url: "/", icon: Clock },
-  { title: "Albums", url: "/albums", icon: FolderOpen },
   { title: "People", url: "/people", icon: UsersRound },
-  { title: "Shared photos", url: "/shared", icon: Users },
 ];
 
 export function AppSidebar() {
@@ -26,7 +24,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Library</SidebarGroupLabel>
+          <SidebarGroupLabel>Photo Library</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (

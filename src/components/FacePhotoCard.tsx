@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Photo } from "@/types/photo";
+import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 
 interface FacePhotoCardProps {
   photo: Photo;
@@ -20,15 +21,11 @@ export function FacePhotoCard({
   onClick,
   isSelectionMode,
 }: FacePhotoCardProps) {
-  const [imageUrl, setImageUrl] = useState<string>("");
+  const { url: photoUrl } = usePhotoUrl(photo.id);
 
   // Find the face bounding box for this person
   const face = photo.faces?.find(f => f.personId === personId);
   const bbox = face?.boundingBox || { x: 50, y: 50, width: 20, height: 20 };
-
-  useEffect(() => {
-    setImageUrl(photo.path);
-  }, [photo.path]);
 
   const handleClick = () => {
     if (isSelectionMode) {
@@ -55,10 +52,10 @@ export function FacePhotoCard({
       )}
       onClick={handleClick}
     >
-      {imageUrl && (
+      {photoUrl && (
         <div className="w-full h-full overflow-hidden">
           <img
-            src={imageUrl}
+            src={photoUrl}
             alt=""
             className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
             style={{

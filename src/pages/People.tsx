@@ -92,6 +92,9 @@ export default function People() {
     );
   }
 
+  // Filter to only show people with at least one photo
+  const peopleWithPhotos = people.filter(p => p.photoCount > 0);
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -100,7 +103,7 @@ export default function People() {
           <Header />
           <main className="flex-1 p-6">
             <PeopleGallery
-              people={people}
+              people={peopleWithPhotos}
               selectedClusters={selectedClusters}
               isSelectionMode={isSelectionMode}
               onSelectCluster={handleSelectCluster}

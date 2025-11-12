@@ -106,7 +106,9 @@ export interface CreatePersonRequest {
 }
 
 export interface UpdatePersonRequest {
-  name: string;
+  name?: string;
+  thumbnail_url?: string | null;
+  thumbnail_bbox?: { x: number; y: number; width: number; height: number } | null;
 }
 
 export interface PersonResponse {
@@ -114,6 +116,7 @@ export interface PersonResponse {
   name: string;
   collection_id: ServerId;  // Changed from string
   thumbnail_url: string | null;
+  thumbnail_bbox?: { x: number; y: number; width: number; height: number } | null;
   photo_count: number;
 }
 
@@ -161,11 +164,50 @@ class AzureApiClient {
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({
-          error: 'unknown',
-          message: response.statusText
-        }));
-        throw new Error(error.message || `HTTP ${response.status}: ${response.statusText}`);
+        let errorData: any;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = {
+            error: 'unknown',
+            message: response.statusText,
+            detail: response.statusText
+          };
+        }
+        
+        // Extract error message from various possible formats
+        // Handle Pydantic validation errors (FastAPI format)
+        let errorMessage: string;
+        if (Array.isArray(errorData.detail)) {
+          // Pydantic validation errors are arrays of error objects
+          const errors = errorData.detail.map((err: any) => {
+            if (typeof err === 'string') return err;
+            const loc = Array.isArray(err.loc) ? err.loc.slice(1).join('.') : '';
+            const msg = err.msg || err.type || 'Validation error';
+            return loc ? `${loc}: ${msg}` : msg;
+          }).join('; ');
+          errorMessage = errors || 'Validation error';
+        } else if (typeof errorData.detail === 'string') {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error && typeof errorData.error === 'string') {
+          errorMessage = errorData.error;
+        } else {
+          errorMessage = JSON.stringify(errorData);
+        }
+        
+        if (!errorMessage || errorMessage === '{}') {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        
+        console.error(`API Error [${endpoint}]:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+          fullError: JSON.stringify(errorData, null, 2)
+        });
+        throw new Error(errorMessage);
       }
 
       // Handle 204 No Content
@@ -362,6 +404,7 @@ class AzureApiClient {
     personId: string,
     request: UpdatePersonRequest
   ): Promise<PersonResponse> {
+    console.log('[updatePerson] Request:', { personId, request });
     return this.request(`/v1/people/${personId}`, {
       method: 'PATCH',
       body: JSON.stringify(request),

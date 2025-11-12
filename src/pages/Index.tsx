@@ -56,12 +56,14 @@ const Index = () => {
     is_favorite: photo.is_favorite,
     tags: photo.tags,
     people: photo.people,
-    faces: photo.people.map(person => ({
-      personId: person.id,
-      personName: person.name,
-      // Coordinates already in UI format (0-100) from API client
-      boundingBox: person.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
-    })),
+    faces: photo.people
+      .filter(person => person.face_bbox !== null)
+      .map(person => ({
+        personId: person.id,
+        personName: person.name,
+        // Coordinates already in UI format (0-100) from API client
+        boundingBox: person.face_bbox!,
+      })),
     taken_at: null,
   }));
 

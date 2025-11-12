@@ -60,12 +60,14 @@ export default function CollectionDetail() {
   // Convert Azure API photos to local Photo type and apply filters
   useEffect(() => {
     const convertedPhotos: Photo[] = photos.map((azurePhoto: AzurePhoto) => {
-      const faces: FaceDetection[] = azurePhoto.people.map(person => ({
-        personId: person.id,
-        personName: person.name,
-        // Coordinates already in UI format (0-100) from API client
-        boundingBox: person.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
-      }));
+      const faces: FaceDetection[] = azurePhoto.people
+        .filter(person => person.face_bbox !== null)
+        .map(person => ({
+          personId: person.id,
+          personName: person.name,
+          // Coordinates already in UI format (0-100) from API client
+          boundingBox: person.face_bbox!,
+        }));
 
       return {
         id: azurePhoto.id,

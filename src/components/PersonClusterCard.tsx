@@ -1,6 +1,8 @@
 import { PersonCluster } from "@/types/person";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PersonThumbnail } from "./PersonThumbnail";
+import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 
 interface PersonClusterCardProps {
   cluster: PersonCluster;
@@ -19,6 +21,9 @@ export function PersonClusterCard({
   onClick,
   unnamedIndex,
 }: PersonClusterCardProps) {
+  // Fetch authenticated photo URL if thumbnailPath is a photo ID
+  const { url: photoUrl } = usePhotoUrl(cluster.thumbnailPath || '');
+
   return (
     <div
       className="flex flex-col items-center gap-2 cursor-pointer group"
@@ -31,16 +36,17 @@ export function PersonClusterCard({
       }}
     >
       <div className="relative">
-        <img
-          src={cluster.thumbnailPath}
-          alt={cluster.name || "Unlabeled person"}
+        <PersonThumbnail
+          photoUrl={photoUrl || ''}
+          bbox={cluster.thumbnailBbox}
+          size="md"
           className={cn(
-            "w-32 h-32 rounded-3xl object-cover transition-all duration-200",
+            "transition-all duration-200",
             isSelected && "ring-4 ring-primary",
             "group-hover:shadow-elevation-hover group-hover:scale-[1.02]"
           )}
         />
-        
+
         {/* Selection indicator */}
         {isSelectionMode && (
           <div

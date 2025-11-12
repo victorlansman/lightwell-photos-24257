@@ -33,22 +33,19 @@ export function PhotoGrid({
     return acc;
   }, {} as Record<string, Photo[]>);
 
-  // Generate responsive grid classes based on zoom level
-  const getGridCols = () => {
-    if (zoomLevel <= 1) return "grid-cols-1";
-    if (zoomLevel <= 2) return "grid-cols-2";
-    if (zoomLevel <= 4) return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4";
-    if (zoomLevel <= 8) return "grid-cols-4 sm:grid-cols-6 md:grid-cols-8";
-    if (zoomLevel <= 16) return "grid-cols-6 sm:grid-cols-10 md:grid-cols-16";
-    if (zoomLevel <= 32) return "grid-cols-8 sm:grid-cols-16 md:grid-cols-32";
-    return "grid-cols-10 sm:grid-cols-20 md:grid-cols-64";
+  // Use inline CSS for grid to ensure consistency and dynamic zoom levels
+  const gridStyle = {
+    display: "grid",
+    gridTemplateColumns: `repeat(${zoomLevel}, minmax(0, 1fr))`,
+    gap: "0.5rem",
+    gridAutoFlow: "row" as const,
   };
 
   if (!showDates) {
     // Render all photos in one grid without date grouping
     return (
       <div className="animate-fade-in">
-        <div className={`grid ${getGridCols()} gap-2`}>
+        <div style={gridStyle}>
           {photos.map((photo) => (
             <PhotoCard
               key={photo.id}
@@ -72,7 +69,7 @@ export function PhotoGrid({
           <h2 className="text-lg font-semibold text-foreground sticky top-0 bg-background/80 backdrop-blur-sm py-2 z-10">
             {date}
           </h2>
-          <div className={`grid ${getGridCols()} gap-2`}>
+          <div style={gridStyle}>
             {datePhotos.map((photo) => (
             <PhotoCard
               key={photo.id}

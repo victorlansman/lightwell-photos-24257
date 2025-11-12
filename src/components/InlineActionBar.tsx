@@ -1,4 +1,4 @@
-import { X, UserX, Share2, Trash2 } from "lucide-react";
+import { X, UserX, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -9,19 +9,17 @@ interface InlineActionBarProps {
   onToggleSelectAll: () => void;
   onRemove?: () => void;
   onShare?: () => void;
-  onDelete?: () => void;
   personName?: string;
   className?: string;
 }
 
-export function InlineActionBar({ 
+export function InlineActionBar({
   selectedCount,
   totalCount,
-  onClearSelection, 
+  onClearSelection,
   onToggleSelectAll,
   onRemove,
   onShare,
-  onDelete,
   personName,
   className
 }: InlineActionBarProps) {
@@ -68,16 +66,6 @@ export function InlineActionBar({
           </Button>
         </>
       )}
-
-      <Button 
-        variant="ghost" 
-        size="sm"
-        onClick={onDelete}
-        className="h-9 gap-2 text-destructive hover:text-destructive"
-      >
-        Delete
-        <X className="h-4 w-4" />
-      </Button>
     </div>
   );
 }

@@ -8,6 +8,8 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { PhotoCard } from "@/components/PhotoCard";
 import { FacePhotoCard } from "@/components/FacePhotoCard";
+import { PersonThumbnail } from "@/components/PersonThumbnail";
+import { ThumbnailSelectionCard } from "@/components/ThumbnailSelectionCard";
 import { Lightbox } from "@/components/Lightbox";
 import { NamingDialog } from "@/components/NamingDialog";
 import { AlbumViewControls } from "@/components/AlbumViewControls";
@@ -21,6 +23,9 @@ import { cn } from "@/lib/utils";
 import { useCollections } from "@/hooks/useCollections";
 import { usePeople } from "@/hooks/usePeople";
 import { useCollectionPhotos, useToggleFavorite } from "@/hooks/usePhotos";
+import { useUpdatePerson } from "@/hooks/useFaces";
+import { azureApi } from "@/lib/azureApiClient";
+import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 
 export default function PersonAlbum() {
   const { id } = useParams<{ id: string }>();
@@ -31,7 +36,7 @@ export default function PersonAlbum() {
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
   const [isNamingDialogOpen, setIsNamingDialogOpen] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(4);
+  const [zoomLevel, setZoomLevel] = useState(16);
   const [showDates, setShowDates] = useState(false);
   const [cropSquare, setCropSquare] = useState(true);
   const [showFaces, setShowFaces] = useState(false);
@@ -42,7 +47,7 @@ export default function PersonAlbum() {
   const firstCollectionId = collections?.[0]?.id;
 
   // Fetch all people for EditPersonDialog
-  const { data: allPeople = [], isLoading: peopleLoading } = usePeople(firstCollectionId);
+  const { data: allPeople = [], isLoading: peopleLoading, refetch: refetchPeople } = usePeople(firstCollectionId);
 
   // Fetch photos filtered by person_id
   const { data: azurePhotos = [], isLoading: photosLoading, refetch: refetchPhotos } = useCollectionPhotos(
@@ -50,6 +55,7 @@ export default function PersonAlbum() {
     { person_id: id }
   );
   const toggleFavoriteMutation = useToggleFavorite();
+  const updatePersonMutation = useUpdatePerson();
 
   const loading = collectionsLoading || peopleLoading || photosLoading;
 
@@ -57,6 +63,17 @@ export default function PersonAlbum() {
   const person = useMemo(() => {
     return allPeople.find(p => p.id === id) || null;
   }, [allPeople, id]);
+
+  // Get thumbnail photo URL if thumbnailPath is a photo ID
+  // thumbnailPath might be a photo ID (UUID) or a URL
+  const thumbnailPhotoId = person?.thumbnailPath && 
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(person.thumbnailPath)
+    ? person.thumbnailPath 
+    : null;
+  const { url: thumbnailUrl, loading: thumbnailLoading } = usePhotoUrl(thumbnailPhotoId || '', { thumbnail: true });
+  
+  // Use thumbnail URL if it's a photo ID, otherwise use thumbnailPath directly (if it's already a URL)
+  const displayThumbnailUrl = thumbnailPhotoId ? thumbnailUrl : (person?.thumbnailPath || '');
 
   // Transform Azure photos to Photo type
   const photos: Photo[] = useMemo(() => {
@@ -78,11 +95,13 @@ export default function PersonAlbum() {
       is_favorite: photo.is_favorite,
       tags: photo.tags,
       people: photo.people,
-      faces: photo.people.map(person => ({
-        personId: person.id,
-        personName: person.name,
-        boundingBox: person.face_bbox || { x: 0, y: 0, width: 10, height: 10 },
-      })),
+      faces: photo.people
+        .filter(person => person.face_bbox !== null)
+        .map(person => ({
+          personId: person.id,
+          personName: person.name,
+          boundingBox: person.face_bbox!,
+        })),
       taken_at: null,
     }));
   }, [azurePhotos]);
@@ -139,55 +158,89 @@ export default function PersonAlbum() {
   };
 
   const handlePhotoClick = async (photo: Photo) => {
-    if (isChoosingThumbnail) {
-      // Get the face bounding box for this person in this photo
-      const face = photo.faces?.find(f => f.personId === person!.id);
-      const bbox = face?.boundingBox || { x: 50, y: 50, width: 20, height: 20 };
-      
-      // Update person's thumbnail with the photo path and bounding box
-      try {
-        await supabase
-          .from("people")
-          .update({ 
-            thumbnail_url: photo.path,
-            thumbnail_bbox: bbox
-          })
-          .eq("id", person!.id);
-
-        setPerson(prev => prev ? { 
-          ...prev, 
-          thumbnailPath: photo.path,
-          thumbnailBbox: bbox
-        } : null);
-        setIsChoosingThumbnail(false);
-        setShowFaces(false);
-        
-        toast({
-          title: "Success",
-          description: "Thumbnail updated",
-        });
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    } else if (!isSelectionMode) {
+    if (!isSelectionMode) {
       setLightboxPhoto(photo);
+    }
+  };
+
+  const handleSelectFaceForThumbnail = async (
+    face: FaceDetection,
+    photoId: string
+  ) => {
+    if (!person) return;
+
+    try {
+      // Convert UI coordinates (0-100) to API coordinates (0-1)
+      const apiBbox = {
+        x: face.boundingBox.x / 100,
+        y: face.boundingBox.y / 100,
+        width: face.boundingBox.width / 100,
+        height: face.boundingBox.height / 100,
+      };
+
+      const updateRequest: {
+        name?: string;
+        thumbnail_url?: string;
+        thumbnail_bbox?: { x: number; y: number; width: number; height: number };
+      } = {
+        name: person.name || undefined,
+        thumbnail_url: photoId,
+        thumbnail_bbox: apiBbox,
+      };
+
+      console.log("[handleSelectFaceForThumbnail] Updating thumbnail:", {
+        personId: person.id,
+        personName: person.name,
+        photoId,
+        uiBbox: face.boundingBox,
+        apiBbox,
+      });
+
+      await updatePersonMutation.mutateAsync({
+        personId: person.id,
+        request: updateRequest,
+      });
+
+      // Refetch people to get updated thumbnail
+      await refetchPeople();
+
+      setIsChoosingThumbnail(false);
+      setShowFaces(false);
+
+      toast({
+        title: "Success",
+        description: "Thumbnail updated",
+      });
+    } catch (error: any) {
+      console.error("[handleSelectFaceForThumbnail] Failed to update thumbnail:", error);
+
+      const errorMessage = error.message || "Failed to update thumbnail";
+      const isValidationError =
+        errorMessage.includes("422") ||
+        errorMessage.includes("Unprocessable") ||
+        errorMessage.includes("Validation") ||
+        errorMessage.includes("missing");
+
+      toast({
+        title: "Failed to update thumbnail",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
   const handleNameSave = async (name: string) => {
     if (!person) return;
-    
+
     try {
       await supabase
         .from("people")
         .update({ name })
         .eq("id", person.id);
 
-      setPerson({ ...person, name });
+      // Refresh people list to get updated name
+      await refetchPeople();
+
       toast({
         title: "Success",
         description: `Person named: ${name}`,
@@ -224,47 +277,20 @@ export default function PersonAlbum() {
   };
 
   const handleToggleFavorite = (photoId: string) => {
-    setPhotos((prevPhotos) =>
-      prevPhotos.map((p) =>
-        p.id === photoId ? { ...p, is_favorite: !p.is_favorite } : p
-      )
-    );
+    // Photos are derived from azurePhotos via useMemo, so React Query handles updates
+    // No need to manually update local state
     // Also update the lightbox photo if it's the one being toggled
     if (lightboxPhoto && lightboxPhoto.id === photoId) {
       setLightboxPhoto({ ...lightboxPhoto, is_favorite: !lightboxPhoto.is_favorite });
     }
   };
 
-  const handleUpdateFaces = async (photoId: string, faces: FaceDetection[]) => {
+  const handleUpdateFaces = async (photoId: string, faces?: FaceDetection[]) => {
     try {
-      // Update local state immediately for responsive UI
-      setPhotos((prevPhotos) =>
-        prevPhotos.map((p) =>
-          p.id === photoId ? { ...p, faces } : p
-        )
-      );
-      
-      if (lightboxPhoto && lightboxPhoto.id === photoId) {
-        setLightboxPhoto(prev => prev ? { ...prev, faces } : null);
-      }
-
-      // Delete all existing face tags for this photo
-      await supabase
-        .from("photo_people")
-        .delete()
-        .eq("photo_id", photoId);
-
-      // Insert new face tags (including unknown faces with null person_id)
-      const insertData = faces.map(face => ({
-        photo_id: photoId,
-        person_id: face.personId,
-        face_bbox: face.boundingBox,
-      }));
-
-      if (insertData.length > 0) {
-        await supabase
-          .from("photo_people")
-          .insert(insertData);
+      // Photos are derived from azurePhotos via useMemo, so React Query handles updates
+      // Update lightbox photo immediately for responsive UI
+      if (lightboxPhoto && lightboxPhoto.id === photoId && faces) {
+        setLightboxPhoto({ ...lightboxPhoto, faces });
       }
 
       // Refresh data in background to update counts (don't await to avoid race conditions)
@@ -318,40 +344,19 @@ export default function PersonAlbum() {
           .eq("id", personId);
       }
       
-      // Update local state immediately
-      setAllPeople(prevPeople => 
-        prevPeople.map(p => 
-          p.id === personId ? { ...p, name: personName } : p
-        )
-      );
-      
-      // Update the current person if it's the one being renamed
-      if (person?.id === personId) {
-        setPerson(prev => prev ? { ...prev, name: personName } : null);
-      }
-      
-      // Update faces in photos to reflect the new name
-      setPhotos(prevPhotos => 
-        prevPhotos.map(photo => ({
-          ...photo,
-          faces: photo.faces.map(face => 
-            face.personId === personId ? { ...face, personName } : face
-          )
-        }))
-      );
-      
-      // Update lightbox photo if open
+      // Update lightbox photo if open with new person name for faces
       if (lightboxPhoto) {
         setLightboxPhoto(prev => prev ? {
           ...prev,
-          faces: prev.faces.map(face => 
+          faces: prev.faces.map(face =>
             face.personId === personId ? { ...face, personName } : face
           )
         } : null);
       }
-      
-      // Refresh all data in background
-      refetchPhotos();
+
+      // Refresh all data - people list and photos
+      await refetchPeople();
+      await refetchPhotos();
     } catch (error: any) {
       toast({
         title: "Error updating person",
@@ -441,29 +446,17 @@ export default function PersonAlbum() {
                   
                   {/* Person thumbnail */}
                   <div className="relative">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden bg-muted">
-                      {(() => {
-                        // Use stored bounding box if available
-                        const bbox = person.thumbnailBbox || { x: 50, y: 50, width: 20, height: 20 };
-                        
-                        const centerX = bbox.x + bbox.width / 2;
-                        const centerY = bbox.y + bbox.height / 2;
-                        const zoomFactor = Math.max(100 / bbox.width, 100 / bbox.height) * 0.8;
-                        
-                        return (
-                          <img
-                            src={person.thumbnailPath}
-                            alt={person.name || "Person"}
-                            className="w-full h-full object-cover"
-                            style={{
-                              objectPosition: `${centerX}% ${centerY}%`,
-                              transform: `scale(${zoomFactor})`,
-                              transformOrigin: `${centerX}% ${centerY}%`,
-                            }}
-                          />
-                        );
-                      })()}
-                    </div>
+                    {displayThumbnailUrl ? (
+                      <PersonThumbnail
+                        photoUrl={displayThumbnailUrl}
+                        bbox={person.thumbnailBbox}
+                        size="sm"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-3xl bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                        No thumbnail
+                      </div>
+                    )}
                     <button
                       onClick={() => {
                         setIsChoosingThumbnail(true);
@@ -584,19 +577,26 @@ export default function PersonAlbum() {
               </div>
 
               {/* Photo Grid */}
-              <div 
-                className="grid gap-2 md:gap-4"
+              <div
                 style={{
+                  display: "grid",
                   gridTemplateColumns: `repeat(${zoomLevel}, minmax(0, 1fr))`,
-                }}
-              >
+                  gap: "0.5rem",
+                  gridAutoFlow: "row",
+                }}>
                 {photos.map((photo) => (
-                  (showFaces || isChoosingThumbnail) ? (
+                  isChoosingThumbnail ? (
+                    <ThumbnailSelectionCard
+                      key={photo.id}
+                      photo={photo}
+                      personId={person.id}
+                      onSelectFace={handleSelectFaceForThumbnail}
+                    />
+                  ) : showFaces ? (
                     <div
                       key={photo.id}
                       className={cn(
-                        "relative transition-transform duration-200",
-                        isChoosingThumbnail && "border-8 border-primary rounded-full hover:scale-105 cursor-pointer"
+                        "relative transition-transform duration-200"
                       )}
                     >
                       <FacePhotoCard
@@ -605,7 +605,7 @@ export default function PersonAlbum() {
                         isSelected={selectedPhotos.has(photo.id)}
                         onSelect={handleSelectPhoto}
                         onClick={() => handlePhotoClick(photo)}
-                        isSelectionMode={isSelectionMode && !isChoosingThumbnail}
+                        isSelectionMode={isSelectionMode}
                       />
                     </div>
                   ) : (
@@ -635,8 +635,12 @@ export default function PersonAlbum() {
         onNext={handleNext}
         onToggleFavorite={handleToggleFavorite}
         onUpdateFaces={handleUpdateFaces}
-        onUpdatePeople={handleUpdatePeople}
+        onPersonCreated={async () => {
+          // Refresh people list when a new person is created
+          await refetchPeople();
+        }}
         allPeople={allPeople}
+        collectionId={firstCollectionId!}
       />
 
       <NamingDialog

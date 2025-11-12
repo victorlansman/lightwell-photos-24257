@@ -1,4 +1,4 @@
-import { X, UserX, Share2, Trash2 } from "lucide-react";
+import { X, UserX, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -8,17 +8,15 @@ interface ActionBarProps {
   onSelectAll?: () => void;
   onRemove?: () => void;
   onShare?: () => void;
-  onDelete?: () => void;
   personName?: string;
 }
 
-export function ActionBar({ 
-  selectedCount, 
-  onClearSelection, 
+export function ActionBar({
+  selectedCount,
+  onClearSelection,
   onSelectAll,
   onRemove,
   onShare,
-  onDelete,
   personName
 }: ActionBarProps) {
   return (
@@ -71,8 +69,8 @@ export function ActionBar({
 
       <div className="flex items-center gap-1">
         {onShare && (
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="sm"
             onClick={onShare}
             className="h-8 gap-2"
@@ -80,19 +78,6 @@ export function ActionBar({
             <Share2 className="h-4 w-4" />
             <span className="hidden sm:inline">
               Share {selectedCount}
-            </span>
-          </Button>
-        )}
-        {onDelete && (
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={onDelete}
-            className="h-8 gap-2 text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="hidden sm:inline">
-              Delete {selectedCount}
             </span>
           </Button>
         )}
