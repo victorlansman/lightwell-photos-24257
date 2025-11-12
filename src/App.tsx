@@ -13,6 +13,7 @@ import People from "./pages/People";
 import PersonAlbum from "./pages/PersonAlbum";
 import UnknownPeople from "./pages/UnknownPeople";
 import MigratePhotos from "./pages/MigratePhotos";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ function App() {
               <Route path="/people/:id" element={<PersonAlbum />} />
               <Route path="/unknown" element={<UnknownPeople />} />
               <Route path="/migrate-photos" element={<MigratePhotos />} />
+              <Route path="/settings" element={<Settings />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
