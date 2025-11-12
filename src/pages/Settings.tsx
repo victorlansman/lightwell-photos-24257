@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCollections } from "@/hooks/useCollections";
@@ -10,18 +10,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft } from "lucide-react";
 
 export default function Settings() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [newEmail, setNewEmail] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
 
-  // Get current user's collection (first collection)
+  // Get tab from URL params (default to members)
+  const activeTab = searchParams.get("tab") || "members";
+
+  // Get all user collections
   const { data: collections, isLoading: collectionsLoading } = useCollections();
-  const collectionId = collections?.[0]?.id;
+
+  // Set initial collection when collections load
+  useEffect(() => {
+    if (collections && collections.length > 0 && !selectedCollectionId) {
+      setSelectedCollectionId(collections[0].id);
+    }
+  }, [collections, selectedCollectionId]);
+
+  const selectedCollection = collections?.find(c => c.id === selectedCollectionId);
 
   const handleChangeEmail = async () => {
     if (!newEmail) {
@@ -81,7 +95,7 @@ export default function Settings() {
                 <h1 className="text-3xl font-bold">Settings</h1>
               </div>
 
-              <Tabs defaultValue="members" className="w-full">
+              <Tabs value={activeTab} onValueChange={(tab) => navigate(`/settings?tab=${tab}`)} className="w-full">
                 <TabsList>
                   <TabsTrigger value="members">Collection Members</TabsTrigger>
                   <TabsTrigger value="account">Account</TabsTrigger>
@@ -95,6 +109,26 @@ export default function Settings() {
                       <CardDescription>Manage who has access to your photo collection</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      {/* Collection Selector */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Select Collection</label>
+                        <Select
+                          value={selectedCollectionId}
+                          onValueChange={setSelectedCollectionId}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select a collection" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {collections?.map((collection) => (
+                              <SelectItem key={collection.id} value={collection.id}>
+                                {collection.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       {/* Members List Placeholder */}
                       <div className="rounded-lg border p-4 text-center text-muted-foreground">
                         Members list coming soon (requires backend endpoint)
