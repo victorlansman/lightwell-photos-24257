@@ -48,6 +48,41 @@ jobs:
           api_location: "api"
           output_location: "dist"
 
+      - name: Verify Deployment
+        run: |
+          echo "Waiting 45 seconds for deployment to settle..."
+          sleep 45
+
+          echo "Verifying deployed version..."
+          RESPONSE=$(curl -sf https://icy-stone-0bca71103.3.azurestaticapps.net/api/version || echo "")
+
+          if [ -z "$RESPONSE" ]; then
+            echo "ERROR: Failed to fetch version endpoint"
+            exit 1
+          fi
+
+          echo "Response: $RESPONSE"
+
+          DEPLOYED_SHA=$(echo "$RESPONSE" | jq -r '.commit // empty')
+          DEPLOYED_STATUS=$(echo "$RESPONSE" | jq -r '.status // empty')
+
+          echo "Expected SHA: ${{ github.sha }}"
+          echo "Deployed SHA: $DEPLOYED_SHA"
+          echo "Health Status: $DEPLOYED_STATUS"
+
+          if [ "$DEPLOYED_SHA" != "${{ github.sha }}" ]; then
+            echo "ERROR: Deployed commit SHA does not match expected SHA"
+            echo "Expected: ${{ github.sha }}"
+            echo "Got: $DEPLOYED_SHA"
+            exit 1
+          fi
+
+          if [ "$DEPLOYED_STATUS" != "healthy" ]; then
+            echo "WARNING: Backend health check returned: $DEPLOYED_STATUS"
+          fi
+
+          echo "✓ Deployment verified successfully"
+
   close_pull_request:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
