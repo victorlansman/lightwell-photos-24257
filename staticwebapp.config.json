@@ -1,7 +1,13 @@
 {
+  "routes": [
+    {
+      "route": "/api/version",
+      "allowedRoles": ["anonymous"]
+    }
+  ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/assets/*", "/*.{css,scss,js,png,jpg,jpeg,gif,svg,ico,woff,woff2,ttf,eot}"]
+    "exclude": ["/assets/*", "/api/*"]
   },
   "responseOverrides": {
     "404": {
