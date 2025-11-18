@@ -42,7 +42,7 @@ export default function PersonAlbum() {
   const isCluster = !!cluster && !person;
 
   // Use new hooks with person filter
-  const { photos, isLoading: photosLoading } = usePhotosWithClusters(
+  const { photos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore } = usePhotosWithClusters(
     firstCollectionId,
     { personIds: [id!] }
   );
@@ -206,6 +206,9 @@ export default function PersonAlbum() {
             personId={id}
             showViewControls
             enableSelection
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+            onLoadMore={loadMore}
             renderHeader={() => (
               <div className="flex items-center gap-4">
                 <Button
