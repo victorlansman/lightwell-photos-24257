@@ -22,6 +22,9 @@ export function PersonThumbnail({
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const imgRef = useRef<HTMLImageElement>(null);
 
+  // If bbox is explicitly null (face thumbnails), don't crop
+  const isPreCropped = bbox === null;
+
   // Default bbox if none provided (UI coordinates 0-100)
   let displayBbox = bbox || { x: 50, y: 50, width: 20, height: 20 };
 
@@ -35,11 +38,12 @@ export function PersonThumbnail({
     };
   }
 
-  // Calculate center and zoom for face crop
+  // Calculate center and zoom for face crop (unless pre-cropped)
   const centerX = displayBbox.x + displayBbox.width / 2;
   const centerY = displayBbox.y + displayBbox.height / 2;
-  const zoomFactor =
-    Math.max(100 / displayBbox.width, 100 / displayBbox.height) * 0.8;
+  const zoomFactor = isPreCropped
+    ? 1
+    : Math.max(100 / displayBbox.width, 100 / displayBbox.height) * 0.8;
 
   useEffect(() => {
     const img = imgRef.current;

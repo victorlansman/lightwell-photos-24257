@@ -11,6 +11,7 @@ interface FacePhotoCardProps {
   onSelect: (id: string) => void;
   onClick: () => void;
   isSelectionMode: boolean;
+  showOnlyUnnamed?: boolean; // For cluster view - show unnamed faces
 }
 
 export function FacePhotoCard({
@@ -20,11 +21,17 @@ export function FacePhotoCard({
   onSelect,
   onClick,
   isSelectionMode,
+  showOnlyUnnamed = false,
 }: FacePhotoCardProps) {
   const { url: photoUrl } = usePhotoUrl(photo.id);
 
-  // Find the face bounding box for this person
-  const face = photo.faces?.find(f => f.personId === personId);
+  // Find the face bounding box
+  // For clusters: find first unnamed face
+  // For persons: find face for this person
+  const face = showOnlyUnnamed
+    ? photo.faces?.find(f => !f.personId || !f.personName)
+    : photo.faces?.find(f => f.personId === personId);
+
   const bbox = face?.boundingBox || { x: 50, y: 50, width: 20, height: 20 };
 
   const handleClick = () => {

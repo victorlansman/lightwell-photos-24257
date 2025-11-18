@@ -265,25 +265,36 @@ export default function PersonAlbum() {
     }
   };
 
-  const handleNameSave = async (name: string) => {
+  const handleNameSave = async (name: string, existingPersonId?: string) => {
     if (!displayPerson) return;
 
     try {
       if (isCluster && cluster && firstCollectionId) {
-        // For clusters: create a person and assign all faces to it
-        const newPerson = await azureApi.createPerson({
-          name,
-          collection_id: firstCollectionId,
-        });
+        let personId: string;
 
-        // TODO: Label the cluster - assign all faces to this person
-        // This will require a backend endpoint to label clusters
+        if (existingPersonId) {
+          // User selected an existing person - merge cluster with that person
+          personId = existingPersonId;
+        } else {
+          // Create a new person
+          const newPerson = await azureApi.createPerson({
+            name,
+            collection_id: firstCollectionId,
+          });
+          personId = newPerson.id;
+        }
+
+        // Label the cluster - assign all faces to this person
+        const result = await azureApi.labelCluster(cluster.id, personId);
+
         toast({
           title: "Success",
-          description: `Created person: ${name}. Cluster labeling will be implemented soon.`,
+          description: `Labeled cluster: ${result.faces_updated} faces assigned to ${name}`,
         });
 
-        // Navigate back to people page
+        // Refresh data and navigate
+        await refetchPeople();
+        await refetchPhotos();
         navigate("/people");
       } else if (person) {
         // For existing persons: just update the name
@@ -667,6 +678,7 @@ export default function PersonAlbum() {
                         onSelect={handleSelectPhoto}
                         onClick={() => handlePhotoClick(photo)}
                         isSelectionMode={isSelectionMode}
+                        showOnlyUnnamed={isCluster}
                       />
                     </div>
                   ) : (
@@ -708,7 +720,14 @@ export default function PersonAlbum() {
         isOpen={isNamingDialogOpen}
         onClose={() => setIsNamingDialogOpen(false)}
         currentPerson={displayPerson}
-        allPeople={[]} // Not needed in this context
+        allPeople={allPeople.map(p => ({
+          id: p.id,
+          name: p.name,
+          thumbnailPath: p.thumbnail_url || '',
+          thumbnailBbox: p.thumbnail_bbox || null,
+          photoCount: p.photo_count,
+          photos: [],
+        }))}
         onNameSave={handleNameSave}
         onMerge={handleMerge}
       />

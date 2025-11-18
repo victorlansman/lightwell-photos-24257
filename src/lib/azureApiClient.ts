@@ -491,6 +491,24 @@ class AzureApiClient {
   }
 
   /**
+   * Label a face cluster by assigning all faces to a person.
+   * This effectively "names" the cluster.
+   *
+   * @param clusterId - Cluster ID to label
+   * @param personId - Person ID to assign faces to
+   * @returns Success message with number of faces updated
+   */
+  async labelCluster(clusterId: string, personId: ServerId): Promise<{
+    message: string;
+    faces_updated: number;
+  }> {
+    return this.request(`/api/faces/clusters/${clusterId}/label`, {
+      method: 'POST',
+      body: JSON.stringify({ person_id: personId }),
+    });
+  }
+
+  /**
    * Create person and return server-generated ID.
    *
    * ARCHITECTURE: Backend is sole authority for IDs.

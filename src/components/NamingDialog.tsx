@@ -27,7 +27,7 @@ interface NamingDialogProps {
   onClose: () => void;
   currentPerson: PersonCluster;
   allPeople: PersonCluster[];
-  onNameSave: (name: string) => void;
+  onNameSave: (name: string, existingPersonId?: string) => void;
   onMerge: (targetPerson: PersonCluster) => void;
 }
 
@@ -75,7 +75,8 @@ export function NamingDialog({
 
   const handleMergeConfirm = () => {
     if (selectedMergeTarget) {
-      onMerge(selectedMergeTarget);
+      // Pass the existing person's ID to label the cluster with that person
+      onNameSave(selectedMergeTarget.name || "", selectedMergeTarget.id);
       onClose();
       setName("");
       setSelectedMergeTarget(null);
