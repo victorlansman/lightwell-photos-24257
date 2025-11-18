@@ -1,10 +1,12 @@
 import { useMemo, useState, useCallback } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { Photo, FaceDetection } from '@/types/photo';
 import { useCollectionPhotos, useToggleFavorite } from '@/hooks/usePhotos';
 import { useClusters } from '@/hooks/useFaces';
 import { usePeople } from '@/hooks/usePeople';
 import { PersonCluster } from '@/types/person';
 import { apiBboxToUi } from '@/types/coordinates';
+import { azureApi } from '@/lib/azureApiClient';
 
 export interface PhotoFilters {
   yearRange?: [number, number];
@@ -17,8 +19,12 @@ export interface UsePhotosWithClustersResult {
   photos: Photo[];
   allPhotos: Photo[]; // Unfiltered
   isLoading: boolean;
+  isLoadingMore: boolean;
   error: Error | null;
   refetch: () => void;
+  loadMore: () => void;
+  hasMore: boolean;
+  totalCount?: number;
 }
 
 export function usePhotosWithClusters(
@@ -28,13 +34,39 @@ export function usePhotosWithClusters(
   // Handle single or multiple collections
   const normalizedCollectionId = Array.isArray(collectionId) ? collectionId[0] : collectionId;
 
-  // Fetch base photos
+  // Fetch photos with infinite pagination
   const {
-    data: azurePhotos = [],
+    data: photosData,
     isLoading: photosLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
     error: photosError,
-    refetch: refetchPhotos
-  } = useCollectionPhotos(normalizedCollectionId);
+    refetch: refetchPhotos,
+  } = useInfiniteQuery({
+    queryKey: ['photos', normalizedCollectionId, filters],
+    queryFn: async ({ pageParam }) => {
+      if (!normalizedCollectionId) throw new Error('Collection ID required');
+
+      // Convert filters to API format
+      const apiFilters = filters ? {
+        year_min: filters.yearRange?.[0],
+        year_max: filters.yearRange?.[1],
+        person_id: filters.personIds?.[0],
+        tags: filters.tags?.join(','),
+        favorite: filters.favoriteOnly,
+        cursor: pageParam,
+        limit: 50,
+      } : { cursor: pageParam, limit: 50 };
+
+      return azureApi.getCollectionPhotosPaginated(normalizedCollectionId, apiFilters);
+    },
+    getNextPageParam: (lastPage) => {
+      return lastPage.hasMore ? lastPage.cursor : undefined;
+    },
+    initialPageParam: undefined as string | undefined,
+    enabled: !!normalizedCollectionId,
+  });
 
   // Fetch cluster data
   const {
@@ -42,6 +74,10 @@ export function usePhotosWithClusters(
     isLoading: clustersLoading,
     error: clustersError
   } = useClusters(normalizedCollectionId);
+
+  // Flatten paginated photos
+  const azurePhotos = photosData?.pages.flatMap(page => page.photos) ?? [];
+  const totalCount = photosData?.pages[0]?.total;
 
   const isLoading = photosLoading || clustersLoading;
   const error = photosError || clustersError || null;
@@ -96,52 +132,23 @@ export function usePhotosWithClusters(
     });
   }, [azurePhotos, clusterData]);
 
-  // Apply filters
+  // Apply client-side filters (after pagination)
   const photos = useMemo(() => {
-    if (!filters) return allPhotos;
-
-    let filtered = [...allPhotos];
-
-    // Year filter
-    if (filters.yearRange) {
-      const [minYear, maxYear] = filters.yearRange;
-      filtered = filtered.filter(photo => {
-        const year = photo.user_corrected_year || photo.estimated_year;
-        if (!year) return true;
-        return year >= minYear && year <= maxYear;
-      });
-    }
-
-    // People filter
-    if (filters.personIds && filters.personIds.length > 0) {
-      filtered = filtered.filter(photo =>
-        photo.faces?.some(face =>
-          face.personId && filters.personIds!.includes(face.personId)
-        )
-      );
-    }
-
-    // Tags filter
-    if (filters.tags && filters.tags.length > 0) {
-      filtered = filtered.filter(photo =>
-        filters.tags!.some(tag => photo.tags?.includes(tag))
-      );
-    }
-
-    // Favorites filter
-    if (filters.favoriteOnly) {
-      filtered = filtered.filter(photo => photo.is_favorite);
-    }
-
-    return filtered;
-  }, [allPhotos, filters]);
+    // Note: Server-side filters are applied in the query, so we don't need to re-filter here
+    // unless we're doing client-side filtering on top of server-side results
+    return allPhotos;
+  }, [allPhotos]);
 
   return {
     photos,
     allPhotos,
     isLoading,
+    isLoadingMore: isFetchingNextPage,
     error,
     refetch: refetchPhotos,
+    loadMore: () => fetchNextPage(),
+    hasMore: hasNextPage ?? false,
+    totalCount,
   };
 }
 
