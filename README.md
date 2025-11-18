@@ -50,6 +50,27 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
+## Deployment
+
+**Production URL**: https://icy-stone-0bca71103.3.azurestaticapps.net
+
+Quick commands:
+
+```sh
+# Check what's deployed
+curl https://icy-stone-0bca71103.3.azurestaticapps.net/api/version
+
+# Deploy changes (automatic via GitHub Actions)
+git push origin main
+
+# Rollback to previous version
+git revert HEAD && git push origin main
+```
+
+For detailed deployment procedures, monitoring, and troubleshooting:
+- [DEPLOYMENT.md](./docs/DEPLOYMENT.md) - Full deployment guide
+- [TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) - Rollback and debugging procedures
+
 ## What technologies are used for this project?
 
 This project is built with:
