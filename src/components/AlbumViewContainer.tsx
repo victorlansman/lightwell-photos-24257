@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect } from 'react';
+import { useInView } from 'react-intersection-observer';
 import { Photo } from '@/types/photo';
 import { PersonCluster } from '@/types/person';
 import { AlbumViewControls } from '@/components/AlbumViewControls';
@@ -77,6 +78,19 @@ export function AlbumViewContainer({
 
   // Lightbox management
   const lightbox = useAlbumLightbox(photos);
+
+  // Infinite scroll trigger
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: '200px', // Trigger 200px before reaching end
+  });
+
+  // Trigger load more when in view
+  useEffect(() => {
+    if (inView && hasMore && !isLoadingMore && onLoadMore) {
+      onLoadMore();
+    }
+  }, [inView, hasMore, isLoadingMore, onLoadMore]);
 
   // Selection handlers
   const handleSelectPhoto = (photoId: string) => {
@@ -244,18 +258,13 @@ export function AlbumViewContainer({
                   })}
                 </div>
 
-                {/* Load more trigger */}
+                {/* Load more trigger for infinite scroll */}
                 {hasMore && (
-                  <div className="flex justify-center py-4">
+                  <div ref={loadMoreRef} className="flex justify-center py-4">
                     {isLoadingMore ? (
                       <div className="text-muted-foreground text-sm">Loading more...</div>
                     ) : (
-                      <Button
-                        variant="outline"
-                        onClick={onLoadMore}
-                      >
-                        Load More
-                      </Button>
+                      <div className="h-4" />
                     )}
                   </div>
                 )}
