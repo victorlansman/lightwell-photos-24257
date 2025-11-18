@@ -6,6 +6,7 @@ import { PhotoGrid } from "@/components/PhotoGrid";
 import { Lightbox } from "@/components/Lightbox";
 import { AlbumViewControls } from "@/components/AlbumViewControls";
 import { FaceBoundingBox } from "@/components/FaceBoundingBox";
+import { PersonClusterCard } from "@/components/PersonClusterCard";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { useCollections } from "@/hooks/useCollections";
 import { useCollectionPhotos } from "@/hooks/usePhotos";
 import { usePeople } from "@/hooks/usePeople";
+import { useClusters } from "@/hooks/useFaces";
+import { apiBboxToUi } from "@/types/coordinates";
 
 export default function UnknownPeople() {
   const navigate = useNavigate();
@@ -32,8 +35,9 @@ export default function UnknownPeople() {
   const firstCollectionId = collections?.[0]?.id;
   const { data: azurePhotos = [], isLoading: photosLoading } = useCollectionPhotos(firstCollectionId);
   const { data: allPeople = [], isLoading: peopleLoading } = usePeople(firstCollectionId);
+  const { data: clusterData = [], isLoading: clustersLoading, error: clustersError } = useClusters(firstCollectionId);
 
-  const loading = collectionsLoading || photosLoading || peopleLoading;
+  const loading = collectionsLoading || photosLoading || peopleLoading || clustersLoading;
 
   useEffect(() => {
     checkAuth();
@@ -45,6 +49,28 @@ export default function UnknownPeople() {
       navigate("/auth");
     }
   };
+
+  // Transform cluster data to PersonCluster format
+  const clusters: PersonCluster[] = useMemo(() => {
+    if (!clusterData || clusterData.length === 0) return [];
+
+    return clusterData.map(cluster => {
+      // Get unique photo IDs from faces
+      const photoIds = Array.from(new Set(cluster.faces.map(f => f.photo_id)));
+
+      // Get representative face for thumbnail
+      const representativeFace = cluster.faces.find(f => f.id === cluster.representative_face_id) || cluster.faces[0];
+
+      return {
+        id: cluster.id,
+        name: null, // Unnamed cluster
+        thumbnailPath: representativeFace.photo_id, // Use photo ID as path
+        thumbnailBbox: representativeFace ? apiBboxToUi(representativeFace.bbox) : null,
+        photoCount: photoIds.length,
+        photos: photoIds,
+      };
+    });
+  }, [clusterData]);
 
   // Transform Azure photos to Photo type and filter for unnamed faces
   const photos: Photo[] = useMemo(() => {
@@ -147,35 +173,91 @@ export default function UnknownPeople() {
                 </Button>
                 <h1 className="text-3xl font-bold text-foreground">Unnamed People</h1>
                 <p className="text-muted-foreground mt-1">
+                  {clusters.length > 0 && `${clusters.length} face ${clusters.length === 1 ? "cluster" : "clusters"} • `}
                   {photos.length} {photos.length === 1 ? "photo" : "photos"} with untagged faces
                 </p>
               </div>
 
-              {photos.length === 0 ? (
+              {clustersError && (
+                <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-md">
+                  <p className="font-medium">Failed to load face clusters</p>
+                  <p className="text-sm mt-1">{clustersError.message}</p>
+                </div>
+              )}
+
+              {clusters.length === 0 && photos.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <p className="text-muted-foreground">No photos with unnamed faces</p>
                   <p className="text-sm text-muted-foreground mt-2">All faces have been tagged!</p>
                 </div>
-              ) : showFaces ? (
-                <div className="space-y-4">
-                  {photos.map((photo) => (
-                    <FacePhotoGalleryCard
-                      key={photo.id}
-                      photo={photo}
-                      onClick={() => handlePhotoClick(photo)}
-                      cropSquare={cropSquare}
-                    />
-                  ))}
-                </div>
               ) : (
-                <PhotoGrid
-                  photos={photos}
-                  onPhotoClick={handlePhotoClick}
-                  selectedPhotos={new Set()}
-                  onSelectPhoto={() => {}}
-                  zoomLevel={zoomLevel}
-                  cropSquare={cropSquare}
-                />
+                <>
+                  {/* Show clusters first */}
+                  {clusters.length > 0 && (
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-xl font-semibold text-foreground mb-2">Face Clusters</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Similar faces grouped together for easier labeling
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6">
+                        {clusters.map((cluster, idx) => (
+                          <PersonClusterCard
+                            key={cluster.id}
+                            cluster={cluster}
+                            isSelected={false}
+                            isSelectionMode={false}
+                            onSelect={() => {}}
+                            onClick={() => {
+                              // TODO: Navigate to cluster detail or open naming dialog
+                              toast({
+                                title: "Cluster clicked",
+                                description: `Cluster has ${cluster.photoCount} photos`,
+                              });
+                            }}
+                            unnamedIndex={idx + 1}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show individual photos */}
+                  {photos.length > 0 && (
+                    <div className="space-y-4">
+                      {clusters.length > 0 && (
+                        <div>
+                          <h2 className="text-xl font-semibold text-foreground mb-2">Other Unnamed Faces</h2>
+                          <p className="text-sm text-muted-foreground">
+                            Photos with faces that couldn't be clustered
+                          </p>
+                        </div>
+                      )}
+                      {showFaces ? (
+                        <div className="space-y-4">
+                          {photos.map((photo) => (
+                            <FacePhotoGalleryCard
+                              key={photo.id}
+                              photo={photo}
+                              onClick={() => handlePhotoClick(photo)}
+                              cropSquare={cropSquare}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <PhotoGrid
+                          photos={photos}
+                          onPhotoClick={handlePhotoClick}
+                          selectedPhotos={new Set()}
+                          onSelectPhoto={() => {}}
+                          zoomLevel={zoomLevel}
+                          cropSquare={cropSquare}
+                        />
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </main>

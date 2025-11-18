@@ -120,6 +120,28 @@ export interface PersonResponse {
   photo_count: number;
 }
 
+// ==================== Face Clusters ====================
+
+export interface ClusterFace {
+  id: ServerId;
+  photo_id: ServerId;
+  bbox: ApiBoundingBox;  // Backend returns 0-1 normalized
+}
+
+export interface FaceClusterResponse {
+  id: ServerId;
+  collection_id: ServerId;
+  face_count: number;
+  confidence: number;
+  representative_face_id: ServerId;
+  representative_thumbnail_url?: string;
+  faces: ClusterFace[];
+}
+
+export interface ClustersResponse {
+  clusters: FaceClusterResponse[];
+}
+
 class AzureApiClient {
   private baseUrl: string;
   private token: string | null = null;
@@ -418,6 +440,33 @@ class AzureApiClient {
   async getPeople(collectionId: string): Promise<PersonResponse[]> {
     const params = new URLSearchParams({ collection_id: collectionId });
     return this.request(`/v1/people?${params.toString()}`);
+  }
+
+  /**
+   * Get unnamed face clusters for a collection.
+   * Used for bulk labeling of similar faces.
+   *
+   * @param collectionId - Collection to get clusters for
+   * @returns Array of face clusters with unnamed faces
+   */
+  async getClusters(collectionId: string): Promise<FaceClusterResponse[]> {
+    const params = new URLSearchParams({ collection_id: collectionId });
+    const response = await this.request<ClustersResponse>(`/api/faces/clusters?${params.toString()}`);
+
+    // Transform response to ensure coordinate consistency
+    // Backend should return 0-1 normalized, but we verify the contract
+    return response.clusters.map(cluster => ({
+      ...cluster,
+      faces: cluster.faces.map(face => ({
+        ...face,
+        bbox: {
+          x: apiCoord(face.bbox.x),
+          y: apiCoord(face.bbox.y),
+          width: apiCoord(face.bbox.width),
+          height: apiCoord(face.bbox.height),
+        }
+      }))
+    }));
   }
 
   /**

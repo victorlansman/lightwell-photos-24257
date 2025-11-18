@@ -1,5 +1,21 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { azureApi, FaceTag, CreatePersonRequest, UpdatePersonRequest } from '@/lib/azureApiClient';
+
+/**
+ * Hook to fetch face clusters for a collection
+ */
+export function useClusters(collectionId: string | undefined) {
+  return useQuery({
+    queryKey: ['clusters', collectionId],
+    queryFn: () => {
+      if (!collectionId) {
+        throw new Error('Collection ID is required');
+      }
+      return azureApi.getClusters(collectionId);
+    },
+    enabled: !!collectionId,
+  });
+}
 
 /**
  * Hook to update face tags on a photo
@@ -13,6 +29,7 @@ export function useUpdatePhotoFaces() {
     onSuccess: () => {
       // Invalidate all photo queries to refetch with updated faces
       queryClient.invalidateQueries({ queryKey: ['collections'] });
+      queryClient.invalidateQueries({ queryKey: ['clusters'] });
     },
   });
 }
