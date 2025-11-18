@@ -1,0 +1,17 @@
+{
+  "name": "lightwell-photos-api",
+  "version": "1.0.0",
+  "description": "Azure SWA serverless functions",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
