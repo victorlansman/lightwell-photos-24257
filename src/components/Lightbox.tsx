@@ -297,9 +297,11 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
         await azureApi.updatePhotoFaces(photo.id, faceTags);
 
-        // Refresh from server
+        // Refresh from server and update lightbox
         if (onUpdateFaces) {
           await onUpdateFaces(photo.id);
+          // After refetch completes, the parent will pass new photo data
+          // But we also update local faces to reflect deletion immediately
         }
 
         toast.success("Face tag deleted");

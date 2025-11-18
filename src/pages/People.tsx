@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -6,11 +6,8 @@ import { PeopleGallery } from "@/components/PeopleGallery";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { PersonCluster } from "@/types/person";
 import { useCollections } from "@/hooks/useCollections";
-import { usePeople } from "@/hooks/usePeople";
-import { useClusters } from "@/hooks/useFaces";
-import { apiBboxToUi } from "@/types/coordinates";
+import { useAllPeople } from "@/hooks/useAlbumPhotos";
 
 export default function People() {
   const navigate = useNavigate();
@@ -22,40 +19,11 @@ export default function People() {
   // Should fetch people from all collections and aggregate
   const { data: collections, isLoading: collectionsLoading } = useCollections();
   const firstCollectionId = collections?.[0]?.id;
-  const { data: namedPeople = [], isLoading: peopleLoading } = usePeople(firstCollectionId);
-  const { data: clusterData = [], isLoading: clustersLoading } = useClusters(firstCollectionId);
 
-  const loading = collectionsLoading || peopleLoading || clustersLoading;
+  // Use the refactored useAllPeople hook that handles both named people and clusters
+  const { allPeople, isLoading: peopleLoading } = useAllPeople(firstCollectionId);
 
-  // Transform cluster data to PersonCluster format and combine with named people
-  const allPeople = useMemo(() => {
-    // Convert named people to PersonCluster format
-    const namedClusters: PersonCluster[] = namedPeople.map(person => ({
-      id: person.id,
-      name: person.name,
-      thumbnailPath: person.thumbnail_url || '',
-      thumbnailBbox: person.thumbnail_bbox || null,
-      photoCount: person.photo_count,
-      photos: [], // Not needed for named people display
-    }));
-
-    // Convert unnamed face clusters to PersonCluster format
-    const unnamedClusters: PersonCluster[] = clusterData.map(cluster => {
-      const photoIds = Array.from(new Set(cluster.faces.map(f => f.photo_id)));
-      const representativeFace = cluster.faces.find(f => f.id === cluster.representative_face_id) || cluster.faces[0];
-
-      return {
-        id: cluster.id,
-        name: null, // Unnamed cluster
-        thumbnailPath: cluster.representative_thumbnail_url || representativeFace.photo_id,
-        thumbnailBbox: representativeFace ? apiBboxToUi(representativeFace.bbox) : null,
-        photoCount: photoIds.length,
-        photos: photoIds,
-      };
-    });
-
-    return [...namedClusters, ...unnamedClusters];
-  }, [namedPeople, clusterData]);
+  const loading = collectionsLoading || peopleLoading;
 
   useEffect(() => {
     checkAuth();
