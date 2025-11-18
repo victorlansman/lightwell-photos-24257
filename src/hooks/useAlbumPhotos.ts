@@ -212,7 +212,8 @@ export function useAllPeople(
         return {
           id: cluster.id,
           name: null,
-          thumbnailPath: cluster.representative_thumbnail_url || representativeFace?.photo_id || '',
+          // Use representative face's photo_id as the thumbnail (usePhotoUrl expects a photo ID)
+          thumbnailPath: representativeFace?.photo_id || '',
           thumbnailBbox: representativeFace ? apiBboxToUi(representativeFace.bbox) : null,
           photoCount: photoIds.length,
           photos: photoIds,

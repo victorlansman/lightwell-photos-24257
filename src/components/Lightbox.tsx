@@ -32,7 +32,7 @@ interface LightboxProps {
   onPrevious: () => void;
   onNext: () => void;
   onToggleFavorite?: (photoId: string) => void;
-  onUpdateFaces?: (photoId: ServerId) => Promise<void>;
+  onUpdateFaces?: (photoId: string) => Promise<void>; // Called when faces are updated to refetch
   onPersonCreated?: (personId: ServerId, name: string) => void;
   allPeople?: PersonCluster[];
   collectionId: ServerId;
@@ -248,7 +248,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
       // Refresh from server to confirm
       if (onUpdateFaces) {
-        await onUpdateFaces(photo.id, updatedFaces);
+        await onUpdateFaces(photo.id);
       }
 
       toast.success("Bounding box updated");
@@ -284,16 +284,34 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   const handleConfirmDelete = async () => {
     if (faceToDelete && photo) {
-      setFaces(prevFaces => {
-        const updatedFaces = prevFaces.filter(f => f !== faceToDelete);
+      try {
+        // Remove face from local state
+        const updatedFaces = faces.filter(f => f !== faceToDelete);
+        setFaces(updatedFaces);
+
+        // Persist to backend
+        const faceTags: FaceTag[] = updatedFaces.map(f => ({
+          person_id: f.personId,
+          bbox: f.boundingBox,
+        }));
+
+        await azureApi.updatePhotoFaces(photo.id, faceTags);
+
+        // Refresh from server
         if (onUpdateFaces) {
-          onUpdateFaces(photo.id, updatedFaces);
+          await onUpdateFaces(photo.id);
         }
-        return updatedFaces;
-      });
-      toast.success("Face tag deleted");
-      setFaceToDelete(null);
-      setShowDeleteDialog(false);
+
+        toast.success("Face tag deleted");
+      } catch (error) {
+        console.error('Failed to delete face:', error);
+        toast.error('Failed to delete face tag');
+        // Revert on error
+        setFaces(faces);
+      } finally {
+        setFaceToDelete(null);
+        setShowDeleteDialog(false);
+      }
     }
   };
 
@@ -531,38 +549,40 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       <Dialog open={isOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="max-w-[100vw] h-screen p-0 bg-background/95 backdrop-blur-sm border-0 [&>button]:hidden">
           {/* Header */}
-          <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-background/80 to-transparent flex items-center justify-between px-4 z-50">
+          <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-background/80 to-transparent flex flex-wrap items-center justify-between px-4 py-2 z-50 gap-2">
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <X className="h-5 w-5" />
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                <X className="h-4 w-4" />
               </Button>
             </div>
 
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={handleToggleFavorite}>
-                <Heart className={cn("h-5 w-5", photo.is_favorite && "fill-primary text-primary")} />
+            <div className="flex items-center gap-1 flex-wrap justify-end">
+              <Button variant="ghost" size="sm" onClick={handleToggleFavorite} title="Toggle favorite">
+                <Heart className={cn("h-4 w-4", photo.is_favorite && "fill-primary text-primary")} />
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleShare}>
-                <Share2 className="h-5 w-5" />
+              <Button variant="ghost" size="sm" onClick={handleShare} title="Share">
+                <Share2 className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleDownload}>
-                <Download className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setShowFaces(!showFaces)}
-                className={cn(showFaces && "bg-accent")}
-              >
-                <Users className="h-5 w-5" />
+              <Button variant="ghost" size="sm" onClick={handleDownload} title="Download">
+                <Download className="h-4 w-4" />
               </Button>
               <Button
-                variant="ghost" 
-                size="icon" 
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFaces(!showFaces)}
+                className={cn(showFaces && "bg-accent")}
+                title="Toggle faces"
+              >
+                <Users className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setShowInfo(!showInfo)}
                 className={cn(showInfo && "bg-accent")}
+                title="Toggle info"
               >
-                <Info className="h-5 w-5" />
+                <Info className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -578,7 +598,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             <div
               ref={imageRef}
               className={cn(
-                "flex-1 flex items-center justify-center p-16 transition-all relative z-0",
+                "flex-1 flex items-center justify-center p-8 md:p-16 pt-24 transition-all relative z-0",
                 showInfo && "lg:pr-8"
               )}
             >

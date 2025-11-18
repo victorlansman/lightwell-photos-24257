@@ -36,6 +36,7 @@ export interface AlbumViewContainerProps {
   // Callbacks
   onPhotoSelect?: (photoIds: string[]) => void;
   onNavigate?: (path: string) => void;
+  onPhotoFacesUpdated?: (photoId: string) => Promise<void>; // Called when faces are modified in lightbox
 
   // Pagination
   hasMore?: boolean;
@@ -289,9 +290,9 @@ export function AlbumViewContainer({
         onPrevious={lightbox.goToPrevious}
         onNext={lightbox.goToNext}
         onToggleFavorite={lightbox.handleToggleFavorite}
-        onUpdateFaces={async () => {
-          // Trigger refetch if needed
-        }}
+        onUpdateFaces={props.onPhotoFacesUpdated ? async (photoId: string) => {
+          await props.onPhotoFacesUpdated!(photoId);
+        } : undefined}
         allPeople={allPeople}
         collectionId={normalizedCollectionId}
       />

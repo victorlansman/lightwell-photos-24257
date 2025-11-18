@@ -37,7 +37,7 @@ export default function CollectionDetail() {
   };
 
   // Use new hooks
-  const { photos, allPhotos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore } = usePhotosWithClusters(id, filters);
+  const { photos, allPhotos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(id, filters);
   const { allPeople } = useAllPeople(id);
 
   // Redirect if not authenticated
@@ -101,6 +101,9 @@ export default function CollectionDetail() {
         hasMore={hasMore}
         isLoadingMore={isLoadingMore}
         onLoadMore={loadMore}
+        onPhotoFacesUpdated={async () => {
+          await refetch();
+        }}
         renderFilters={() => (
           <PhotoFilters
             photos={allPhotos}

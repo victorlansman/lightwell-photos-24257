@@ -17,7 +17,7 @@ export default function UnknownPeople() {
   const firstCollectionId = collections?.[0]?.id;
 
   // Fetch all photos
-  const { photos: allPhotos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore } = usePhotosWithClusters(firstCollectionId);
+  const { photos: allPhotos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(firstCollectionId);
   const { allPeople, isLoading: peopleLoading } = useAllPeople(firstCollectionId);
 
   // Filter to only unnamed individual faces (not in clusters)
@@ -81,6 +81,9 @@ export default function UnknownPeople() {
             hasMore={hasMore}
             isLoadingMore={isLoadingMore}
             onLoadMore={loadMore}
+            onPhotoFacesUpdated={async () => {
+              await refetch();
+            }}
             renderHeader={() => (
               <div>
                 <Button

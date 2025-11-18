@@ -16,7 +16,7 @@ const Index = () => {
   const firstCollectionId = collections?.[0]?.id;
 
   // Use new hooks
-  const { photos, isLoading, hasMore, isLoadingMore, loadMore } = usePhotosWithClusters(firstCollectionId);
+  const { photos, isLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(firstCollectionId);
   const { allPeople } = useAllPeople(firstCollectionId);
 
   useEffect(() => {
@@ -47,6 +47,9 @@ const Index = () => {
             hasMore={hasMore}
             isLoadingMore={isLoadingMore}
             onLoadMore={loadMore}
+            onPhotoFacesUpdated={async () => {
+              await refetch();
+            }}
             renderHeader={() => (
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">Timeline</h1>
             )}
