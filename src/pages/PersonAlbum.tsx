@@ -23,9 +23,10 @@ import { cn } from "@/lib/utils";
 import { useCollections } from "@/hooks/useCollections";
 import { usePeople } from "@/hooks/usePeople";
 import { useCollectionPhotos, useToggleFavorite } from "@/hooks/usePhotos";
-import { useUpdatePerson } from "@/hooks/useFaces";
+import { useUpdatePerson, useClusters } from "@/hooks/useFaces";
 import { azureApi } from "@/lib/azureApiClient";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
+import { apiBboxToUi } from "@/types/coordinates";
 
 export default function PersonAlbum() {
   const { id } = useParams<{ id: string }>();
@@ -46,38 +47,73 @@ export default function PersonAlbum() {
   const { data: collections, isLoading: collectionsLoading } = useCollections();
   const firstCollectionId = collections?.[0]?.id;
 
-  // Fetch all people for EditPersonDialog
+  // Fetch all people and clusters
   const { data: allPeople = [], isLoading: peopleLoading, refetch: refetchPeople } = usePeople(firstCollectionId);
+  const { data: clusterData = [], isLoading: clustersLoading } = useClusters(firstCollectionId);
 
-  // Fetch photos filtered by person_id
-  const { data: azurePhotos = [], isLoading: photosLoading, refetch: refetchPhotos } = useCollectionPhotos(
-    firstCollectionId,
-    { person_id: id }
-  );
-  const toggleFavoriteMutation = useToggleFavorite();
-  const updatePersonMutation = useUpdatePerson();
-
-  const loading = collectionsLoading || peopleLoading || photosLoading;
-
-  // Find person from people list
+  // Find if this ID is a person or a cluster
   const person = useMemo(() => {
     return allPeople.find(p => p.id === id) || null;
   }, [allPeople, id]);
 
-  // Get thumbnail photo URL if thumbnailPath is a photo ID
-  // thumbnailPath might be a photo ID (UUID) or a URL
-  const thumbnailPhotoId = person?.thumbnailPath && 
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(person.thumbnailPath)
-    ? person.thumbnailPath 
-    : null;
-  const { url: thumbnailUrl, loading: thumbnailLoading } = usePhotoUrl(thumbnailPhotoId || '', { thumbnail: true });
-  
-  // Use thumbnail URL if it's a photo ID, otherwise use thumbnailPath directly (if it's already a URL)
-  const displayThumbnailUrl = thumbnailPhotoId ? thumbnailUrl : (person?.thumbnailPath || '');
+  const cluster = useMemo(() => {
+    return clusterData.find(c => c.id === id) || null;
+  }, [clusterData, id]);
 
-  // Transform Azure photos to Photo type
+  const isCluster = !!cluster && !person;
+
+  // Fetch photos - either by person_id or get all photos from cluster
+  const { data: azurePhotos = [], isLoading: photosLoading, refetch: refetchPhotos } = useCollectionPhotos(
+    firstCollectionId,
+    !isCluster ? { person_id: id } : undefined
+  );
+  const toggleFavoriteMutation = useToggleFavorite();
+  const updatePersonMutation = useUpdatePerson();
+
+  const loading = collectionsLoading || peopleLoading || clustersLoading || photosLoading;
+
+  // Create PersonCluster from either person or cluster data for uniform UI
+  const displayPerson: PersonCluster | null = useMemo(() => {
+    if (person) {
+      return {
+        id: person.id,
+        name: person.name,
+        thumbnailPath: person.thumbnail_url || '',
+        thumbnailBbox: person.thumbnail_bbox || null,
+        photoCount: person.photo_count,
+        photos: [],
+      };
+    } else if (cluster) {
+      const photoIds = Array.from(new Set(cluster.faces.map(f => f.photo_id)));
+      const representativeFace = cluster.faces.find(f => f.id === cluster.representative_face_id) || cluster.faces[0];
+
+      return {
+        id: cluster.id,
+        name: null, // Unnamed cluster
+        thumbnailPath: cluster.representative_thumbnail_url || representativeFace.photo_id,
+        thumbnailBbox: representativeFace ? apiBboxToUi(representativeFace.bbox) : null,
+        photoCount: photoIds.length,
+        photos: photoIds,
+      };
+    }
+    return null;
+  }, [person, cluster]);
+
+  // Get thumbnail photo URL
+  const { url: thumbnailUrl } = usePhotoUrl(displayPerson?.thumbnailPath || '');
+  const displayThumbnailUrl = thumbnailUrl;
+
+  // Transform Azure photos to Photo type, filtering by cluster if viewing a cluster
   const photos: Photo[] = useMemo(() => {
-    return azurePhotos.map(photo => ({
+    let filteredPhotos = azurePhotos;
+
+    // If viewing a cluster, only show photos that have faces in this cluster
+    if (isCluster && cluster) {
+      const clusterPhotoIds = new Set(cluster.faces.map(f => f.photo_id));
+      filteredPhotos = azurePhotos.filter(photo => clusterPhotoIds.has(photo.id));
+    }
+
+    return filteredPhotos.map(photo => ({
       id: photo.id,
       collection_id: photo.collection_id,
       path: photo.path,
@@ -104,7 +140,7 @@ export default function PersonAlbum() {
         })),
       taken_at: null,
     }));
-  }, [azurePhotos]);
+  }, [azurePhotos, isCluster, cluster]);
 
   useEffect(() => {
     checkAuth();
@@ -167,7 +203,7 @@ export default function PersonAlbum() {
     face: FaceDetection,
     photoId: string
   ) => {
-    if (!person) return;
+    if (!displayPerson || isCluster) return; // Can't change thumbnail for clusters
 
     try {
       // Convert UI coordinates (0-100) to API coordinates (0-1)
@@ -183,21 +219,21 @@ export default function PersonAlbum() {
         thumbnail_url?: string;
         thumbnail_bbox?: { x: number; y: number; width: number; height: number };
       } = {
-        name: person.name || undefined,
+        name: displayPerson.name || undefined,
         thumbnail_url: photoId,
         thumbnail_bbox: apiBbox,
       };
 
       console.log("[handleSelectFaceForThumbnail] Updating thumbnail:", {
-        personId: person.id,
-        personName: person.name,
+        personId: displayPerson.id,
+        personName: displayPerson.name,
         photoId,
         uiBbox: face.boundingBox,
         apiBbox,
       });
 
       await updatePersonMutation.mutateAsync({
-        personId: person.id,
+        personId: displayPerson.id,
         request: updateRequest,
       });
 
@@ -230,21 +266,40 @@ export default function PersonAlbum() {
   };
 
   const handleNameSave = async (name: string) => {
-    if (!person) return;
+    if (!displayPerson) return;
 
     try {
-      await supabase
-        .from("people")
-        .update({ name })
-        .eq("id", person.id);
+      if (isCluster && cluster && firstCollectionId) {
+        // For clusters: create a person and assign all faces to it
+        const newPerson = await azureApi.createPerson({
+          name,
+          collection_id: firstCollectionId,
+        });
 
-      // Refresh people list to get updated name
-      await refetchPeople();
+        // TODO: Label the cluster - assign all faces to this person
+        // This will require a backend endpoint to label clusters
+        toast({
+          title: "Success",
+          description: `Created person: ${name}. Cluster labeling will be implemented soon.`,
+        });
 
-      toast({
-        title: "Success",
-        description: `Person named: ${name}`,
-      });
+        // Navigate back to people page
+        navigate("/people");
+      } else if (person) {
+        // For existing persons: just update the name
+        await supabase
+          .from("people")
+          .update({ name })
+          .eq("id", person.id);
+
+        // Refresh people list to get updated name
+        await refetchPeople();
+
+        toast({
+          title: "Success",
+          description: `Person renamed: ${name}`,
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -399,7 +454,7 @@ export default function PersonAlbum() {
     );
   }
 
-  if (!person) {
+  if (!displayPerson) {
     return (
       <SidebarProvider>
         <div className="flex min-h-screen w-full">
@@ -407,7 +462,9 @@ export default function PersonAlbum() {
           <div className="flex-1 flex flex-col">
             <Header />
             <main className="flex-1 flex items-center justify-center">
-              <p className="text-muted-foreground">Person not found</p>
+              <p className="text-muted-foreground">
+                {isCluster ? 'Cluster not found' : 'Person not found'}
+              </p>
             </main>
           </div>
         </div>
@@ -444,12 +501,12 @@ export default function PersonAlbum() {
                     <ArrowLeft className="h-5 w-5" />
                   </Button>
                   
-                  {/* Person thumbnail */}
+                  {/* Person/Cluster thumbnail */}
                   <div className="relative">
                     {displayThumbnailUrl ? (
                       <PersonThumbnail
                         photoUrl={displayThumbnailUrl}
-                        bbox={person.thumbnailBbox}
+                        bbox={displayPerson.thumbnailBbox}
                         size="sm"
                       />
                     ) : (
@@ -457,32 +514,36 @@ export default function PersonAlbum() {
                         No thumbnail
                       </div>
                     )}
-                    <button
-                      onClick={() => {
-                        setIsChoosingThumbnail(true);
-                        setShowFaces(true);
-                      }}
-                      className="absolute top-1 right-1 bg-background/90 hover:bg-background rounded-full p-1.5 transition-colors shadow-sm"
-                      title="Change thumbnail"
-                    >
-                      <Pencil className="h-3 w-3 text-foreground" />
-                    </button>
+                    {!isCluster && (
+                      <button
+                        onClick={() => {
+                          setIsChoosingThumbnail(true);
+                          setShowFaces(true);
+                        }}
+                        className="absolute top-1 right-1 bg-background/90 hover:bg-background rounded-full p-1.5 transition-colors shadow-sm"
+                        title="Change thumbnail"
+                      >
+                        <Pencil className="h-3 w-3 text-foreground" />
+                      </button>
+                    )}
                   </div>
-                  
+
                   <div className="min-w-0 flex-1">
-                    {person.name ? (
+                    {displayPerson.name ? (
                       <div className="flex items-center gap-2 flex-wrap">
                         <h1 className="text-2xl md:text-3xl font-bold text-foreground truncate">
-                          {person.name}
+                          {displayPerson.name}
                         </h1>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setIsNamingDialogOpen(true)}
-                          className="shrink-0"
-                        >
-                          Edit name
-                        </Button>
+                        {!isCluster && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setIsNamingDialogOpen(true)}
+                            className="shrink-0"
+                          >
+                            Edit name
+                          </Button>
+                        )}
                       </div>
                     ) : (
                       <Button
@@ -490,11 +551,11 @@ export default function PersonAlbum() {
                         className="text-xl md:text-3xl font-bold p-0 h-auto text-primary hover:text-primary/80"
                         onClick={() => setIsNamingDialogOpen(true)}
                       >
-                        Name This Person
+                        Name This {isCluster ? 'Cluster' : 'Person'}
                       </Button>
                     )}
                     <p className="text-muted-foreground mt-1 text-sm md:text-base">
-                      {person.photoCount} {person.photoCount === 1 ? "Item" : "Items"}
+                      {displayPerson.photoCount} {displayPerson.photoCount === 1 ? "Item" : "Items"}
                     </p>
                   </div>
                 </div>
@@ -533,7 +594,7 @@ export default function PersonAlbum() {
                           onRemove={handleRemovePhotos}
                           onShare={handleShare}
                           onDelete={handleDeletePhotos}
-                          personName={person.name || "This Person"}
+                          personName={displayPerson.name || (isCluster ? "This Cluster" : "This Person")}
                         />
                       </div>
                       <Button
@@ -570,7 +631,7 @@ export default function PersonAlbum() {
                       onRemove={handleRemovePhotos}
                       onShare={handleShare}
                       onDelete={handleDeletePhotos}
-                      personName={person.name || "This Person"}
+                      personName={displayPerson.name || (isCluster ? "This Cluster" : "This Person")}
                     />
                   </div>
                 )}
@@ -589,7 +650,7 @@ export default function PersonAlbum() {
                     <ThumbnailSelectionCard
                       key={photo.id}
                       photo={photo}
-                      personId={person.id}
+                      personId={displayPerson.id}
                       onSelectFace={handleSelectFaceForThumbnail}
                     />
                   ) : showFaces ? (
@@ -601,7 +662,7 @@ export default function PersonAlbum() {
                     >
                       <FacePhotoCard
                         photo={photo}
-                        personId={person.id}
+                        personId={displayPerson.id}
                         isSelected={selectedPhotos.has(photo.id)}
                         onSelect={handleSelectPhoto}
                         onClick={() => handlePhotoClick(photo)}
@@ -646,7 +707,7 @@ export default function PersonAlbum() {
       <NamingDialog
         isOpen={isNamingDialogOpen}
         onClose={() => setIsNamingDialogOpen(false)}
-        currentPerson={person}
+        currentPerson={displayPerson}
         allPeople={[]} // Not needed in this context
         onNameSave={handleNameSave}
         onMerge={handleMerge}
