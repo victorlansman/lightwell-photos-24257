@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { azureApi } from '@/lib/azureApiClient';
 
 /**
- * Hook to get authenticated photo URL.
+ * Hook to get authenticated photo or face thumbnail URL.
  * Creates object URL from blob for use in img src.
+ *
+ * Handles:
+ * - Photo IDs (UUID strings)
+ * - Face thumbnail paths (/api/faces/{faceId}/thumbnail)
  */
-export function usePhotoUrl(photoId: string, options?: { thumbnail?: boolean }) {
+export function usePhotoUrl(photoIdOrPath: string, options?: { thumbnail?: boolean }) {
   const [url, setUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -14,8 +18,8 @@ export function usePhotoUrl(photoId: string, options?: { thumbnail?: boolean }) 
   const thumbnail = options?.thumbnail;
 
   useEffect(() => {
-    // Guard against empty photoId
-    if (!photoId) {
+    // Guard against empty photoIdOrPath
+    if (!photoIdOrPath) {
       setLoading(false);
       return;
     }
@@ -23,21 +27,32 @@ export function usePhotoUrl(photoId: string, options?: { thumbnail?: boolean }) 
     let objectUrl: string | null = null;
     let cancelled = false;
 
-    async function loadPhoto() {
+    async function loadImage() {
       try {
         if (cancelled) return;
         setLoading(true);
         setError(null);
 
-        const blob = await azureApi.fetchPhoto(photoId, { thumbnail });
+        let blob: Blob;
+
+        // Check if this is a face thumbnail path
+        if (photoIdOrPath.startsWith('/api/faces/')) {
+          // Extract face ID from path: /api/faces/{faceId}/thumbnail
+          const faceId = photoIdOrPath.split('/')[3];
+          blob = await azureApi.fetchFaceThumbnail(faceId);
+        } else {
+          // Regular photo ID
+          blob = await azureApi.fetchPhoto(photoIdOrPath, { thumbnail });
+        }
+
         if (cancelled) return;
 
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
       } catch (err) {
         if (cancelled) return;
-        console.error('Failed to load photo:', err);
-        setError(err instanceof Error ? err : new Error('Failed to load photo'));
+        console.error('Failed to load image:', err);
+        setError(err instanceof Error ? err : new Error('Failed to load image'));
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -45,7 +60,7 @@ export function usePhotoUrl(photoId: string, options?: { thumbnail?: boolean }) 
       }
     }
 
-    loadPhoto();
+    loadImage();
 
     // Cleanup object URL on unmount and set cancellation flag
     return () => {
@@ -54,7 +69,7 @@ export function usePhotoUrl(photoId: string, options?: { thumbnail?: boolean }) 
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [photoId, thumbnail]);
+  }, [photoIdOrPath, thumbnail]);
 
   return { url, loading, error };
 }

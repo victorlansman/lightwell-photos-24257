@@ -21,8 +21,11 @@ export function PersonClusterCard({
   onClick,
   unnamedIndex,
 }: PersonClusterCardProps) {
-  // Fetch authenticated photo URL if thumbnailPath is a photo ID
+  // Fetch authenticated photo URL if thumbnailPath is a photo ID or face thumbnail path
   const { url: photoUrl } = usePhotoUrl(cluster.thumbnailPath || '');
+
+  // Check if this is a face thumbnail (pre-cropped by backend)
+  const isFaceThumbnail = cluster.thumbnailPath?.startsWith('/api/faces/');
 
   return (
     <div
@@ -38,7 +41,7 @@ export function PersonClusterCard({
       <div className="relative">
         <PersonThumbnail
           photoUrl={photoUrl || ''}
-          bbox={cluster.thumbnailBbox}
+          bbox={isFaceThumbnail ? null : cluster.thumbnailBbox}
           size="md"
           className={cn(
             "transition-all duration-200",
