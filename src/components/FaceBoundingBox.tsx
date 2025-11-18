@@ -125,7 +125,8 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
   const isUnnamed = !face.personName;
   let isClickable = false;
   let personIdForNav: string | null = null;
-  
+  let isCluster = false;
+
   if (face.personName && face.personId) {
     displayName = face.personName;
     isClickable = true;
@@ -133,6 +134,8 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
   } else if (face.personId && allPeople.length > 0) {
     const person = allPeople.find(p => p.id === face.personId);
     if (person && person.photoCount > 1) {
+      // This is a cluster face (unnamed face in a cluster)
+      isCluster = true;
       // Find cluster index among unnamed people
       const unnamedClusters = allPeople
         .filter(p => p.name === null && p.photoCount > 1)
@@ -168,7 +171,9 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
       ref={boxRef}
       className={cn(
         "absolute border-2 z-10",
-        isUnnamed ? "border-yellow-500" : "border-primary",
+        face.personName ? "border-primary" :    // Named: blue
+        isCluster ? "border-orange-500" :       // Cluster: orange
+        "border-yellow-500",                    // Individual: yellow
         isEditing ? "cursor-move pointer-events-auto" : "pointer-events-none"
       )}
       style={{
@@ -198,12 +203,14 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
         </>
       )}
       {/* Person name flag */}
-      <div 
+      <div
         className={cn(
           "absolute -top-8 left-0 px-2 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-lg z-30 pointer-events-auto",
-          isUnnamed 
-            ? "bg-yellow-500 text-black" 
-            : "bg-primary text-primary-foreground"
+          face.personName
+            ? "bg-primary text-primary-foreground"   // Named: blue
+            : isCluster
+            ? "bg-orange-500 text-white"             // Cluster: orange
+            : "bg-yellow-500 text-black"             // Individual: yellow
         )}
         onMouseDown={(e) => {
           e.stopPropagation();
