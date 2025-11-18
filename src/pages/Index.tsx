@@ -16,7 +16,7 @@ const Index = () => {
   const firstCollectionId = collections?.[0]?.id;
 
   // Use new hooks
-  const { photos, isLoading } = usePhotosWithClusters(firstCollectionId);
+  const { photos, isLoading, hasMore, isLoadingMore, loadMore } = usePhotosWithClusters(firstCollectionId);
   const { allPeople } = useAllPeople(firstCollectionId);
 
   useEffect(() => {
@@ -44,6 +44,9 @@ const Index = () => {
             defaultZoomLevel={4}
             showViewControls
             enableSelection
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+            onLoadMore={loadMore}
             renderHeader={() => (
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">Timeline</h1>
             )}
