@@ -73,6 +73,13 @@ export interface PhotoFilters {
   cursor?: string;
 }
 
+export interface PaginatedPhotosResponse {
+  photos: Photo[];
+  cursor?: string;
+  hasMore: boolean;
+  total?: number;
+}
+
 export interface YearEstimationUpdate {
   user_corrected_year?: number;
   user_corrected_year_min?: number;
@@ -291,6 +298,62 @@ class AzureApiClient {
           : null,
       })),
     }));
+  }
+
+  async getCollectionPhotosPaginated(
+    collectionId: string,
+    filters?: PhotoFilters
+  ): Promise<PaginatedPhotosResponse> {
+    const params = new URLSearchParams();
+
+    if (filters) {
+      if (filters.person_id) params.append('person_id', filters.person_id);
+      if (filters.year_min) params.append('year_min', filters.year_min.toString());
+      if (filters.year_max) params.append('year_max', filters.year_max.toString());
+      if (filters.tags) params.append('tags', filters.tags);
+      if (filters.favorite !== undefined) params.append('favorite', filters.favorite.toString());
+      if (filters.limit) params.append('limit', filters.limit.toString());
+      if (filters.cursor) params.append('cursor', filters.cursor);
+    }
+
+    // Set default page size
+    if (!filters?.limit) {
+      params.append('limit', '50');
+    }
+
+    const query = params.toString();
+    const endpoint = `/v1/collections/${collectionId}/photos${query ? `?${query}` : ''}`;
+
+    const response = await this.request<any>(endpoint);
+
+    // Handle different response formats
+    const photos: Photo[] = Array.isArray(response) ? response : (response.photos || []);
+    const cursor = response.cursor;
+    const hasMore = response.hasMore ?? false;
+    const total = response.total;
+
+    // COORDINATE CONVERSION: API (0-1) → UI (0-100)
+    const convertedPhotos = photos.map(photo => ({
+      ...photo,
+      people: photo.people.map(person => ({
+        ...person,
+        face_bbox: person.face_bbox
+          ? apiBboxToUi({
+              x: apiCoord(person.face_bbox.x as any),
+              y: apiCoord(person.face_bbox.y as any),
+              width: apiCoord(person.face_bbox.width as any),
+              height: apiCoord(person.face_bbox.height as any),
+            })
+          : null,
+      })),
+    }));
+
+    return {
+      photos: convertedPhotos,
+      cursor,
+      hasMore,
+      total,
+    };
   }
 
   // ==================== Favorites ====================
