@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PersonCluster } from "@/types/person";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PersonThumbnail } from "./PersonThumbnail";
+import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 
 interface NamingDialogProps {
   isOpen: boolean;
@@ -44,16 +46,20 @@ export function NamingDialog({
   const [selectedMergeTarget, setSelectedMergeTarget] = useState<PersonCluster | null>(null);
 
   useEffect(() => {
+    // Filter people - exclude current person and show only named people
+    const namedPeople = allPeople.filter(
+      (person) => person.id !== currentPerson.id && person.name
+    );
+
     if (name.trim()) {
-      const filtered = allPeople.filter(
-        (person) =>
-          person.id !== currentPerson.id &&
-          person.name &&
-          person.name.toLowerCase().includes(name.toLowerCase())
+      // Filter by search term if user is typing
+      const filtered = namedPeople.filter((person) =>
+        person.name!.toLowerCase().includes(name.toLowerCase())
       );
       setSuggestions(filtered);
     } else {
-      setSuggestions([]);
+      // Show all named people when search is empty
+      setSuggestions(namedPeople);
     }
   }, [name, allPeople, currentPerson.id]);
 
@@ -120,30 +126,15 @@ export function NamingDialog({
 
             {suggestions.length > 0 && (
               <div className="space-y-2">
-                <Label>Results</Label>
+                <Label>{name.trim() ? "Results" : "Or select an existing person"}</Label>
                 <ScrollArea className="h-[200px] rounded-md border">
                   <div className="p-2 space-y-1">
                     {suggestions.map((person) => (
-                      <button
+                      <PersonSuggestionButton
                         key={person.id}
+                        person={person}
                         onClick={() => handleSuggestionClick(person)}
-                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left"
-                      >
-                        <img
-                          src={person.thumbnailPath}
-                          alt={person.name || ""}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                        <div>
-                          <div className="font-medium text-foreground">
-                            {person.name}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {person.photoCount}{" "}
-                            {person.photoCount === 1 ? "photo" : "photos"}
-                          </div>
-                        </div>
-                      </button>
+                      />
                     ))}
                   </div>
                 </ScrollArea>
@@ -172,29 +163,11 @@ export function NamingDialog({
                   This will combine all photos from both clusters into one.
                 </p>
                 <div className="flex gap-4 justify-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <img
-                      src={currentPerson.thumbnailPath}
-                      alt={currentPerson.name || "Unlabeled"}
-                      className="w-20 h-20 rounded-2xl object-cover"
-                    />
-                    <span className="text-sm font-medium">
-                      {currentPerson.name || "Unlabeled"}
-                    </span>
-                  </div>
+                  <MergeThumbnail person={currentPerson} />
                   <div className="flex items-center text-2xl text-muted-foreground">
                     +
                   </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <img
-                      src={selectedMergeTarget?.thumbnailPath}
-                      alt={selectedMergeTarget?.name || ""}
-                      className="w-20 h-20 rounded-2xl object-cover"
-                    />
-                    <span className="text-sm font-medium">
-                      {selectedMergeTarget?.name}
-                    </span>
-                  </div>
+                  {selectedMergeTarget && <MergeThumbnail person={selectedMergeTarget} />}
                 </div>
               </div>
             </AlertDialogDescription>
@@ -208,5 +181,60 @@ export function NamingDialog({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+// Helper component for person suggestion with thumbnail loading
+function PersonSuggestionButton({ person, onClick }: { person: PersonCluster; onClick: () => void }) {
+  const { url: thumbnailUrl } = usePhotoUrl(person.thumbnailPath || '');
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left"
+    >
+      {thumbnailUrl ? (
+        <PersonThumbnail
+          photoUrl={thumbnailUrl}
+          bbox={person.thumbnailBbox}
+          size="sm"
+          className="!w-12 !h-12"
+        />
+      ) : (
+        <div className="w-12 h-12 rounded-full bg-muted flex-shrink-0" />
+      )}
+      <div>
+        <div className="font-medium text-foreground">
+          {person.name}
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {person.photoCount}{" "}
+          {person.photoCount === 1 ? "photo" : "photos"}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// Helper component for merge dialog thumbnails
+function MergeThumbnail({ person }: { person: PersonCluster }) {
+  const { url: thumbnailUrl } = usePhotoUrl(person.thumbnailPath || '');
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      {thumbnailUrl ? (
+        <PersonThumbnail
+          photoUrl={thumbnailUrl}
+          bbox={person.thumbnailBbox}
+          size="lg"
+          className="!w-20 !h-20 !rounded-2xl"
+        />
+      ) : (
+        <div className="w-20 h-20 rounded-2xl bg-muted" />
+      )}
+      <span className="text-sm font-medium">
+        {person.name || "Unlabeled"}
+      </span>
+    </div>
   );
 }

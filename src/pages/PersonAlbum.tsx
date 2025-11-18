@@ -113,33 +113,56 @@ export default function PersonAlbum() {
       filteredPhotos = azurePhotos.filter(photo => clusterPhotoIds.has(photo.id));
     }
 
-    return filteredPhotos.map(photo => ({
-      id: photo.id,
-      collection_id: photo.collection_id,
-      path: photo.path,
-      thumbnail_url: photo.thumbnail_url,
-      original_filename: photo.original_filename,
-      created_at: photo.created_at,
-      filename: photo.title || undefined,
-      title: photo.title,
-      description: photo.description,
-      width: photo.width,
-      height: photo.height,
-      rotation: photo.rotation,
-      estimated_year: photo.estimated_year,
-      user_corrected_year: photo.user_corrected_year,
-      is_favorite: photo.is_favorite,
-      tags: photo.tags,
-      people: photo.people,
-      faces: photo.people
+    return filteredPhotos.map(photo => {
+      let facesArray = photo.people
         .filter(person => person.face_bbox !== null)
         .map(person => ({
           personId: person.id,
           personName: person.name,
           boundingBox: person.face_bbox!,
-        })),
-      taken_at: null,
-    }));
+        }));
+
+      // For cluster view: add/override unnamed faces with cluster-specific bounding boxes
+      if (isCluster && cluster) {
+        const clusterFacesForPhoto = cluster.faces.filter(f => f.photo_id === photo.id);
+
+        if (clusterFacesForPhoto.length > 0) {
+          // Replace unnamed faces with cluster face data (has correct bboxes)
+          facesArray = [
+            // Keep named faces
+            ...facesArray.filter(f => f.personId && f.personName),
+            // Add cluster faces (unnamed)
+            ...clusterFacesForPhoto.map(clusterFace => ({
+              personId: null,
+              personName: null,
+              boundingBox: apiBboxToUi(clusterFace.bbox),
+            }))
+          ];
+        }
+      }
+
+      return {
+        id: photo.id,
+        collection_id: photo.collection_id,
+        path: photo.path,
+        thumbnail_url: photo.thumbnail_url,
+        original_filename: photo.original_filename,
+        created_at: photo.created_at,
+        filename: photo.title || undefined,
+        title: photo.title,
+        description: photo.description,
+        width: photo.width,
+        height: photo.height,
+        rotation: photo.rotation,
+        estimated_year: photo.estimated_year,
+        user_corrected_year: photo.user_corrected_year,
+        is_favorite: photo.is_favorite,
+        tags: photo.tags,
+        people: photo.people,
+        faces: facesArray,
+        taken_at: null,
+      };
+    });
   }, [azurePhotos, isCluster, cluster]);
 
   useEffect(() => {
