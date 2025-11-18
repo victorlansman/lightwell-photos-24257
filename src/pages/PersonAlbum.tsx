@@ -131,9 +131,9 @@ export default function PersonAlbum() {
           facesArray = [
             // Keep named faces
             ...facesArray.filter(f => f.personId && f.personName),
-            // Add cluster faces (unnamed)
+            // Add cluster faces (unnamed) - assign cluster ID so they show as clickable orange borders
             ...clusterFacesForPhoto.map(clusterFace => ({
-              personId: null,
+              personId: cluster.id,
               personName: null,
               boundingBox: apiBboxToUi(clusterFace.bbox),
             }))
@@ -735,7 +735,19 @@ export default function PersonAlbum() {
           // Refresh people list when a new person is created
           await refetchPeople();
         }}
-        allPeople={allPeople}
+        allPeople={displayPerson ? [
+          // Include current cluster/person so FaceBoundingBox can detect it
+          displayPerson,
+          // Include all other named people for reassignment
+          ...allPeople.map(p => ({
+            id: p.id,
+            name: p.name,
+            thumbnailPath: p.thumbnail_url || '',
+            thumbnailBbox: p.thumbnail_bbox || null,
+            photoCount: p.photo_count,
+            photos: [],
+          }))
+        ] : []}
         collectionId={firstCollectionId!}
       />
 
