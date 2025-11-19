@@ -18,9 +18,11 @@ export function usePhotoUrl(photoIdOrPath: string, options?: { thumbnail?: boole
   const thumbnail = options?.thumbnail;
 
   useEffect(() => {
-    // Guard against empty photoIdOrPath
-    if (!photoIdOrPath) {
+    // Guard against empty or whitespace-only photoIdOrPath
+    if (!photoIdOrPath || !photoIdOrPath.trim()) {
       setLoading(false);
+      setUrl('');
+      setError(null);
       return;
     }
 
