@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useMemo } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { Photo } from '@/types/photo';
 import { PersonCluster } from '@/types/person';
@@ -9,6 +9,7 @@ import { Lightbox } from '@/components/Lightbox';
 import { SharePhotosDialog } from '@/components/SharePhotosDialog';
 import { Button } from '@/components/ui/button';
 import { useAlbumLightbox } from '@/hooks/useAlbumPhotos';
+import { format, isSameDay, parseISO } from 'date-fns';
 
 export interface AlbumViewContainerProps {
   photos: Photo[];
@@ -96,6 +97,24 @@ export function AlbumViewContainer({
     }
   }, [inView, hasMore, isLoadingMore, onLoadMore]);
 
+  // Group photos by date
+  const photosByDate = useMemo(() => {
+    const groups: { date: string; photos: Photo[] }[] = [];
+
+    photos.forEach(photo => {
+      const photoDate = format(parseISO(photo.created_at), 'yyyy-MM-dd');
+      const existingGroup = groups.find(g => g.date === photoDate);
+
+      if (existingGroup) {
+        existingGroup.photos.push(photo);
+      } else {
+        groups.push({ date: photoDate, photos: [photo] });
+      }
+    });
+
+    return groups;
+  }, [photos]);
+
   // Selection handlers
   const handleSelectPhoto = (photoId: string) => {
     setSelectedPhotos(prev => {
@@ -160,7 +179,7 @@ export function AlbumViewContainer({
             cropSquare={cropSquare}
             onToggleCropSquare={() => setCropSquare(!cropSquare)}
             showFaces={showFaces}
-            onToggleFaces={() => setShowFaces(!showFaces)}
+            onToggleFaces={personId ? () => setShowFaces(!showFaces) : undefined}
           />
         )}
 
@@ -226,56 +245,67 @@ export function AlbumViewContainer({
               )
             ) : (
               <>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${zoomLevel}, minmax(0, 1fr))`,
-                    gap: '0.5rem',
-                  }}
-                >
-                  {photos.map(photo => {
-                    // For person albums: use showFaces state to control display mode
-                    // For other contexts: use gridMode prop
-                    // If onFaceClick is provided (thumbnail selection mode), force face view
-                    const shouldShowFaces = onFaceClick ? true : (personId ? showFaces : (gridMode === 'faces'));
+                {photosByDate.map((group) => (
+                  <div key={group.date} className="space-y-2">
+                    {/* Date header */}
+                    {showDates && (
+                      <h2 className="text-lg font-semibold text-foreground sticky top-0 bg-background/95 backdrop-blur-sm py-2 z-10">
+                        {format(parseISO(group.date), 'EEEE, MMMM d, yyyy')}
+                      </h2>
+                    )}
 
-                    if (shouldShowFaces && personId) {
-                      // Find the face for this person in this photo
-                      const face = photo.faces?.find(f => f.personId === personId);
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${zoomLevel}, minmax(0, 1fr))`,
+                        gap: '0.5rem',
+                      }}
+                    >
+                      {group.photos.map(photo => {
+                        // For person albums: use showFaces state to control display mode
+                        // For other contexts: use gridMode prop
+                        // If onFaceClick is provided (thumbnail selection mode), force face view
+                        const shouldShowFaces = onFaceClick ? true : (personId ? showFaces : (gridMode === 'faces'));
 
-                      return (
-                        <FacePhotoCard
-                          key={photo.id}
-                          photo={photo}
-                          personId={personId}
-                          isSelected={selectedPhotos.has(photo.id)}
-                          onSelect={() => handleSelectPhoto(photo.id)}
-                          onClick={() => {
-                            // If onFaceClick is provided (thumbnail selection mode), use it
-                            if (onFaceClick && face) {
-                              onFaceClick(face, photo.id);
-                            } else {
-                              handlePhotoClick(photo);
-                            }
-                          }}
-                          isSelectionMode={isSelectionMode}
-                        />
-                      );
-                    }
+                        if (shouldShowFaces && personId) {
+                          // Find the face for this person in this photo
+                          const face = photo.faces?.find(f => f.personId === personId);
 
-                    return (
-                      <PhotoCard
-                        key={photo.id}
-                        photo={photo}
-                        isSelected={selectedPhotos.has(photo.id)}
-                        onSelect={() => handleSelectPhoto(photo.id)}
-                        onClick={() => handlePhotoClick(photo)}
-                        isSelectionMode={isSelectionMode}
-                        cropSquare={cropSquare}
-                      />
-                    );
-                  })}
-                </div>
+                          return (
+                            <FacePhotoCard
+                              key={photo.id}
+                              photo={photo}
+                              personId={personId}
+                              isSelected={selectedPhotos.has(photo.id)}
+                              onSelect={() => handleSelectPhoto(photo.id)}
+                              onClick={() => {
+                                // If onFaceClick is provided (thumbnail selection mode), use it
+                                if (onFaceClick && face) {
+                                  onFaceClick(face, photo.id);
+                                } else {
+                                  handlePhotoClick(photo);
+                                }
+                              }}
+                              isSelectionMode={isSelectionMode}
+                            />
+                          );
+                        }
+
+                        return (
+                          <PhotoCard
+                            key={photo.id}
+                            photo={photo}
+                            isSelected={selectedPhotos.has(photo.id)}
+                            onSelect={() => handleSelectPhoto(photo.id)}
+                            onClick={() => handlePhotoClick(photo)}
+                            isSelectionMode={isSelectionMode}
+                            cropSquare={cropSquare}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
 
                 {/* Load more trigger for infinite scroll */}
                 {hasMore && (

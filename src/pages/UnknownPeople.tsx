@@ -67,7 +67,7 @@ export default function UnknownPeople() {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full flex-col">
+      <div className="flex min-h-screen w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <Header />
