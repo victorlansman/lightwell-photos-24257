@@ -229,7 +229,7 @@ export default function PersonAlbum() {
             onLoadMore={loadMore}
             onPhotoFacesUpdated={async () => {
               await refetch();
-              refetchAllPeople();
+              await refetchAllPeople();
             }}
             onFaceClick={isChoosingThumbnail ? handleSelectFaceForThumbnail : undefined}
             renderHeader={() => (

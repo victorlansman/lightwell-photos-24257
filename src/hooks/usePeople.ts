@@ -14,15 +14,26 @@ export function usePeople(collectionId: string | undefined) {
 
       const people = await azureApi.getPeople(collectionId);
 
+      console.log('[usePeople] Received people from backend:', people);
+
       // Transform PersonResponse[] to PersonCluster[]
-      return people.map((person: PersonResponse): PersonCluster => ({
-        id: person.id,
-        name: person.name,
-        thumbnailPath: person.thumbnail_url || '',
-        thumbnailBbox: person.thumbnail_bbox || null,
-        photoCount: person.photo_count,
-        photos: [], // Backend doesn't provide photo list yet
-      }));
+      return people.map((person: PersonResponse): PersonCluster => {
+        console.log('[usePeople] Mapping person:', {
+          id: person.id,
+          name: person.name,
+          thumbnail_url: person.thumbnail_url,
+          thumbnail_bbox: person.thumbnail_bbox
+        });
+
+        return {
+          id: person.id,
+          name: person.name,
+          thumbnailPath: person.thumbnail_url || '',
+          thumbnailBbox: person.thumbnail_bbox || null,
+          photoCount: person.photo_count,
+          photos: [], // Backend doesn't provide photo list yet
+        };
+      });
     },
     enabled: !!collectionId,
   });

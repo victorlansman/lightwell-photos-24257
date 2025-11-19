@@ -103,7 +103,7 @@ export default function CollectionDetail() {
         onLoadMore={loadMore}
         onPhotoFacesUpdated={async () => {
           await refetch();
-          refetchPeople();
+          await refetchPeople();
         }}
         renderFilters={() => (
           <PhotoFilters

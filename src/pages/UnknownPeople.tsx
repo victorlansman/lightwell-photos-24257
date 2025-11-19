@@ -83,7 +83,7 @@ export default function UnknownPeople() {
             onLoadMore={loadMore}
             onPhotoFacesUpdated={async () => {
               await refetch();
-              refetchPeople();
+              await refetchPeople();
             }}
             renderHeader={() => (
               <div>

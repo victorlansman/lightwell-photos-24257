@@ -48,8 +48,10 @@ const Index = () => {
             isLoadingMore={isLoadingMore}
             onLoadMore={loadMore}
             onPhotoFacesUpdated={async () => {
+              console.log('[Index] onPhotoFacesUpdated called, refetching photos and people...');
               await refetch();
-              refetchPeople();
+              await refetchPeople();
+              console.log('[Index] Refetch complete, people data updated');
             }}
             renderHeader={() => (
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">Timeline</h1>
