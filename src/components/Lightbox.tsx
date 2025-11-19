@@ -239,10 +239,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       setFaces(updatedFaces);
 
       // Persist to backend
-      const faceTags: FaceTag[] = updatedFaces.map(f => ({
-        person_id: f.personId,
-        bbox: f.boundingBox,
-      }));
+      const faceTags = buildValidFaceTags(updatedFaces);
 
       await azureApi.updatePhotoFaces(photo.id, faceTags);
 
@@ -290,10 +287,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         setFaces(updatedFaces);
 
         // Persist to backend
-        const faceTags: FaceTag[] = updatedFaces.map(f => ({
-          person_id: f.personId,
-          bbox: f.boundingBox,
-        }));
+        const faceTags = buildValidFaceTags(updatedFaces);
 
         await azureApi.updatePhotoFaces(photo.id, faceTags);
 
@@ -342,10 +336,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       setFaces(updatedFaces);
 
       // Send ALL faces to backend (preserve existing faces)
-      const faceTags: FaceTag[] = updatedFaces.map(f => ({
-        person_id: f.personId,
-        bbox: f.boundingBox,
-      }));
+      const faceTags = buildValidFaceTags(updatedFaces);
 
       await azureApi.updatePhotoFaces(photo.id, faceTags);
 
@@ -393,10 +384,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       setFaces(updatedFaces);
 
       // Step 3: Send ALL faces to backend (preserve existing faces)
-      const faceTags: FaceTag[] = updatedFaces.map(f => ({
-        person_id: f.personId,
-        bbox: f.boundingBox,
-      }));
+      const faceTags = buildValidFaceTags(updatedFaces);
 
       await azureApi.updatePhotoFaces(photo.id, faceTags);
 
@@ -471,10 +459,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       setFaces(allFaces);
 
       // Persist to backend
-      const faceTags: FaceTag[] = allFaces.map(f => ({
-        person_id: f.personId,
-        bbox: f.boundingBox,
-      }));
+      const faceTags = buildValidFaceTags(allFaces);
 
       console.log('[handleConfirmNewBox] Sending to backend:', {
         photoId: photo.id,
@@ -544,6 +529,21 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       setNewBox(null);
     }
     onClose();
+  };
+
+  // Helper: Filter out faces that reference deleted/non-existent persons
+  const buildValidFaceTags = (facesToSave: FaceDetection[]): FaceTag[] => {
+    return facesToSave
+      .filter(f => {
+        // Keep unnamed faces (person_id is null)
+        if (!f.personId) return true;
+        // Only keep faces where person still exists
+        return allPeople.some(p => p.id === f.personId);
+      })
+      .map(f => ({
+        person_id: f.personId,
+        bbox: f.boundingBox,
+      }));
   };
 
   return (
