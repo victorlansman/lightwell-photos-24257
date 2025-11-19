@@ -45,7 +45,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
           app_location: "/"
-          api_location: "api"
+          api_location: ""
           output_location: "dist"
 
       - name: Verify Deployment
@@ -54,7 +54,7 @@ jobs:
           sleep 45
 
           echo "Verifying deployed version..."
-          RESPONSE=$(curl -sf https://icy-stone-0bca71103.3.azurestaticapps.net/api/version || echo "")
+          RESPONSE=$(curl -sf https://icy-stone-0bca71103.3.azurestaticapps.net/version.json || echo "")
 
           if [ -z "$RESPONSE" ]; then
             echo "ERROR: Failed to fetch version endpoint"
