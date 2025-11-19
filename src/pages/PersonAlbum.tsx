@@ -56,7 +56,7 @@ export default function PersonAlbum() {
     firstCollectionId,
     isCluster ? undefined : { personIds: [id!] }
   );
-  const { allPeople } = useAllPeople(firstCollectionId);
+  const { allPeople, refetch: refetchAllPeople } = useAllPeople(firstCollectionId);
 
   // For clusters, filter photos by cluster's photo IDs
   const photos = useMemo(() => {
@@ -229,6 +229,7 @@ export default function PersonAlbum() {
             onLoadMore={loadMore}
             onPhotoFacesUpdated={async () => {
               await refetch();
+              refetchAllPeople();
             }}
             onFaceClick={isChoosingThumbnail ? handleSelectFaceForThumbnail : undefined}
             renderHeader={() => (

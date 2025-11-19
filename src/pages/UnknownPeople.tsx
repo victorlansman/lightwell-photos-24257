@@ -18,7 +18,7 @@ export default function UnknownPeople() {
 
   // Fetch all photos
   const { photos: allPhotos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(firstCollectionId);
-  const { allPeople, isLoading: peopleLoading } = useAllPeople(firstCollectionId);
+  const { allPeople, isLoading: peopleLoading, refetch: refetchPeople } = useAllPeople(firstCollectionId);
 
   // Filter to only unnamed individual faces (not in clusters)
   const clusterPersonIds = useMemo(() => {
@@ -83,6 +83,7 @@ export default function UnknownPeople() {
             onLoadMore={loadMore}
             onPhotoFacesUpdated={async () => {
               await refetch();
+              refetchPeople();
             }}
             renderHeader={() => (
               <div>
