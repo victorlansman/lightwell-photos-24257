@@ -25,10 +25,20 @@ export function usePeople(collectionId: string | undefined) {
           thumbnail_bbox: person.thumbnail_bbox
         });
 
+        // Normalize thumbnail_url: Backend returns full URLs for auto-thumbnails,
+        // but usePhotoUrl expects relative paths like /api/faces/{id}/thumbnail
+        let thumbnailPath = person.thumbnail_url || '';
+        if (thumbnailPath.includes('/api/faces/')) {
+          // Extract just the path part: /api/faces/{id}/thumbnail
+          const match = thumbnailPath.match(/\/api\/faces\/[a-f0-9-]+\/thumbnail/i);
+          thumbnailPath = match ? match[0] : thumbnailPath;
+          console.log('[usePeople] Normalized face thumbnail URL to path:', thumbnailPath);
+        }
+
         return {
           id: person.id,
           name: person.name,
-          thumbnailPath: person.thumbnail_url || '',
+          thumbnailPath,
           thumbnailBbox: person.thumbnail_bbox || null,
           photoCount: person.photo_count,
           photos: [], // Backend doesn't provide photo list yet

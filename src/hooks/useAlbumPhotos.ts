@@ -214,11 +214,11 @@ export function useAllPeople(
   // Combine named people and clusters into PersonCluster[]
   const allPeople = useMemo(() => {
     const peopleList: PersonCluster[] = [
-      // Named people
+      // Named people (thumbnailPath already normalized by usePeople hook)
       ...namedPeople.map(p => ({
         id: p.id,
         name: p.name,
-        thumbnailPath: extractPhotoId(p.thumbnailPath),
+        thumbnailPath: p.thumbnailPath, // Already normalized - don't extract again
         thumbnailBbox: p.thumbnailBbox || null,
         photoCount: p.photoCount,
         photos: [],
