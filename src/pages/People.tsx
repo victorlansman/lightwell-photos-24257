@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -165,8 +165,8 @@ export default function People() {
   const selectedPersonsArray = Array.from(selectedClusters);
   const selectedPersons = allPeople.filter(p => selectedPersonsArray.includes(p.id));
 
-  // Component for merge dialog option with photo URL
-  const MergePersonOption = ({ person }: { person: typeof selectedPersons[0] }) => {
+  // Component for merge dialog option with photo URL (memoized to prevent refetch on radio changes)
+  const MergePersonOption = memo(({ person }: { person: typeof selectedPersons[0] }) => {
     const { url: photoUrl } = usePhotoUrl(person.thumbnailPath || '', { thumbnail: true });
 
     return (
@@ -187,7 +187,7 @@ export default function People() {
         </Label>
       </div>
     );
-  };
+  });
 
   return (
     <SidebarProvider>

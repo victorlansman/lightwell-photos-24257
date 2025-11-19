@@ -51,7 +51,15 @@ export function usePhotoUrl(photoIdOrPath: string, options?: { thumbnail?: boole
         setUrl(objectUrl);
       } catch (err) {
         if (cancelled) return;
-        console.error('Failed to load image:', err);
+
+        // Silently handle 404s for face thumbnails (expected when faces are deleted/merged)
+        const is404 = err instanceof Error && err.message.includes('404');
+        const isFaceThumbnail = photoIdOrPath.startsWith('/api/faces/');
+
+        if (!(is404 && isFaceThumbnail)) {
+          console.error('Failed to load image:', err);
+        }
+
         setError(err instanceof Error ? err : new Error('Failed to load image'));
       } finally {
         if (!cancelled) {
