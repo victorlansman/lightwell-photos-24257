@@ -369,9 +369,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     }
   };
 
-  const handleCreateNewPerson = () => {
+  const handleCreateNewPerson = (prefilledName?: string) => {
     if (editingFace) {
       setPersonToName(editingFace);
+      setNewPersonName(prefilledName || "");
       setShowNamingDialog(true);
       // Don't set editingFace to null yet - keep it for the naming flow
     }

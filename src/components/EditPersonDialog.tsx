@@ -18,7 +18,7 @@ interface EditPersonDialogProps {
   onClose: () => void;
   allPeople: PersonCluster[];
   onSelectPerson: (personId: string, personName: string | null) => void;
-  onCreateNew: () => void;
+  onCreateNew: (prefilledName?: string) => void;
   onDisassociate?: () => void;
 }
 
@@ -206,7 +206,7 @@ export function EditPersonDialog({
               onClick={() => {
                 // Trigger person creation with pre-filled name
                 // Don't generate UUID here - backend is ID authority
-                onCreateNew();
+                onCreateNew(searchQuery.trim());
                 onClose();
               }}
             >
