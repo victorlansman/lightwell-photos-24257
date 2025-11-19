@@ -32,11 +32,24 @@ export function PeopleGallery({
   const unknownPeople = people.filter(p => p.name === null && p.photoCount > 1);
   
   const handleMerge = () => {
-    if (selectedClusters.size < 2) {
-      toast.error("Select at least 2 people to merge");
+    if (selectedClusters.size !== 2) {
+      toast.error("Select exactly 2 people to merge");
       return;
     }
-    onMerge(Array.from(selectedClusters));
+
+    // Check if any selected items are unnamed clusters (not real people in database)
+    const selectedIds = Array.from(selectedClusters);
+    const hasUnnamedCluster = selectedIds.some(id => {
+      const item = people.find(p => p.id === id);
+      return item && item.name === null;
+    });
+
+    if (hasUnnamedCluster) {
+      toast.error("Cannot merge unnamed clusters. Please name them first.");
+      return;
+    }
+
+    onMerge(selectedIds);
     // Success toast handled by parent after merge
   };
 
@@ -70,9 +83,10 @@ export function PeopleGallery({
       {/* Selection actions */}
       {isSelectionMode && selectedClusters.size > 0 && (
         <div className="flex gap-2 p-4 bg-muted rounded-lg animate-fade-in">
-          <Button onClick={handleMerge} disabled={selectedClusters.size < 2}>
-            Merge ({selectedClusters.size})
+          <Button onClick={handleMerge} disabled={selectedClusters.size !== 2}>
+            Merge {selectedClusters.size === 2 ? '(2)' : `(select exactly 2)`}
           </Button>
+          <div className="flex-1" />
           <Button variant="destructive" onClick={handleDelete}>
             <Trash2 className="h-4 w-4 mr-2" />
             Delete ({selectedClusters.size})

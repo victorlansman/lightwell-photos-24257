@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { PersonThumbnail } from "@/components/PersonThumbnail";
 
 export default function People() {
   const navigate = useNavigate();
@@ -74,8 +75,15 @@ export default function People() {
       return;
     }
 
-    // Show merge dialog to let user choose which person to keep
-    setMergeTarget(clusterIds[0]); // Default to first selected
+    // Default to person with most photos
+    const person1 = allPeople.find(p => p.id === clusterIds[0]);
+    const person2 = allPeople.find(p => p.id === clusterIds[1]);
+
+    const defaultTarget = (person1 && person2)
+      ? (person1.photoCount >= person2.photoCount ? person1.id : person2.id)
+      : clusterIds[0];
+
+    setMergeTarget(defaultTarget);
     setShowMergeDialog(true);
   };
 
@@ -188,13 +196,20 @@ export default function People() {
 
           <RadioGroup value={mergeTarget || undefined} onValueChange={setMergeTarget}>
             {selectedPersons.map((person) => (
-              <div key={person.id} className="flex items-center space-x-2">
+              <div key={person.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-accent">
                 <RadioGroupItem value={person.id} id={person.id} />
-                <Label htmlFor={person.id} className="flex items-center gap-2 cursor-pointer">
-                  <span>{person.name || `Unnamed cluster (${person.photoCount} photos)`}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {person.photoCount} photo{person.photoCount !== 1 ? 's' : ''}
-                  </span>
+                <Label htmlFor={person.id} className="flex items-center gap-3 cursor-pointer flex-1">
+                  <PersonThumbnail
+                    photoId={person.thumbnailPath}
+                    bbox={person.thumbnailBbox}
+                    size="md"
+                  />
+                  <div className="flex flex-col">
+                    <span className="font-medium">{person.name || `Unnamed cluster`}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {person.photoCount} photo{person.photoCount !== 1 ? 's' : ''}
+                    </span>
+                  </div>
                 </Label>
               </div>
             ))}
