@@ -37,15 +37,13 @@ export function PeopleGallery({
       return;
     }
 
-    // Check if any selected items are unnamed clusters (not real people in database)
+    // Check if BOTH selected items are unnamed clusters
     const selectedIds = Array.from(selectedClusters);
-    const hasUnnamedCluster = selectedIds.some(id => {
-      const item = people.find(p => p.id === id);
-      return item && item.name === null;
-    });
+    const selectedPeople = selectedIds.map(id => people.find(p => p.id === id));
+    const bothUnnamed = selectedPeople.every(p => p && p.name === null);
 
-    if (hasUnnamedCluster) {
-      toast.error("Cannot merge unnamed clusters. Please name them first.");
+    if (bothUnnamed) {
+      toast.error("Cannot merge two unnamed clusters. Name one first, then merge.");
       return;
     }
 

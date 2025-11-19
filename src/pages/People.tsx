@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { PersonThumbnail } from "@/components/PersonThumbnail";
+import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 
 export default function People() {
   const navigate = useNavigate();
@@ -164,6 +165,30 @@ export default function People() {
   const selectedPersonsArray = Array.from(selectedClusters);
   const selectedPersons = allPeople.filter(p => selectedPersonsArray.includes(p.id));
 
+  // Component for merge dialog option with photo URL
+  const MergePersonOption = ({ person }: { person: typeof selectedPersons[0] }) => {
+    const { url: photoUrl } = usePhotoUrl(person.thumbnailPath || '', { thumbnail: true });
+
+    return (
+      <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-accent">
+        <RadioGroupItem value={person.id} id={person.id} />
+        <Label htmlFor={person.id} className="flex items-center gap-3 cursor-pointer flex-1">
+          <PersonThumbnail
+            photoUrl={photoUrl || ''}
+            bbox={person.thumbnailBbox}
+            size="md"
+          />
+          <div className="flex flex-col">
+            <span className="font-medium">{person.name || `Unnamed cluster`}</span>
+            <span className="text-sm text-muted-foreground">
+              {person.photoCount} photo{person.photoCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </Label>
+      </div>
+    );
+  };
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -196,22 +221,7 @@ export default function People() {
 
           <RadioGroup value={mergeTarget || undefined} onValueChange={setMergeTarget}>
             {selectedPersons.map((person) => (
-              <div key={person.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-accent">
-                <RadioGroupItem value={person.id} id={person.id} />
-                <Label htmlFor={person.id} className="flex items-center gap-3 cursor-pointer flex-1">
-                  <PersonThumbnail
-                    photoId={person.thumbnailPath}
-                    bbox={person.thumbnailBbox}
-                    size="md"
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-medium">{person.name || `Unnamed cluster`}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {person.photoCount} photo{person.photoCount !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                </Label>
-              </div>
+              <MergePersonOption key={person.id} person={person} />
             ))}
           </RadioGroup>
 
