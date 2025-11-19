@@ -3,7 +3,7 @@ import { PersonClusterCard } from "./PersonClusterCard";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Users } from "lucide-react";
+import { Users, Trash2 } from "lucide-react";
 
 interface PeopleGalleryProps {
   people: PersonCluster[];
@@ -33,20 +33,20 @@ export function PeopleGallery({
   
   const handleMerge = () => {
     if (selectedClusters.size < 2) {
-      toast.error("Select at least 2 clusters to merge");
+      toast.error("Select at least 2 people to merge");
       return;
     }
     onMerge(Array.from(selectedClusters));
-    toast.success(`Merged ${selectedClusters.size} clusters`);
+    // Success toast handled by parent after merge
   };
 
-  const handleHide = () => {
+  const handleDelete = () => {
     if (selectedClusters.size === 0) {
-      toast.error("Select at least 1 cluster to hide");
+      toast.error("Select at least 1 person to delete");
       return;
     }
     onHide(Array.from(selectedClusters));
-    toast.success(`Hidden ${selectedClusters.size} cluster(s)`);
+    // Success toast handled by parent after deletion
   };
 
   return (
@@ -73,8 +73,9 @@ export function PeopleGallery({
           <Button onClick={handleMerge} disabled={selectedClusters.size < 2}>
             Merge ({selectedClusters.size})
           </Button>
-          <Button variant="outline" onClick={handleHide}>
-            Hide ({selectedClusters.size})
+          <Button variant="destructive" onClick={handleDelete}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete ({selectedClusters.size})
           </Button>
         </div>
       )}
