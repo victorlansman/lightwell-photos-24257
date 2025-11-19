@@ -17,6 +17,7 @@ import { useUpdatePerson, useClusters } from "@/hooks/useFaces";
 import { azureApi } from "@/lib/azureApiClient";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 import { usePhotosWithClusters, useAllPeople } from "@/hooks/useAlbumPhotos";
+import { toast } from "sonner";
 
 export default function PersonAlbum() {
   const { id } = useParams<{ id: string }>();
@@ -98,8 +99,10 @@ export default function PersonAlbum() {
       await refetchPeople();
       setIsChoosingThumbnail(false);
       setShowFaces(false);
+      toast.success("Thumbnail updated");
     } catch (error: any) {
       console.error("[handleSelectFaceForThumbnail] Failed:", error);
+      toast.error("Failed to update thumbnail");
     }
   };
 
@@ -176,7 +179,7 @@ export default function PersonAlbum() {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full flex-col">
+      <div className="flex min-h-screen w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <Header />
@@ -211,6 +214,7 @@ export default function PersonAlbum() {
             onPhotoFacesUpdated={async () => {
               await refetch();
             }}
+            onFaceClick={isChoosingThumbnail ? handleSelectFaceForThumbnail : undefined}
             renderHeader={() => (
               <div className="flex items-center gap-4">
                 <Button

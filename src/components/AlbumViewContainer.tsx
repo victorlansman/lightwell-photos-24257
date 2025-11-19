@@ -37,6 +37,7 @@ export interface AlbumViewContainerProps {
   onPhotoSelect?: (photoIds: string[]) => void;
   onNavigate?: (path: string) => void;
   onPhotoFacesUpdated?: (photoId: string) => Promise<void>; // Called when faces are modified in lightbox
+  onFaceClick?: (face: any, photoId: string) => void; // For thumbnail selection mode
 
   // Pagination
   hasMore?: boolean;
@@ -62,6 +63,7 @@ export function AlbumViewContainer({
   hasMore = false,
   isLoadingMore = false,
   onLoadMore,
+  onFaceClick,
   ...props
 }: AlbumViewContainerProps) {
   // View controls state
@@ -237,6 +239,9 @@ export function AlbumViewContainer({
                     const shouldShowFaces = personId ? showFaces : (gridMode === 'faces');
 
                     if (shouldShowFaces && personId) {
+                      // Find the face for this person in this photo
+                      const face = photo.faces?.find(f => f.personId === personId);
+
                       return (
                         <FacePhotoCard
                           key={photo.id}
@@ -244,7 +249,14 @@ export function AlbumViewContainer({
                           personId={personId}
                           isSelected={selectedPhotos.has(photo.id)}
                           onSelect={() => handleSelectPhoto(photo.id)}
-                          onClick={() => handlePhotoClick(photo)}
+                          onClick={() => {
+                            // If onFaceClick is provided (thumbnail selection mode), use it
+                            if (onFaceClick && face) {
+                              onFaceClick(face, photo.id);
+                            } else {
+                              handlePhotoClick(photo);
+                            }
+                          }}
                           isSelectionMode={isSelectionMode}
                         />
                       );
