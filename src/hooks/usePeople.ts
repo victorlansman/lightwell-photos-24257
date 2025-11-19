@@ -14,17 +14,8 @@ export function usePeople(collectionId: string | undefined) {
 
       const people = await azureApi.getPeople(collectionId);
 
-      console.log('[usePeople] Received people from backend:', people);
-
       // Transform PersonResponse[] to PersonCluster[]
       return people.map((person: PersonResponse): PersonCluster => {
-        console.log('[usePeople] Mapping person:', {
-          id: person.id,
-          name: person.name,
-          thumbnail_url: person.thumbnail_url,
-          thumbnail_bbox: person.thumbnail_bbox
-        });
-
         // Normalize thumbnail_url: Backend returns full URLs for auto-thumbnails,
         // but usePhotoUrl expects relative paths like /api/faces/{id}/thumbnail
         let thumbnailPath = person.thumbnail_url || '';
@@ -32,7 +23,6 @@ export function usePeople(collectionId: string | undefined) {
           // Extract just the path part: /api/faces/{id}/thumbnail
           const match = thumbnailPath.match(/\/api\/faces\/[a-f0-9-]+\/thumbnail/i);
           thumbnailPath = match ? match[0] : thumbnailPath;
-          console.log('[usePeople] Normalized face thumbnail URL to path:', thumbnailPath);
         }
 
         return {
