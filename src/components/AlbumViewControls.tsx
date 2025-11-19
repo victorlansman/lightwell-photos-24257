@@ -1,4 +1,4 @@
-import { ZoomIn, ZoomOut, Calendar, CalendarOff, Square, RectangleHorizontal, User, Image, CircleUser } from "lucide-react";
+import { ZoomIn, ZoomOut, Calendar, CalendarOff, Square, RectangleHorizontal, User, Image, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -118,7 +118,7 @@ export function AlbumViewControls({
             )}
             title={showFaces ? "Show full photos" : "Show face thumbnails"}
           >
-            <CircleUser className="h-4 w-4" />
+            <Smile className="h-4 w-4" />
           </Button>
         )}
       </div>
