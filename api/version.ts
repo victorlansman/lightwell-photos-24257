@@ -1,9 +1,9 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
-const httpTrigger: AzureFunction = async function (
-  context: Context,
-  req: HttpRequest
-): Promise<void> {
+export async function version(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   context.log("Version endpoint called");
 
   const response = {
@@ -14,14 +14,18 @@ const httpTrigger: AzureFunction = async function (
     status: "healthy",
   };
 
-  context.res = {
+  return {
     status: 200,
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "no-cache",
     },
-    body: response,
+    body: JSON.stringify(response),
   };
-};
+}
 
-export default httpTrigger;
+app.http("version", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  handler: version,
+});
