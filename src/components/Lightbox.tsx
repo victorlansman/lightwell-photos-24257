@@ -63,19 +63,29 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   useEffect(() => {
     if (photo?.faces) {
-      console.log('[Lightbox useEffect] Photo changed, setting faces:', {
-        photoId: photo.id,
-        faceCount: photo.faces.length,
-        faces: photo.faces,
-        unnamedCount: photo.faces.filter(f => !f.personId).length
+      // Filter out faces with invalid person_ids (orphaned references to deleted persons)
+      const validFaces = photo.faces.filter(f => {
+        // Keep unnamed faces
+        if (!f.personId) return true;
+        // Only keep faces where person still exists
+        return allPeople.some(p => p.id === f.personId);
       });
-      setFaces(photo.faces);
+
+      console.log('[Lightbox useEffect] Photo changed, filtering faces:', {
+        photoId: photo.id,
+        originalCount: photo.faces.length,
+        validCount: validFaces.length,
+        filteredOut: photo.faces.length - validFaces.length,
+        unnamedCount: validFaces.filter(f => !f.personId).length
+      });
+
+      setFaces(validFaces);
     } else {
       console.log('[Lightbox useEffect] Photo has no faces, clearing');
       setFaces([]);
     }
     // Don't reset showFaces - let user control visibility
-  }, [photo]);
+  }, [photo, allPeople]);
 
   // Track image dimensions for bounding box positioning
   useEffect(() => {

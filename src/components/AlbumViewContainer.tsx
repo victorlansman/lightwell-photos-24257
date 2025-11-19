@@ -68,7 +68,8 @@ export function AlbumViewContainer({
   const [zoomLevel, setZoomLevel] = useState(defaultZoomLevel);
   const [showDates, setShowDates] = useState(true);
   const [cropSquare, setCropSquare] = useState(true);
-  const [showFaces, setShowFaces] = useState(false);
+  // For person albums, default to showing faces
+  const [showFaces, setShowFaces] = useState(!!personId);
 
   // Selection state
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -231,7 +232,11 @@ export function AlbumViewContainer({
                   }}
                 >
                   {photos.map(photo => {
-                    if (gridMode === 'faces' && personId) {
+                    // For person albums: use showFaces state to control display mode
+                    // For other contexts: use gridMode prop
+                    const shouldShowFaces = personId ? showFaces : (gridMode === 'faces');
+
+                    if (shouldShowFaces && personId) {
                       return (
                         <FacePhotoCard
                           key={photo.id}

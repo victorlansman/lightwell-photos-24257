@@ -8,6 +8,27 @@ import { PersonCluster } from '@/types/person';
 import { apiBboxToUi } from '@/types/coordinates';
 import { azureApi } from '@/lib/azureApiClient';
 
+/**
+ * Extract photo ID from URL or return value as-is if already a UUID.
+ * Handles backend inconsistency where photo_id field may contain full URL.
+ *
+ * Example: "http://.../api/faces/abc-123/thumbnail/image" -> "abc-123"
+ * Example: "abc-123" -> "abc-123"
+ */
+function extractPhotoId(value: string | undefined): string {
+  if (!value) return '';
+
+  // If it's already a UUID-like string (not a URL), return as-is
+  if (!value.startsWith('http://') && !value.startsWith('https://')) {
+    return value;
+  }
+
+  // Extract UUID from URL path
+  // Pattern: .../faces/{UUID}/... or .../photos/{UUID}/...
+  const match = value.match(/\/(photos|faces)\/([a-f0-9-]+)/i);
+  return match ? match[2] : value;
+}
+
 export interface PhotoFilters {
   yearRange?: [number, number];
   personIds?: string[];
@@ -197,7 +218,7 @@ export function useAllPeople(
       ...namedPeople.map(p => ({
         id: p.id,
         name: p.name,
-        thumbnailPath: p.thumbnailPath || '',
+        thumbnailPath: extractPhotoId(p.thumbnailPath),
         thumbnailBbox: p.thumbnailBbox || null,
         photoCount: p.photoCount,
         photos: [],
@@ -213,7 +234,7 @@ export function useAllPeople(
           id: cluster.id,
           name: null,
           // Use representative face's photo_id as the thumbnail (usePhotoUrl expects a photo ID)
-          thumbnailPath: representativeFace?.photo_id || '',
+          thumbnailPath: extractPhotoId(representativeFace?.photo_id),
           thumbnailBbox: representativeFace ? apiBboxToUi(representativeFace.bbox) : null,
           photoCount: photoIds.length,
           photos: photoIds,

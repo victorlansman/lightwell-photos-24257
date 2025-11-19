@@ -202,7 +202,6 @@ export default function PersonAlbum() {
             allPeople={allPeople}
             collectionId={firstCollectionId!}
             isLoading={photosLoading}
-            gridMode="faces"
             personId={id}
             showViewControls
             enableSelection
