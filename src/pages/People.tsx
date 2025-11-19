@@ -5,15 +5,28 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { PeopleGallery } from "@/components/PeopleGallery";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 import { useCollections } from "@/hooks/useCollections";
 import { useAllPeople } from "@/hooks/useAlbumPhotos";
+import { azureApi } from "@/lib/azureApiClient";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 export default function People() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [selectedClusters, setSelectedClusters] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<string | null>(null);
 
   // TODO: Multi-collection support - currently showing first collection only
   // Should fetch people from all collections and aggregate
@@ -21,7 +34,7 @@ export default function People() {
   const firstCollectionId = collections?.[0]?.id;
 
   // Use the refactored useAllPeople hook that handles both named people and clusters
-  const { allPeople, isLoading: peopleLoading } = useAllPeople(firstCollectionId);
+  const { allPeople, isLoading: peopleLoading, refetch: refetchPeople } = useAllPeople(firstCollectionId);
 
   const loading = collectionsLoading || peopleLoading;
 
@@ -56,25 +69,72 @@ export default function People() {
   };
 
   const handleMerge = async (clusterIds: string[]) => {
-    // TODO: Implement merge endpoint in Azure backend
-    // For now, show not implemented message
-    toast({
-      title: "Not yet implemented",
-      description: "Merge functionality will be added after Azure migration is complete",
-      variant: "destructive",
-    });
-    console.warn('Merge not implemented for Azure backend yet', { clusterIds });
+    if (clusterIds.length !== 2) {
+      toast.error('Please select exactly 2 people to merge');
+      return;
+    }
+
+    // Show merge dialog to let user choose which person to keep
+    setMergeTarget(clusterIds[0]); // Default to first selected
+    setShowMergeDialog(true);
+  };
+
+  const handleConfirmMerge = async () => {
+    if (!mergeTarget) return;
+
+    const clusterIds = Array.from(selectedClusters);
+    const sourceId = clusterIds.find(id => id !== mergeTarget);
+
+    if (!sourceId) {
+      toast.error('Invalid merge selection');
+      return;
+    }
+
+    try {
+      const result = await azureApi.mergePeople(mergeTarget, sourceId);
+
+      toast.success(`Merged ${result.faces_merged} faces into one person`);
+
+      // Refresh people list
+      refetchPeople();
+
+      // Exit selection mode and close dialog
+      setIsSelectionMode(false);
+      setSelectedClusters(new Set());
+      setShowMergeDialog(false);
+      setMergeTarget(null);
+    } catch (error) {
+      console.error('Failed to merge people:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to merge people');
+    }
   };
 
   const handleHide = async (clusterIds: string[]) => {
-    // TODO: Implement hide/archive endpoint in Azure backend
-    // For now, show not implemented message
-    toast({
-      title: "Not yet implemented",
-      description: "Hide functionality will be added after Azure migration is complete",
-      variant: "destructive",
-    });
-    console.warn('Hide not implemented for Azure backend yet', { clusterIds });
+    if (clusterIds.length === 0) return;
+
+    try {
+      // Delete each selected person with cascade mode (deletes their face tags)
+      const deletePromises = clusterIds.map(personId =>
+        azureApi.deletePerson(personId, 'cascade')
+      );
+
+      const results = await Promise.all(deletePromises);
+
+      // Sum up affected faces
+      const totalFacesAffected = results.reduce((sum, r) => sum + r.faces_affected, 0);
+
+      toast.success(`Deleted ${clusterIds.length} person(s), ${totalFacesAffected} face tags removed`);
+
+      // Refresh people list
+      refetchPeople();
+
+      // Exit selection mode
+      setIsSelectionMode(false);
+      setSelectedClusters(new Set());
+    } catch (error) {
+      console.error('Failed to delete person(s):', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete person(s)');
+    }
   };
 
   if (loading) {
@@ -92,6 +152,9 @@ export default function People() {
       </SidebarProvider>
     );
   }
+
+  const selectedPersonsArray = Array.from(selectedClusters);
+  const selectedPersons = allPeople.filter(p => selectedPersonsArray.includes(p.id));
 
   return (
     <SidebarProvider>
@@ -112,6 +175,47 @@ export default function People() {
           </main>
         </div>
       </div>
+
+      {/* Merge Dialog */}
+      <Dialog open={showMergeDialog} onOpenChange={setShowMergeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Merge Duplicate People</DialogTitle>
+            <DialogDescription>
+              Choose which person to keep. All faces from the other person will be reassigned to the selected one.
+            </DialogDescription>
+          </DialogHeader>
+
+          <RadioGroup value={mergeTarget || undefined} onValueChange={setMergeTarget}>
+            {selectedPersons.map((person) => (
+              <div key={person.id} className="flex items-center space-x-2">
+                <RadioGroupItem value={person.id} id={person.id} />
+                <Label htmlFor={person.id} className="flex items-center gap-2 cursor-pointer">
+                  <span>{person.name || `Unnamed cluster (${person.photoCount} photos)`}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {person.photoCount} photo{person.photoCount !== 1 ? 's' : ''}
+                  </span>
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowMergeDialog(false);
+                setMergeTarget(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmMerge} disabled={!mergeTarget}>
+              Merge People
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }

@@ -42,12 +42,29 @@ export default function PersonAlbum() {
 
   const isCluster = !!cluster && !person;
 
-  // Use new hooks with person filter
-  const { photos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(
+  // For clusters, we need to load photos directly using cluster's photo IDs
+  // For persons, we filter by person_id
+  const clusterPhotoIds = useMemo(() => {
+    if (isCluster && cluster) {
+      return Array.from(new Set(cluster.faces.map(f => f.photo_id)));
+    }
+    return [];
+  }, [isCluster, cluster]);
+
+  // Use new hooks with person filter (only for named persons, not clusters)
+  const { photos: personPhotos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(
     firstCollectionId,
-    { personIds: [id!] }
+    isCluster ? undefined : { personIds: [id!] }
   );
   const { allPeople } = useAllPeople(firstCollectionId);
+
+  // For clusters, filter photos by cluster's photo IDs
+  const photos = useMemo(() => {
+    if (isCluster) {
+      return personPhotos.filter(p => clusterPhotoIds.includes(p.id));
+    }
+    return personPhotos;
+  }, [isCluster, personPhotos, clusterPhotoIds]);
 
   // Find current person/cluster
   const displayPerson = allPeople.find(p => p.id === id);

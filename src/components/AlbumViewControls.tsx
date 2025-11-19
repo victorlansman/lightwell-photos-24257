@@ -87,9 +87,9 @@ export function AlbumViewControls({
           title={showDates ? "Hide dates" : "Show dates"}
         >
           {showDates ? (
-            <CalendarOff className="h-4 w-4" />
-          ) : (
             <Calendar className="h-4 w-4" />
+          ) : (
+            <CalendarOff className="h-4 w-4" />
           )}
         </Button>
 

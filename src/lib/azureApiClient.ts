@@ -102,9 +102,16 @@ export interface FaceTagResponse {
   bbox: UiBoundingBox;  // Uses UI coordinates
 }
 
+export interface FaceWarning {
+  field: string;
+  message: string;
+  value: string;
+}
+
 export interface UpdateFacesResponse {
   photo_id: ServerId;  // Changed from string
   faces: FaceTagResponse[];
+  warnings?: FaceWarning[];  // Present in 207 Multi-Status responses
 }
 
 export interface CreatePersonRequest {
@@ -473,26 +480,66 @@ class AzureApiClient {
       bbox: uiBboxToApi(face.bbox),
     }));
 
-    const response = await this.request<any>(`/v1/photos/${photoId}/faces`, {
+    const url = `${this.baseUrl}/v1/photos/${photoId}/faces`;
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+    };
+
+    const response = await fetch(url, {
       method: 'POST',
+      headers,
       body: JSON.stringify({ faces: normalizedFaces }),
     });
 
-    // COORDINATE CONVERSION: API (0-1) → UI (0-100)
-    // Transform response back to UI coordinates
-    return {
-      photo_id: response.photo_id,
-      faces: response.faces.map((face: any) => ({
-        id: face.id,
-        person_id: face.person_id,
-        bbox: apiBboxToUi({
-          x: apiCoord(face.bbox.x),
-          y: apiCoord(face.bbox.y),
-          width: apiCoord(face.bbox.width),
-          height: apiCoord(face.bbox.height),
-        }),
-      })),
-    };
+    // Handle different status codes
+    if (response.status === 200 || response.status === 207) {
+      // 200 = All valid, 207 = Partial success (some invalid person_ids skipped)
+      const data = await response.json();
+
+      // COORDINATE CONVERSION: API (0-1) → UI (0-100)
+      // Transform response back to UI coordinates
+      const result: UpdateFacesResponse = {
+        photo_id: data.photo_id,
+        faces: data.faces.map((face: any) => ({
+          id: face.id,
+          person_id: face.person_id,
+          bbox: apiBboxToUi({
+            x: apiCoord(face.bbox.x),
+            y: apiCoord(face.bbox.y),
+            width: apiCoord(face.bbox.width),
+            height: apiCoord(face.bbox.height),
+          }),
+        })),
+        warnings: data.warnings, // Include warnings if present (207 response)
+      };
+
+      return result;
+    }
+
+    // Handle error responses (400, 404, etc.)
+    let errorData: any;
+    try {
+      errorData = await response.json();
+    } catch {
+      errorData = {
+        error: 'unknown',
+        message: response.statusText,
+        detail: response.statusText
+      };
+    }
+
+    // Extract error message
+    const errorMessage = typeof errorData.detail === 'string'
+      ? errorData.detail
+      : errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+
+    console.error(`API Error [updatePhotoFaces]:`, {
+      status: response.status,
+      error: errorData,
+    });
+
+    throw new Error(errorMessage);
   }
 
   // ==================== People Management ====================
@@ -514,6 +561,40 @@ class AzureApiClient {
     return this.request(`/v1/people/${personId}`, {
       method: 'PATCH',
       body: JSON.stringify(request),
+    });
+  }
+
+  /**
+   * Delete a person with optional mode.
+   *
+   * @param personId - Person to delete
+   * @param mode - 'cascade' (delete face tags) or 'unname' (keep faces unnamed)
+   * @returns Deletion result with affected faces count
+   */
+  async deletePerson(
+    personId: string,
+    mode: 'cascade' | 'unname' = 'cascade'
+  ): Promise<{ deleted: boolean; faces_affected: number; mode: string }> {
+    const params = new URLSearchParams({ mode });
+    return this.request(`/v1/people/${personId}?${params.toString()}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Merge duplicate persons - all faces from source reassigned to target.
+   *
+   * @param targetPersonId - Person to keep (receives all faces)
+   * @param sourcePersonId - Person to merge from (will be deleted)
+   * @returns Merge result with count of faces transferred
+   */
+  async mergePeople(
+    targetPersonId: string,
+    sourcePersonId: string
+  ): Promise<{ success: boolean; target_person_id: string; faces_merged: number }> {
+    return this.request(`/v1/people/${targetPersonId}/merge`, {
+      method: 'POST',
+      body: JSON.stringify({ source_person_id: sourcePersonId }),
     });
   }
 

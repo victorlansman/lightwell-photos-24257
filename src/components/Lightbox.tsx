@@ -63,29 +63,19 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
   useEffect(() => {
     if (photo?.faces) {
-      // Filter out faces with invalid person_ids (orphaned references to deleted persons)
-      const validFaces = photo.faces.filter(f => {
-        // Keep unnamed faces
-        if (!f.personId) return true;
-        // Only keep faces where person still exists
-        return allPeople.some(p => p.id === f.personId);
-      });
-
-      console.log('[Lightbox useEffect] Photo changed, filtering faces:', {
+      console.log('[Lightbox useEffect] Photo changed, loading faces:', {
         photoId: photo.id,
-        originalCount: photo.faces.length,
-        validCount: validFaces.length,
-        filteredOut: photo.faces.length - validFaces.length,
-        unnamedCount: validFaces.filter(f => !f.personId).length
+        faceCount: photo.faces.length,
+        unnamedCount: photo.faces.filter(f => !f.personId).length
       });
 
-      setFaces(validFaces);
+      setFaces(photo.faces);
     } else {
       console.log('[Lightbox useEffect] Photo has no faces, clearing');
       setFaces([]);
     }
     // Don't reset showFaces - let user control visibility
-  }, [photo, allPeople]);
+  }, [photo]);
 
   // Track image dimensions for bounding box positioning
   useEffect(() => {
@@ -238,6 +228,17 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     setEditingFace(face);
   };
 
+  const showWarningsIfPresent = (warnings: Array<{ field: string; message: string; value: string }> | undefined) => {
+    if (warnings && warnings.length > 0) {
+      warnings.forEach(warning => {
+        console.warn('[Face Update Warning]', warning);
+        toast(`Skipped: ${warning.message}`, {
+          description: `Some faces couldn't be updated (orphaned person references)`,
+        });
+      });
+    }
+  };
+
   const handleUpdateBoundingBox = async (face: FaceDetection, newBox: { x: number; y: number; width: number; height: number }) => {
     if (!photo) return;
 
@@ -251,7 +252,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       // Persist to backend
       const faceTags = buildValidFaceTags(updatedFaces);
 
-      await azureApi.updatePhotoFaces(photo.id, faceTags);
+      const response = await azureApi.updatePhotoFaces(photo.id, faceTags);
+      showWarningsIfPresent(response.warnings);
 
       // Refresh from server to confirm
       if (onUpdateFaces) {
@@ -299,7 +301,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         // Persist to backend
         const faceTags = buildValidFaceTags(updatedFaces);
 
-        await azureApi.updatePhotoFaces(photo.id, faceTags);
+        const response = await azureApi.updatePhotoFaces(photo.id, faceTags);
+        showWarningsIfPresent(response.warnings);
 
         // Refresh from server and update lightbox
         if (onUpdateFaces) {
@@ -348,7 +351,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       // Send ALL faces to backend (preserve existing faces)
       const faceTags = buildValidFaceTags(updatedFaces);
 
-      await azureApi.updatePhotoFaces(photo.id, faceTags);
+      const response = await azureApi.updatePhotoFaces(photo.id, faceTags);
+      showWarningsIfPresent(response.warnings);
 
       // Refresh photo
       if (onUpdateFaces) {
@@ -396,7 +400,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       // Step 3: Send ALL faces to backend (preserve existing faces)
       const faceTags = buildValidFaceTags(updatedFaces);
 
-      await azureApi.updatePhotoFaces(photo.id, faceTags);
+      const response = await azureApi.updatePhotoFaces(photo.id, faceTags);
+      showWarningsIfPresent(response.warnings);
 
       // Notify parent of new person (for people list refresh)
       onPersonCreated?.(personId, newPersonName.trim());
@@ -477,7 +482,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         faceTags
       });
 
-      await azureApi.updatePhotoFaces(photo.id, faceTags);
+      const response = await azureApi.updatePhotoFaces(photo.id, faceTags);
+      showWarningsIfPresent(response.warnings);
 
       // Refresh photo data
       if (onUpdateFaces) {
@@ -541,19 +547,30 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     onClose();
   };
 
-  // Helper: Filter out faces that reference deleted/non-existent persons
+  // Helper: Deduplicates faces with identical bounding boxes, preferring named over unnamed
+  // Backend handles invalid person_ids gracefully (returns 207 with warnings)
   const buildValidFaceTags = (facesToSave: FaceDetection[]): FaceTag[] => {
-    return facesToSave
-      .filter(f => {
-        // Keep unnamed faces (person_id is null)
-        if (!f.personId) return true;
-        // Only keep faces where person still exists
-        return allPeople.some(p => p.id === f.personId);
-      })
-      .map(f => ({
-        person_id: f.personId,
-        bbox: f.boundingBox,
-      }));
+    // Deduplicate by bounding box - prefer named faces over unnamed
+    const bboxMap = new Map<string, FaceDetection>();
+    facesToSave.forEach(f => {
+      const key = `${f.boundingBox.x},${f.boundingBox.y},${f.boundingBox.width},${f.boundingBox.height}`;
+      const existing = bboxMap.get(key);
+
+      // If no existing face with this bbox, add it
+      if (!existing) {
+        bboxMap.set(key, f);
+      }
+      // If existing face is unnamed but this one is named, replace it
+      else if (!existing.personId && f.personId) {
+        bboxMap.set(key, f);
+      }
+      // Otherwise keep the existing one (prefer first named face)
+    });
+
+    return Array.from(bboxMap.values()).map(f => ({
+      person_id: f.personId,
+      bbox: f.boundingBox,
+    }));
   };
 
   return (
