@@ -70,8 +70,8 @@ export function AlbumViewContainer({
   const [zoomLevel, setZoomLevel] = useState(defaultZoomLevel);
   const [showDates, setShowDates] = useState(true);
   const [cropSquare, setCropSquare] = useState(true);
-  // For person albums, default to showing faces
-  const [showFaces, setShowFaces] = useState(!!personId);
+  // Default to full photos, not face thumbnails
+  const [showFaces, setShowFaces] = useState(false);
 
   // Selection state
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -165,7 +165,7 @@ export function AlbumViewContainer({
         )}
 
         <main className="flex-1 p-4 md:p-6 overflow-auto">
-          <div className="space-y-4 md:space-y-6 max-w-[1600px] mx-auto">
+          <div className="space-y-4 md:space-y-6 max-w-[1600px]">
             {/* Custom header */}
             {renderHeader?.()}
 
@@ -236,7 +236,8 @@ export function AlbumViewContainer({
                   {photos.map(photo => {
                     // For person albums: use showFaces state to control display mode
                     // For other contexts: use gridMode prop
-                    const shouldShowFaces = personId ? showFaces : (gridMode === 'faces');
+                    // If onFaceClick is provided (thumbnail selection mode), force face view
+                    const shouldShowFaces = onFaceClick ? true : (personId ? showFaces : (gridMode === 'faces'));
 
                     if (shouldShowFaces && personId) {
                       // Find the face for this person in this photo

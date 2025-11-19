@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { User } from "lucide-react";
 
 interface PersonThumbnailProps {
   photoUrl: string;
@@ -20,6 +21,7 @@ export function PersonThumbnail({
   className,
 }: PersonThumbnailProps) {
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+  const [imageError, setImageError] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
 
   // If bbox is explicitly null (face thumbnails), don't crop
@@ -81,25 +83,39 @@ export function PersonThumbnail({
     lg: "w-40 h-40",
   };
 
+  const iconSizes = {
+    sm: "h-8 w-8",
+    md: "h-16 w-16",
+    lg: "h-20 w-20",
+  };
+
+  // Show placeholder if no URL or image failed to load
+  const showPlaceholder = !photoUrl || imageError;
+
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-3xl bg-muted flex-shrink-0",
+        "relative overflow-hidden rounded-3xl bg-muted flex-shrink-0 flex items-center justify-center",
         sizeClasses[size],
         className
       )}
     >
-      <img
-        ref={imgRef}
-        src={photoUrl}
-        alt=""
-        className="w-full h-full object-cover"
-        style={{
-          objectPosition: `${centerX}% ${centerY}%`,
-          transform: `scale(${zoomFactor})`,
-          transformOrigin: `${centerX}% ${centerY}%`,
-        }}
-      />
+      {showPlaceholder ? (
+        <User className={cn(iconSizes[size], "text-muted-foreground")} />
+      ) : (
+        <img
+          ref={imgRef}
+          src={photoUrl}
+          alt=""
+          className="w-full h-full object-cover"
+          style={{
+            objectPosition: `${centerX}% ${centerY}%`,
+            transform: `scale(${zoomFactor})`,
+            transformOrigin: `${centerX}% ${centerY}%`,
+          }}
+          onError={() => setImageError(true)}
+        />
+      )}
     </div>
   );
 }

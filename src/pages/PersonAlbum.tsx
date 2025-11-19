@@ -58,7 +58,6 @@ export default function PersonAlbum() {
   // UI state
   const [isNamingDialogOpen, setIsNamingDialogOpen] = useState(false);
   const [isChoosingThumbnail, setIsChoosingThumbnail] = useState(false);
-  const [showFaces, setShowFaces] = useState(false);
 
   // Mutations
   const updatePersonMutation = useUpdatePerson();
@@ -98,7 +97,6 @@ export default function PersonAlbum() {
 
       await refetchPeople();
       setIsChoosingThumbnail(false);
-      setShowFaces(false);
       toast.success("Thumbnail updated");
     } catch (error: any) {
       console.error("[handleSelectFaceForThumbnail] Failed:", error);
@@ -127,12 +125,14 @@ export default function PersonAlbum() {
         await refetchPeople();
         navigate("/people");
       } else if (person) {
-        await supabase
-          .from("people")
-          .update({ name })
-          .eq("id", person.id);
+        // Update existing named person
+        await updatePersonMutation.mutateAsync({
+          personId: person.id,
+          request: { name },
+        });
 
         await refetchPeople();
+        toast.success("Name updated");
       }
     } catch (error: any) {
       console.error("[handleNameSave] Failed:", error);
@@ -192,7 +192,6 @@ export default function PersonAlbum() {
                 variant="outline"
                 onClick={() => {
                   setIsChoosingThumbnail(false);
-                  setShowFaces(false);
                 }}
               >
                 Cancel
@@ -241,7 +240,6 @@ export default function PersonAlbum() {
                     <button
                       onClick={() => {
                         setIsChoosingThumbnail(true);
-                        setShowFaces(true);
                       }}
                       className="absolute top-1 right-1 bg-background/90 hover:bg-background rounded-full p-1.5 transition-colors shadow-sm"
                       title="Change thumbnail"
