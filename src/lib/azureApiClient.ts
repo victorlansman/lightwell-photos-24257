@@ -782,6 +782,92 @@ class AzureApiClient {
     };
   }
 
+  // ==================== Invite System ====================
+
+  /**
+   * Get invite details (no auth required).
+   * Used to preview invite before user signs in.
+   */
+  async getInviteDetails(token: string): Promise<InviteDetails> {
+    return this.request(`/v1/collections/invite/${token}/details`);
+  }
+
+  /**
+   * Accept an invite (requires auth).
+   * Creates collection membership for authenticated user.
+   */
+  async acceptInvite(token: string): Promise<AcceptInviteResponse> {
+    return this.request(`/v1/collections/accept-invite/${token}`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Get collection members (requires membership).
+   */
+  async getCollectionMembers(collectionId: string): Promise<Member[]> {
+    const response = await this.request<{ members: Member[] }>(
+      `/v1/collections/${collectionId}/members`
+    );
+    return response.members;
+  }
+
+  /**
+   * Get pending invites for a collection (owners only).
+   */
+  async getPendingInvites(collectionId: string): Promise<PendingInvite[]> {
+    const response = await this.request<{ invites: PendingInvite[] }>(
+      `/v1/collections/${collectionId}/invites`
+    );
+    return response.invites;
+  }
+
+  /**
+   * Invite a user to a collection (owners only).
+   * Returns immediate member if user exists, or pending invite if not.
+   */
+  async inviteToCollection(
+    collectionId: string,
+    request: InviteRequest
+  ): Promise<InviteResponse> {
+    return this.request(`/v1/collections/${collectionId}/invite`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  /**
+   * Remove a member from a collection (owners only).
+   */
+  async removeMember(collectionId: string, userId: string): Promise<void> {
+    return this.request(`/v1/collections/${collectionId}/members/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Cancel a pending invite (owners only).
+   */
+  async cancelInvite(collectionId: string, inviteId: string): Promise<void> {
+    return this.request(`/v1/collections/${collectionId}/invites/${inviteId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Change a member's role (owners only).
+   */
+  async changeMemberRole(
+    collectionId: string,
+    userId: string,
+    role: 'owner' | 'admin' | 'viewer'
+  ): Promise<Member> {
+    return this.request(`/v1/collections/${collectionId}/members/${userId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    });
+  }
+
   // ==================== Health Check ====================
 
   async healthCheck(): Promise<{ status: string }> {
