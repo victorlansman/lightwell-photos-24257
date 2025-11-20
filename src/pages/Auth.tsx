@@ -51,14 +51,6 @@ export default function Auth() {
     return () => subscription.unsubscribe();
   }, [navigate, inviteToken]);
 
-  // Pre-fill email from invite
-  useEffect(() => {
-    if (inviteDetails && !email) {
-      // Don't pre-fill email - let user enter their own
-      // (invite might be sent to different email than they use)
-    }
-  }, [inviteDetails, email]);
-
   const handlePasswordAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
