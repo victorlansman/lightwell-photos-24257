@@ -12,10 +12,11 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
+  const [usePassword, setUsePassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('invite');
 
@@ -50,6 +51,35 @@ export default function Auth() {
 
     return () => subscription.unsubscribe();
   }, [navigate, inviteToken]);
+
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: inviteToken
+            ? `${window.location.origin}/invite/${inviteToken}/accept`
+            : `${window.location.origin}/`,
+        },
+      });
+      if (error) throw error;
+      toast({
+        title: "Check your email!",
+        description: "We sent you a magic link to sign in.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handlePasswordAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,14 +191,61 @@ export default function Auth() {
           </p>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
-          <form onSubmit={handlePasswordAuth} className="space-y-6">
+        <div className="bg-card border border-border rounded-lg p-8 shadow-sm space-y-6">
+          {/* Magic Link Login */}
+          <form onSubmit={handleMagicLink} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium text-foreground">
+              <label htmlFor="email-magic" className="text-sm font-medium text-foreground">
                 Email address
               </label>
               <Input
-                id="email"
+                id="email-magic"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending magic link...
+                </>
+              ) : (
+                <>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Send magic link
+                </>
+              )}
+            </Button>
+          </form>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Or sign in with password</span>
+            </div>
+          </div>
+
+          {/* Password Login */}
+          <form onSubmit={handlePasswordAuth} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="email-password" className="text-sm font-medium text-foreground">
+                Email address
+              </label>
+              <Input
+                id="email-password"
                 type="email"
                 placeholder="you@example.com"
                 value={email}
@@ -198,6 +275,7 @@ export default function Auth() {
               type="submit"
               className="w-full"
               disabled={loading}
+              variant="outline"
             >
               {loading ? (
                 <>
@@ -205,7 +283,7 @@ export default function Auth() {
                   {isSignUp ? "Creating account..." : "Signing in..."}
                 </>
               ) : (
-                <>{isSignUp ? "Sign up" : "Sign in"}</>
+                <>{isSignUp ? "Sign up with password" : "Sign in with password"}</>
               )}
             </Button>
           </form>

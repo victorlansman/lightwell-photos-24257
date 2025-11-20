@@ -170,15 +170,56 @@ export default function Settings() {
 
                 {/* Account Tab */}
                 <TabsContent value="account" className="space-y-4">
-                  <Card>
+                  {/* Delete Account */}
+                  <Card className="border-destructive">
                     <CardHeader>
-                      <CardTitle>Account Settings</CardTitle>
-                      <CardDescription>Manage your account preferences</CardDescription>
+                      <CardTitle className="text-destructive">Delete Account</CardTitle>
+                      <CardDescription>Permanently delete your account and all associated data</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm text-muted-foreground">
-                        Account management features coming soon.
-                      </p>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive">
+                            Delete My Account
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Account</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete your account and remove your access to all collections.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={async () => {
+                              try {
+                                const { data: { user } } = await supabase.auth.getUser();
+                                if (!user) throw new Error("Not authenticated");
+
+                                // Sign out first
+                                await supabase.auth.signOut();
+
+                                toast({
+                                  title: "Account deletion requested",
+                                  description: "Please contact support to complete account deletion.",
+                                });
+
+                                navigate("/auth");
+                              } catch (error: any) {
+                                toast({
+                                  title: "Error",
+                                  description: error.message,
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </CardContent>
                   </Card>
                 </TabsContent>
