@@ -5,7 +5,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Member } from "@/lib/azureApiClient";
 import { useRemoveMember, useChangeMemberRole } from "@/hooks/useInvites";
 import { useToast } from "@/hooks/use-toast";
-import { UserMinus, Shield } from "lucide-react";
+import { UserMinus } from "lucide-react";
 import { useState } from "react";
 
 interface MembersListProps {
@@ -101,8 +101,8 @@ export function MembersList({ members, collectionId, currentUserRole, currentUse
                   {canModify ? (
                     <Select
                       value={member.role}
-                      onValueChange={(role) =>
-                        handleRoleChange(member.user_id, role as any, member.email)
+                      onValueChange={(role: 'owner' | 'admin' | 'viewer') =>
+                        handleRoleChange(member.user_id, role, member.email)
                       }
                       disabled={changingRole === member.user_id}
                     >
