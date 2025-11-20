@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, Users } from "lucide-react";
+import { ArrowLeft, Upload } from "lucide-react";
 import { PhotoFilters } from "@/components/PhotoFilters";
 import { UploadPhotosDialog } from "@/components/UploadPhotosDialog";
-import { InviteMemberDialog } from "@/components/InviteMemberDialog";
 import { AlbumViewContainer } from "@/components/AlbumViewContainer";
 import { useCollection } from "@/hooks/useCollections";
 import { useApiAuth } from "@/contexts/ApiAuthContext";
@@ -26,7 +25,6 @@ export default function CollectionDetail() {
 
   // Dialog states
   const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
 
   // Build filters object
   const filters: AlbumPhotoFilters = {
@@ -49,7 +47,6 @@ export default function CollectionDetail() {
 
   const loading = collectionLoading || photosLoading;
   const canUpload = collection?.user_role === "owner" || collection?.user_role === "admin";
-  const canInvite = collection?.user_role === "owner";
 
   if (loading || !collection) {
     return <div className="min-h-screen flex items-center justify-center bg-background">Loading...</div>;
@@ -73,12 +70,6 @@ export default function CollectionDetail() {
             </div>
 
             <div className="flex items-center gap-2">
-              {canInvite && (
-                <Button variant="outline" size="sm" onClick={() => setShowInviteDialog(true)}>
-                  <Users className="h-4 w-4 mr-2" />
-                  Invite
-                </Button>
-              )}
               {canUpload && (
                 <Button size="sm" onClick={() => setShowUploadDialog(true)}>
                   <Upload className="h-4 w-4 mr-2" />
@@ -123,12 +114,6 @@ export default function CollectionDetail() {
       <UploadPhotosDialog
         open={showUploadDialog}
         onOpenChange={setShowUploadDialog}
-        collectionId={id!}
-      />
-
-      <InviteMemberDialog
-        open={showInviteDialog}
-        onOpenChange={setShowInviteDialog}
         collectionId={id!}
       />
     </div>
