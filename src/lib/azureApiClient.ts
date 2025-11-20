@@ -33,6 +33,60 @@ export interface Collection {
   user_role: 'owner' | 'admin' | 'viewer';
 }
 
+export interface InviteDetails {
+  id: string;
+  collection: {
+    id: string;
+    name: string;
+  };
+  invited_by: {
+    id: string;
+    email: string;
+    name?: string;
+  };
+  role: 'owner' | 'admin' | 'viewer';
+  terms_text: string;
+  expires_at: string;
+  is_expired: boolean;
+}
+
+export interface AcceptInviteResponse {
+  message: string;
+  collection: Collection;
+}
+
+export interface Member {
+  user_id: string;
+  email: string;
+  role: 'owner' | 'admin' | 'viewer';
+  invited_by: string | null;
+  joined_at: string;
+}
+
+export interface PendingInvite {
+  id: string;
+  email: string;
+  role: 'owner' | 'admin' | 'viewer';
+  invited_by: string;
+  expires_at: string;
+}
+
+export interface InviteRequest {
+  email: string;
+  role: 'owner' | 'admin' | 'viewer';
+}
+
+export interface InviteResponse {
+  type?: 'pending';
+  id?: string;
+  user_id?: string;
+  email: string;
+  role: string;
+  invited_by: string;
+  joined_at?: string;
+  expires_at?: string;
+}
+
 export interface Photo {
   id: ServerId;  // Changed from string
   collection_id: ServerId;  // Collection this photo belongs to
