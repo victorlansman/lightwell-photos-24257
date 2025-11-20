@@ -14,6 +14,7 @@ import PersonAlbum from "./pages/PersonAlbum";
 import UnknownPeople from "./pages/UnknownPeople";
 import MigratePhotos from "./pages/MigratePhotos";
 import Settings from "./pages/Settings";
+import InviteAccept from "./pages/InviteAccept";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ function App() {
               <Route path="/unknown" element={<UnknownPeople />} />
               <Route path="/migrate-photos" element={<MigratePhotos />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/invite/:token/accept" element={<InviteAccept />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
