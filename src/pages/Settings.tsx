@@ -3,30 +3,38 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCollections } from "@/hooks/useCollections";
+import { useCollectionMembers, usePendingInvites } from "@/hooks/useInvites";
 import { Header } from "@/components/Header";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft } from "lucide-react";
+import { MembersList } from "@/components/MembersList";
+import { PendingInvitesList } from "@/components/PendingInvitesList";
+import { InviteForm } from "@/components/InviteForm";
 
 export default function Settings() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const [newEmail, setNewEmail] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
 
   // Get tab from URL params (default to members)
   const activeTab = searchParams.get("tab") || "members";
 
   // Get all user collections
   const { data: collections, isLoading: collectionsLoading } = useCollections();
+
+  // Get current user ID
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id);
+    });
+  }, []);
 
   // Set initial collection when collections load
   useEffect(() => {
@@ -36,29 +44,13 @@ export default function Settings() {
   }, [collections, selectedCollectionId]);
 
   const selectedCollection = collections?.find(c => c.id === selectedCollectionId);
+  const isOwner = selectedCollection?.user_role === 'owner';
 
-  const handleChangeEmail = async () => {
-    if (!newEmail) {
-      toast({ title: "Error", description: "Please enter an email address", variant: "destructive" });
-      return;
-    }
-
-    toast({
-      title: "Not yet implemented",
-      description: "Email change functionality will be available when backend endpoints are ready",
-      variant: "destructive",
-    });
-  };
-
-  const handleDeleteAccount = async () => {
-    setIsDeleting(true);
-    toast({
-      title: "Not yet implemented",
-      description: "Account deletion functionality will be available when backend endpoints are ready",
-      variant: "destructive",
-    });
-    setIsDeleting(false);
-  };
+  // Fetch members and invites for selected collection
+  const { data: members, isLoading: membersLoading } = useCollectionMembers(selectedCollectionId);
+  const { data: invites, isLoading: invitesLoading } = usePendingInvites(
+    isOwner ? selectedCollectionId : undefined
+  );
 
   if (collectionsLoading) {
     return (
@@ -103,125 +95,90 @@ export default function Settings() {
 
                 {/* Collection Members Tab */}
                 <TabsContent value="members" className="space-y-4">
+                  {/* Collection Selector */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Collection Members</CardTitle>
-                      <CardDescription>Manage who has access to your photo collection</CardDescription>
+                      <CardTitle>Select Collection</CardTitle>
+                      <CardDescription>
+                        {isOwner
+                          ? 'Manage members and invitations for your collection'
+                          : 'View members of this collection'}
+                      </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Collection Selector */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Select Collection</label>
-                        <Select
-                          value={selectedCollectionId}
-                          onValueChange={setSelectedCollectionId}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select a collection" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {collections?.map((collection) => (
-                              <SelectItem key={collection.id} value={collection.id}>
-                                {collection.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Members List Placeholder */}
-                      <div className="rounded-lg border p-4 text-center text-muted-foreground">
-                        Members list coming soon (requires backend endpoint)
-                      </div>
-
-                      {/* Invite Section */}
-                      <Card className="border-dashed">
-                        <CardHeader>
-                          <CardTitle className="text-lg">Invite New User</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="grid gap-4">
-                            <Input
-                              placeholder="Email address"
-                              type="email"
-                              disabled
-                            />
-                            <select className="w-full px-3 py-2 border rounded-md bg-background text-foreground" disabled>
-                              <option>Owner</option>
-                              <option>Editor</option>
-                              <option>Viewer</option>
-                            </select>
-                            <Button disabled>
-                              Send Invite
-                            </Button>
-                            <p className="text-sm text-muted-foreground">
-                              Invite functionality requires backend endpoints
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
+                    <CardContent>
+                      <Select
+                        value={selectedCollectionId}
+                        onValueChange={setSelectedCollectionId}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a collection" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {collections?.map((collection) => (
+                            <SelectItem key={collection.id} value={collection.id}>
+                              {collection.name} ({collection.user_role})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </CardContent>
                   </Card>
+
+                  {/* Members List */}
+                  {membersLoading ? (
+                    <Card>
+                      <CardContent className="py-8 text-center text-muted-foreground">
+                        Loading members...
+                      </CardContent>
+                    </Card>
+                  ) : members && members.length > 0 ? (
+                    <MembersList
+                      members={members}
+                      collectionId={selectedCollectionId}
+                      currentUserRole={selectedCollection?.user_role || 'viewer'}
+                      currentUserId={currentUserId}
+                    />
+                  ) : (
+                    <Card>
+                      <CardContent className="py-8 text-center text-muted-foreground">
+                        No members found
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Pending Invites (Owners Only) */}
+                  {isOwner && invites && invites.length > 0 && (
+                    <PendingInvitesList
+                      invites={invites}
+                      collectionId={selectedCollectionId}
+                    />
+                  )}
+
+                  {/* Invite Form */}
+                  {isOwner ? (
+                    <InviteForm collectionId={selectedCollectionId} />
+                  ) : (
+                    <Card className="border-dashed">
+                      <CardContent className="py-8">
+                        <p className="text-sm text-muted-foreground text-center">
+                          Only collection owners can invite new members.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
                 </TabsContent>
 
                 {/* Account Tab */}
                 <TabsContent value="account" className="space-y-4">
-                  {/* Change Email */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Email Address</CardTitle>
-                      <CardDescription>Update your account email</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">New Email</label>
-                        <Input
-                          type="email"
-                          placeholder="your@email.com"
-                          value={newEmail}
-                          onChange={(e) => setNewEmail(e.target.value)}
-                          disabled
-                        />
-                      </div>
-                      <Button disabled>
-                        Update Email
-                      </Button>
-                      <p className="text-sm text-muted-foreground">
-                        Email change requires backend endpoint
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  {/* Delete Account */}
-                  <Card className="border-destructive">
-                    <CardHeader>
-                      <CardTitle className="text-destructive">Delete Account</CardTitle>
-                      <CardDescription>Permanently delete your account and all associated data</CardDescription>
+                      <CardTitle>Account Settings</CardTitle>
+                      <CardDescription>Manage your account preferences</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive">
-                            Delete My Account
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Account</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete your account and all your photo data.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={handleDeleteAccount}
-                            disabled={isDeleting}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            {isDeleting ? "Deleting..." : "Delete"}
-                          </AlertDialogAction>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <p className="text-sm text-muted-foreground">
+                        Account management features coming soon.
+                      </p>
                     </CardContent>
                   </Card>
                 </TabsContent>
