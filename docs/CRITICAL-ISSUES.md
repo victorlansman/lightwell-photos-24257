@@ -103,161 +103,212 @@ curl -X POST https://qscugaookdxjplkfufl.supabase.co/functions/v1/send-invite-em
 
 ---
 
-## Issue 3: Delete Account Not Working ⚠️ BY DESIGN
+## Issue 3: Delete Account Implementation ✅ COMPLETE
 
 ### Problem
 User clicks "Delete My Account" but can still log in afterward. Account not deleted.
 
-### Current Behavior
-**File:** `src/pages/Settings.tsx` lines 196-209
+### Solution Implemented
+Two-stage confirmation UI with GDPR-compliant backend
+
+**Frontend Status:** ✅ Complete (as of 2025-11-20)
+**Backend Status:** ✅ Complete (endpoint already deployed)
+
+### Frontend Implementation
+
+**File:** `src/pages/Settings.tsx` lines 27-28, 228-262
 ```typescript
-onClick={async () => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+const [deleteStage, setDeleteStage] = useState<'none' | 'first' | 'second'>('none');
+const [isDeleting, setIsDeleting] = useState(false);
 
-    // Sign out first
-    await supabase.auth.signOut();  // ✅ Only signs out
+// Stage 1: Initial Warning
+<AlertDialog open={deleteStage === 'first'}>
+  <AlertDialogTitle>Warning: Permanent Account Deletion</AlertDialogTitle>
+  <AlertDialogDescription>
+    <p className="font-semibold text-destructive">
+      You will permanently lose access to all collections, photos, and data.
+    </p>
+    <p>This action cannot be undone.</p>
+  </AlertDialogDescription>
+  <AlertDialogAction onClick={() => setDeleteStage('second')}>
+    I Understand
+  </AlertDialogAction>
+</AlertDialog>
 
-    toast({
-      title: "Account deletion requested",
-      description: "Please contact support to complete account deletion.",  // ⚠️ Requires manual support
-    });
+// Stage 2: Final Confirmation
+<AlertDialog open={deleteStage === 'second'}>
+  <AlertDialogTitle>Final Confirmation</AlertDialogTitle>
+  <AlertDialogDescription>
+    This action will delete your account permanently. Are you absolutely sure?
+  </AlertDialogDescription>
+  <AlertDialogAction onClick={async () => {
+    setIsDeleting(true);
+    try {
+      const result = await azureApi.deleteAccount();  // ✅ Calls backend
 
-    navigate("/auth");
-  } catch (error: any) {
-    toast({
-      title: "Error",
-      description: error.message,
-      variant: "destructive",
-    });
-  }
-}}
+      // Show impact summary
+      if (result.deleted_collections.length > 0) {
+        toast({
+          title: "Collections deleted",
+          description: `${result.deleted_collections.length} collection(s) permanently deleted as you were the last owner.`,
+        });
+      }
+
+      await supabase.auth.signOut();
+      toast({ title: "Account deleted" });
+      navigate("/auth");
+    } catch (error: any) {
+      toast({ title: "Error deleting account", variant: "destructive" });
+      setDeleteStage('none');
+    } finally {
+      setIsDeleting(false);
+    }
+  }}>
+    Delete Account
+  </AlertDialogAction>
+</AlertDialog>
 ```
 
-### Design Decision Required
-
-**Option A: Keep Manual Deletion (Current)**
-- Pros: Safe, prevents accidental deletion, allows recovery
-- Cons: User frustration, not self-service
-- Implementation: No change needed
-
-**Option B: Implement Automatic Deletion**
-- Pros: Self-service, immediate feedback
-- Cons: Irreversible, potential for regret
-- Implementation: Requires backend endpoint + Supabase admin call
-
-### If Choosing Option B - Implementation Plan
-
-#### Backend Changes Required
-
-**Create new endpoint:**
-```python
-# File: /backend/src/backend/routers/auth.py
-
-@router.delete("/v1/auth/delete-account")
-async def delete_account(
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session),
-):
-    """
-    Permanently delete user account and all associated data.
-    """
-    # 1. Delete user's face tags
-    session.exec(delete(FaceTag).where(FaceTag.person_id.in_(
-        select(Person.id).where(Person.collection_id.in_(
-            select(CollectionMember.collection_id).where(
-                CollectionMember.user_id == current_user.id
-            )
-        ))
-    )))
-
-    # 2. Delete user's people
-    session.exec(delete(Person).where(Person.collection_id.in_(
-        select(CollectionMember.collection_id).where(
-            CollectionMember.user_id == current_user.id
-        )
-    )))
-
-    # 3. Delete collection memberships
-    session.exec(delete(CollectionMember).where(
-        CollectionMember.user_id == current_user.id
-    ))
-
-    # 4. Delete from Supabase Auth
-    supabase_admin.auth.admin.delete_user(current_user.supabase_user_id)
-
-    # 5. Delete local user record
-    session.delete(current_user)
-    session.commit()
-
-    return {"message": "Account deleted successfully"}
-```
-
-#### Frontend Changes Required
-
-**File:** `src/lib/azureApiClient.ts`
+**File:** `src/lib/azureApiClient.ts` lines 871-884
 ```typescript
-async deleteAccount(): Promise<void> {
-  return this.request('/v1/auth/delete-account', {
+async deleteAccount(): Promise<{
+  message: string;
+  deleted_collections: string[];
+  removed_from_collections: string[];
+}> {
+  return this.request('/v1/auth/account', {
     method: 'DELETE',
+    body: JSON.stringify({ confirmation: "DELETE" }),
   });
 }
 ```
 
-**File:** `src/pages/Settings.tsx`
-```typescript
-import { azureApi } from '@/lib/azureApiClient';
+### Backend Implementation (Already Deployed ✅)
 
-// In delete handler:
-onClick={async () => {
-  try {
-    // Call backend to actually delete
-    await azureApi.deleteAccount();
-
-    // Sign out
-    await supabase.auth.signOut();
-
-    toast({
-      title: "Account deleted",
-      description: "Your account has been permanently deleted.",
-    });
-
-    navigate("/auth");
-  } catch (error: any) {
-    toast({
-      title: "Error deleting account",
-      description: error.message,
-      variant: "destructive",
-    });
-  }
-}}
+**Endpoint:** `DELETE /v1/auth/account`
+**Request Body:** `{"confirmation": "DELETE"}` (case-sensitive)
+**Response:**
+```json
+{
+  "message": "Account deleted successfully",
+  "deleted_collections": ["uuid1", "uuid2"],
+  "removed_from_collections": ["uuid3"]
+}
 ```
 
-**Status:** ⚠️ Design decision needed
-**Decision Required From:** Product/Victor
+**GDPR-Compliant Behavior:**
+1. If user is last owner → Deletes entire collection (photos, faces, people, all data)
+2. If other owners exist → User just removed from collection
+3. Deletes user account, favorites, albums
+4. Deletes from Supabase Auth
+5. Returns impact summary
+
+**Status:** ✅ Complete - Ready for production testing
+
+---
+
+## Issue 4: CORS Error on Face Clusters Endpoint 🔴 BACKEND
+
+### Problem
+Settings page showing CORS error in console. Page loads slowly.
+
+### Error Details
+```
+Access to fetch at 'https://image-annotation-tool-api.azurewebsites.net/api/faces/clusters'
+from origin 'https://icy-stone-0bca71103.3.azurestaticapps.net' has been blocked by CORS policy:
+No 'Access-Control-Allow-Origin' header is present on the requested resource.
+```
+
+### Root Cause
+Backend CORS configuration doesn't include frontend domain in allowed origins.
+
+### Required Backend Fix
+**Location:** Backend FastAPI CORS middleware configuration
+
+**Add to allowed origins:**
+```python
+origins = [
+    "http://localhost:5173",
+    "https://icy-stone-0bca71103.3.azurestaticapps.net",  # ✅ ADD THIS
+]
+```
+
+**Verify these endpoints are accessible:**
+- `GET /api/faces/clusters`
+- All `/v1/*` endpoints
+
+### Frontend Impact
+This endpoint shouldn't be called from Settings page - only from Unknown People page. May indicate unnecessary data fetching (see Issue 5).
+
+**Status:** 🔴 BLOCKED - Requires backend CORS configuration update
+**Owner:** Backend team
+
+---
+
+## Issue 5: Settings Page Performance ⚠️ INVESTIGATION NEEDED
+
+### Problem
+User reports Settings page is "insanely slow" to load.
+
+### Investigation Results
+
+**Settings page queries (src/pages/Settings.tsx):**
+1. `useCollections()` - Fetches all collections (lines 34)
+2. `useCollectionMembers(selectedCollectionId)` - Fetches members for selected collection (line 54)
+3. `usePendingInvites(selectedCollectionId)` - Fetches pending invites if owner (lines 55-57)
+
+**Face clusters query (NOT directly used in Settings):**
+- `useClusters()` is used in: PersonAlbum.tsx, useAlbumPhotos.ts
+- The CORS error appears in console but Settings doesn't call this endpoint
+- Possible causes:
+  1. React Query cache retrying failed request from previous page
+  2. Background refetch from another component
+  3. Browser trying to prefetch resources
+
+### Likely Causes of Slowness
+
+1. **Network latency** - Multiple sequential API calls (collections → members → invites)
+2. **Large member lists** - If collection has many members, could slow rendering
+3. **CORS error retries** - Browser repeatedly failing/retrying face clusters request
+
+### Recommended Fixes
+
+**Short term:**
+1. Fix CORS configuration (Issue 4) - will eliminate retry attempts
+2. Add loading skeletons to show progress during data fetching
+
+**Long term:**
+1. Combine member/invite queries into single backend endpoint: `GET /v1/collections/{id}/members-and-invites`
+2. Add pagination if member lists exceed 50 items
+3. Implement React.memo on member list items to prevent unnecessary re-renders
+
+**Status:** ⚠️ Waiting for user to test after CORS fix
+**Owner:** Frontend (optimizations) + Backend (CORS fix)
 
 ---
 
 ## Summary & Next Actions
 
-### Frontend (Me)
+### Frontend
 - ✅ Fixed magic link redirect issue
-- ⏸️ Awaiting decision on delete account design
+- ✅ Implemented two-stage delete account UI with impact summary
+- ✅ Improved current user visibility in member list (highlighted row + badge)
 - ✅ All invite UI components working
+- ✅ Investigated Settings page performance (Issue 5)
 
 ### Backend/DevOps Team
 - 🔴 **URGENT:** Configure Supabase Edge Function environment variables
   - `APP_URL=https://icy-stone-0bca71103.3.azurestaticapps.net`
   - `RESEND_API_KEY=re_xxxxx...`
-- ⏸️ Implement delete account endpoint (if Option B chosen)
+- 🔴 **URGENT:** Add frontend domain to CORS allowed origins (Issue 4)
 - ⏸️ Fix auto-accept bug (always create pending_invite, never auto-add members)
 
 ### Testing Priority
-1. Test magic link after frontend deploy (should work now)
-2. Test invite emails after Edge Function configured
-3. Test full invite flow after both fixed
-4. Test delete account after design decision
+1. ✅ Test magic link after frontend deploy (should work now)
+2. Test delete account flow (two-stage confirmation + impact summary)
+3. Test invite emails after Edge Function configured
+4. Test full invite flow after email fixed
+5. Verify current user highlighting in member list
 
 ---
 

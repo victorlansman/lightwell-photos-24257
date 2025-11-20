@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCollections } from "@/hooks/useCollections";
 import { useCollectionMembers, usePendingInvites } from "@/hooks/useInvites";
+import { azureApi } from "@/lib/azureApiClient";
 import { Header } from "@/components/Header";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -23,6 +24,8 @@ export default function Settings() {
   const { toast } = useToast();
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+  const [deleteStage, setDeleteStage] = useState<'none' | 'first' | 'second'>('none');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Get tab from URL params (default to members)
   const activeTab = searchParams.get("tab") || "members";
@@ -178,46 +181,89 @@ export default function Settings() {
                       <CardDescription>Permanently delete your account and all associated data</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <AlertDialog>
+                      {/* Stage 1: Initial Warning */}
+                      <AlertDialog open={deleteStage === 'first'} onOpenChange={(open) => setDeleteStage(open ? 'first' : 'none')}>
                         <AlertDialogTrigger asChild>
-                          <Button variant="destructive">
+                          <Button variant="destructive" disabled={isDeleting}>
                             Delete My Account
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Account</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete your account and remove your access to all collections.
+                            <AlertDialogTitle>Warning: Permanent Account Deletion</AlertDialogTitle>
+                            <AlertDialogDescription className="space-y-2">
+                              <p className="font-semibold text-destructive">
+                                You will permanently lose access to all collections, photos, and data.
+                              </p>
+                              <p>This action cannot be undone.</p>
                             </AlertDialogDescription>
                           </AlertDialogHeader>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogCancel onClick={() => setDeleteStage('none')}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setDeleteStage('second');
+                            }}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            I Understand
+                          </AlertDialogAction>
+                        </AlertDialogContent>
+                      </AlertDialog>
+
+                      {/* Stage 2: Final Confirmation */}
+                      <AlertDialog open={deleteStage === 'second'} onOpenChange={(open) => setDeleteStage(open ? 'second' : 'none')}>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Final Confirmation</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action will delete your account permanently. Are you absolutely sure?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogCancel onClick={() => setDeleteStage('none')}>
+                            Cancel
+                          </AlertDialogCancel>
                           <AlertDialogAction
                             onClick={async () => {
+                              setIsDeleting(true);
                               try {
-                                const { data: { user } } = await supabase.auth.getUser();
-                                if (!user) throw new Error("Not authenticated");
+                                // Call backend to delete account
+                                const result = await azureApi.deleteAccount();
 
-                                // Sign out first
+                                // Show impact summary
+                                if (result.deleted_collections.length > 0) {
+                                  toast({
+                                    title: "Collections deleted",
+                                    description: `${result.deleted_collections.length} collection(s) permanently deleted as you were the last owner.`,
+                                  });
+                                }
+
+                                // Sign out
                                 await supabase.auth.signOut();
 
                                 toast({
-                                  title: "Account deletion requested",
-                                  description: "Please contact support to complete account deletion.",
+                                  title: "Account deleted",
+                                  description: "Your account has been permanently deleted.",
                                 });
 
                                 navigate("/auth");
                               } catch (error: any) {
                                 toast({
-                                  title: "Error",
+                                  title: "Error deleting account",
                                   description: error.message,
                                   variant: "destructive",
                                 });
+                                setDeleteStage('none');
+                              } finally {
+                                setIsDeleting(false);
                               }
                             }}
+                            disabled={isDeleting}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
-                            Delete
+                            {isDeleting ? "Deleting..." : "Delete Account"}
                           </AlertDialogAction>
                         </AlertDialogContent>
                       </AlertDialog>

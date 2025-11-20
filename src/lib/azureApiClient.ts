@@ -868,6 +868,21 @@ class AzureApiClient {
     });
   }
 
+  /**
+   * Delete the current user's account permanently.
+   * Returns impact summary of deleted/removed collections.
+   */
+  async deleteAccount(): Promise<{
+    message: string;
+    deleted_collections: string[];
+    removed_from_collections: string[];
+  }> {
+    return this.request('/v1/auth/account', {
+      method: 'DELETE',
+      body: JSON.stringify({ confirmation: "DELETE" }),
+    });
+  }
+
   // ==================== Health Check ====================
 
   async healthCheck(): Promise<{ status: string }> {

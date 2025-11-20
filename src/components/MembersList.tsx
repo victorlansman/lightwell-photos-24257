@@ -2,10 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Member } from "@/lib/azureApiClient";
 import { useRemoveMember, useChangeMemberRole } from "@/hooks/useInvites";
 import { useToast } from "@/hooks/use-toast";
-import { UserMinus } from "lucide-react";
+import { UserMinus, User } from "lucide-react";
 import { useState } from "react";
 
 interface MembersListProps {
@@ -82,13 +83,18 @@ export function MembersList({ members, collectionId, currentUserRole, currentUse
             return (
               <div
                 key={member.user_id}
-                className="flex items-center justify-between p-3 border rounded-lg"
+                className={`flex items-center justify-between p-3 border rounded-lg ${
+                  isCurrentUser ? 'bg-primary/5 border-primary/20' : ''
+                }`}
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="font-medium">{member.email}</p>
                     {isCurrentUser && (
-                      <span className="text-xs text-muted-foreground">(you)</span>
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        You ({member.role})
+                      </Badge>
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground">
