@@ -54,7 +54,7 @@ jobs:
           sleep 45
 
           echo "Verifying deployed version..."
-          RESPONSE=$(curl -sf https://icy-stone-0bca71103.3.azurestaticapps.net/version.json || echo "")
+          RESPONSE=$(curl -sf https://www.minnacloud.com/version.json || echo "")
 
           if [ -z "$RESPONSE" ]; then
             echo "ERROR: Failed to fetch version endpoint"
