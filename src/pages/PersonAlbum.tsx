@@ -10,6 +10,7 @@ import { ThumbnailSelectionCard } from "@/components/ThumbnailSelectionCard";
 import { NamingDialog } from "@/components/NamingDialog";
 import { AlbumViewContainer } from "@/components/AlbumViewContainer";
 import { PersonCluster } from "@/types/person";
+import { Photo } from "@/types/photo";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { useCollections } from "@/hooks/useCollections";
 import { usePeople } from "@/hooks/usePeople";
@@ -17,6 +18,7 @@ import { useUpdatePerson, useClusters } from "@/hooks/useFaces";
 import { azureApi } from "@/lib/azureApiClient";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 import { usePhotosWithClusters, useAllPeople } from "@/hooks/useAlbumPhotos";
+import { apiBboxToUi } from "@/types/coordinates";
 import { toast } from "sonner";
 
 export default function PersonAlbum() {
@@ -29,7 +31,7 @@ export default function PersonAlbum() {
 
   // Fetch all people and clusters
   const { data: namedPeople = [], isLoading: peopleLoading, refetch: refetchPeople } = usePeople(firstCollectionId);
-  const { data: clusterData = [], isLoading: clustersLoading } = useClusters(firstCollectionId);
+  const { data: clusterData = [], isLoading: clustersLoading, refetch: refetchClusters } = useClusters(firstCollectionId);
 
   // Find if this ID is a person or a cluster
   const person = useMemo(() => {
@@ -42,14 +44,45 @@ export default function PersonAlbum() {
 
   const isCluster = !!cluster && !person;
 
-  // For clusters, we need to load photos directly using cluster's photo IDs
-  // For persons, we filter by person_id
-  const clusterPhotoIds = useMemo(() => {
-    if (isCluster && cluster) {
-      return Array.from(new Set(cluster.faces.map(f => f.photo_id)));
-    }
-    return [];
-  }, [isCluster, cluster]);
+  // For clusters, construct Photo objects directly from cluster data
+  // This avoids fetching all photos and filtering (which breaks with pagination)
+  const clusterPhotos = useMemo(() => {
+    if (!isCluster || !cluster || !firstCollectionId) return [];
+
+    // Extract unique photo IDs from cluster faces
+    const photoIdToFaces = new Map<string, typeof cluster.faces>();
+    cluster.faces.forEach(face => {
+      if (!photoIdToFaces.has(face.photo_id)) {
+        photoIdToFaces.set(face.photo_id, []);
+      }
+      photoIdToFaces.get(face.photo_id)!.push(face);
+    });
+
+    // Construct minimal Photo objects from cluster data
+    return Array.from(photoIdToFaces.entries()).map(([photoId, faces]) => ({
+      id: photoId,
+      collection_id: cluster.collection_id,
+      path: '', // Not needed - usePhotoUrl fetches by ID
+      thumbnail_url: null,
+      created_at: new Date().toISOString(), // Placeholder
+      title: null,
+      description: null,
+      width: null,
+      height: null,
+      rotation: 0,
+      estimated_year: null,
+      user_corrected_year: null,
+      is_favorite: false,
+      tags: [],
+      people: [],
+      faces: faces.map(f => ({
+        personId: cluster.id,
+        personName: null,
+        boundingBox: apiBboxToUi(f.bbox),
+      })),
+      taken_at: null,
+    } as Photo));
+  }, [isCluster, cluster, firstCollectionId]);
 
   // Use new hooks with person filter (only for named persons, not clusters)
   const { photos: personPhotos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(
@@ -58,13 +91,8 @@ export default function PersonAlbum() {
   );
   const { allPeople, refetch: refetchAllPeople } = useAllPeople(firstCollectionId);
 
-  // For clusters, filter photos by cluster's photo IDs
-  const photos = useMemo(() => {
-    if (isCluster) {
-      return personPhotos.filter(p => clusterPhotoIds.includes(p.id));
-    }
-    return personPhotos;
-  }, [isCluster, personPhotos, clusterPhotoIds]);
+  // Use cluster photos for clusters, person photos for named persons
+  const photos = isCluster ? clusterPhotos : personPhotos;
 
   // Find current person/cluster
   const displayPerson = allPeople.find(p => p.id === id);
@@ -224,11 +252,16 @@ export default function PersonAlbum() {
             personId={id}
             showViewControls
             enableSelection
-            hasMore={hasMore}
-            isLoadingMore={isLoadingMore}
-            onLoadMore={loadMore}
+            hasMore={isCluster ? false : hasMore}
+            isLoadingMore={isCluster ? false : isLoadingMore}
+            onLoadMore={isCluster ? undefined : loadMore}
             onPhotoFacesUpdated={async () => {
-              await refetch();
+              // Refetch appropriate data based on whether viewing cluster or person
+              if (isCluster) {
+                await refetchClusters();
+              } else {
+                await refetch();
+              }
               await refetchAllPeople();
             }}
             onFaceClick={isChoosingThumbnail ? handleSelectFaceForThumbnail : undefined}

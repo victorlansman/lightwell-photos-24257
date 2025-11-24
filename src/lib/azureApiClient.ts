@@ -389,8 +389,17 @@ class AzureApiClient {
 
     // Handle different response formats
     const photos: Photo[] = Array.isArray(response) ? response : (response.photos || []);
-    const cursor = response.cursor;
-    const hasMore = response.hasMore ?? false;
+
+    // Generate cursor from last photo ID if backend doesn't provide one
+    // This handles backends that return arrays without pagination metadata
+    const backendCursor = response.cursor;
+    const generatedCursor = photos.length > 0 ? photos[photos.length - 1].id : undefined;
+    const cursor = backendCursor || generatedCursor;
+
+    // Infer hasMore when backend returns array without pagination metadata
+    // Standard pagination heuristic: if we got exactly `limit` items, there might be more
+    const limit = filters?.limit || 50;
+    const hasMore = response.hasMore ?? (Array.isArray(response) && photos.length >= limit);
     const total = response.total;
 
     // COORDINATE CONVERSION: API (0-1) → UI (0-100)
