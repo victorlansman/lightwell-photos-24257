@@ -377,42 +377,22 @@ class AzureApiClient {
       if (filters.cursor) params.append('cursor', filters.cursor);
     }
 
-    // Set default page size
-    if (!filters?.limit) {
-      params.append('limit', '50');
-    }
+    // Backend doesn't support pagination properly - fetch all photos
+    // Commenting out limit to get all photos in one request
+    // if (!filters?.limit) {
+    //   params.append('limit', '50');
+    // }
 
     const query = params.toString();
     const endpoint = `/v1/collections/${collectionId}/photos${query ? `?${query}` : ''}`;
 
     const response = await this.request<any>(endpoint);
 
-    // Debug logging
-    console.log('[getCollectionPhotosPaginated] Response type:', Array.isArray(response) ? 'array' : 'object');
-    console.log('[getCollectionPhotosPaginated] Response keys:', Object.keys(response));
-    console.log('[getCollectionPhotosPaginated] Photos count:', Array.isArray(response) ? response.length : response.photos?.length);
-    console.log('[getCollectionPhotosPaginated] Backend cursor:', response.cursor);
-    console.log('[getCollectionPhotosPaginated] Backend hasMore:', response.hasMore);
-    console.log('[getCollectionPhotosPaginated] Backend total:', response.total);
-
     // Handle different response formats
     const photos: Photo[] = Array.isArray(response) ? response : (response.photos || []);
-
-    // Generate cursor from last photo ID if backend doesn't provide one
-    // This handles backends that return arrays without pagination metadata
-    const backendCursor = response.cursor;
-    const generatedCursor = photos.length > 0 ? photos[photos.length - 1].id : undefined;
-    const cursor = backendCursor || generatedCursor;
-
-    console.log('[getCollectionPhotosPaginated] Using cursor:', cursor);
-
-    // Infer hasMore when backend returns array without pagination metadata
-    // Standard pagination heuristic: if we got exactly `limit` items, there might be more
-    const limit = filters?.limit || 50;
-    const hasMore = response.hasMore ?? (Array.isArray(response) && photos.length >= limit);
+    const cursor = response.cursor;
+    const hasMore = response.hasMore ?? false;
     const total = response.total;
-
-    console.log('[getCollectionPhotosPaginated] Computed hasMore:', hasMore);
 
     // COORDINATE CONVERSION: API (0-1) → UI (0-100)
     const convertedPhotos = photos.map(photo => ({
