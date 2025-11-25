@@ -14,10 +14,11 @@ import { Photo } from "@/types/photo";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { useCollections } from "@/hooks/useCollections";
 import { usePeople } from "@/hooks/usePeople";
-import { useUpdatePerson, useClusters } from "@/hooks/useFaces";
+import { useUpdatePerson } from "@/hooks/useFaces";
 import { azureApi } from "@/lib/azureApiClient";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 import { usePhotosWithClusters, useAllPeople } from "@/hooks/useAlbumPhotos";
+import { useClusterMetadata } from "@/hooks/useClusterMetadata";
 import { apiBboxToUi } from "@/types/coordinates";
 import { toast } from "sonner";
 
@@ -29,73 +30,70 @@ export default function PersonAlbum() {
   const { data: collections, isLoading: collectionsLoading } = useCollections();
   const firstCollectionId = collections?.[0]?.id;
 
-  // Fetch all people and clusters
+  // Fetch named people only (not clusters)
   const { data: namedPeople = [], isLoading: peopleLoading, refetch: refetchPeople } = usePeople(firstCollectionId);
-  const { data: clusterData = [], isLoading: clustersLoading, refetch: refetchClusters } = useClusters(firstCollectionId);
 
-  // Find if this ID is a person or a cluster
+  // Find if this ID is a named person
   const person = useMemo(() => {
     return namedPeople.find(p => p.id === id) || null;
   }, [namedPeople, id]);
 
-  const cluster = useMemo(() => {
-    return clusterData.find(c => c.id === id) || null;
-  }, [clusterData, id]);
+  const isNamedPerson = !!person;
 
-  const isCluster = !!cluster && !person;
-
-  // For clusters, construct Photo objects directly from cluster data
-  // This avoids fetching all photos and filtering (which breaks with pagination)
-  const clusterPhotos = useMemo(() => {
-    if (!isCluster || !cluster || !firstCollectionId) return [];
-
-    // Extract unique photo IDs from cluster faces
-    const photoIdToFaces = new Map<string, typeof cluster.faces>();
-    cluster.faces.forEach(face => {
-      if (!photoIdToFaces.has(face.photo_id)) {
-        photoIdToFaces.set(face.photo_id, []);
-      }
-      photoIdToFaces.get(face.photo_id)!.push(face);
-    });
-
-    // Construct minimal Photo objects from cluster data
-    return Array.from(photoIdToFaces.entries()).map(([photoId, faces]) => ({
-      id: photoId,
-      collection_id: cluster.collection_id,
-      path: '', // Not needed - usePhotoUrl fetches by ID
-      thumbnail_url: null,
-      created_at: new Date().toISOString(), // Placeholder
-      title: null,
-      description: null,
-      width: null,
-      height: null,
-      rotation: 0,
-      estimated_year: null,
-      user_corrected_year: null,
-      is_favorite: false,
-      tags: [],
-      people: [],
-      faces: faces.map(f => ({
-        personId: cluster.id,
-        personName: null,
-        boundingBox: apiBboxToUi(f.bbox),
-      })),
-      taken_at: null,
-    } as Photo));
-  }, [isCluster, cluster, firstCollectionId]);
-
-  // Use new hooks with person filter (only for named persons, not clusters)
-  const { photos: personPhotos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(
+  // For named persons: use person_id filter (server-side)
+  // For clusters: use cluster_ids filter (server-side)
+  const { photos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(
     firstCollectionId,
-    isCluster ? undefined : { personIds: [id!] }
+    isNamedPerson
+      ? { personIds: [id!] }
+      : undefined  // Cluster filtering handled below
   );
-  const { allPeople, refetch: refetchAllPeople } = useAllPeople(firstCollectionId);
 
-  // Use cluster photos for clusters, person photos for named persons
-  const photos = isCluster ? clusterPhotos : personPhotos;
+  // For clusters: need metadata for the header
+  const { data: clusterMetadata = [], refetch: refetchClusterMetadata } = useClusterMetadata(
+    firstCollectionId,
+    isNamedPerson ? [] : [id!]  // Only fetch if viewing cluster
+  );
 
-  // Find current person/cluster
-  const displayPerson = allPeople.find(p => p.id === id);
+  const cluster = clusterMetadata[0] || null;
+  const isCluster = !!cluster && !isNamedPerson;
+
+  // Build display person from either named person or cluster metadata
+  const displayPerson = useMemo((): PersonCluster | undefined => {
+    if (isNamedPerson && person) {
+      return {
+        id: person.id,
+        name: person.name,
+        thumbnailPath: person.thumbnail_url || '',
+        thumbnailBbox: person.thumbnail_bbox || null,
+        photoCount: person.photo_count,
+        photos: [],
+      };
+    }
+
+    if (cluster) {
+      const photoIds = Array.from(new Set(cluster.faces.map(f => f.photo_id)));
+      const representativeFace = cluster.faces.find(
+        f => f.id === cluster.representative_face_id
+      ) || cluster.faces[0];
+
+      return {
+        id: cluster.id,
+        name: null,
+        thumbnailPath: cluster.representative_thumbnail_url || representativeFace?.photo_id || '',
+        thumbnailBbox: representativeFace ? apiBboxToUi(representativeFace.bbox) : null,
+        photoCount: photoIds.length,
+        photos: photoIds,
+      };
+    }
+
+    return undefined;
+  }, [isNamedPerson, person, cluster]);
+
+  // Only need allPeople for lightbox face tags (load lazily)
+  const { allPeople, refetch: refetchAllPeople } = useAllPeople(firstCollectionId, {
+    enabled: false,  // Don't block page load - we'll load on-demand later
+  });
 
   // Get thumbnail photo URL
   const { url: thumbnailUrl } = usePhotoUrl(displayPerson?.thumbnailPath || '');
@@ -107,7 +105,8 @@ export default function PersonAlbum() {
   // Mutations
   const updatePersonMutation = useUpdatePerson();
 
-  const loading = collectionsLoading || peopleLoading || clustersLoading || photosLoading;
+  // Loading state - only wait for photos and person/cluster metadata
+  const loading = collectionsLoading || peopleLoading || photosLoading || (isCluster && clusterMetadata.length === 0);
 
   useEffect(() => {
     checkAuth();
@@ -258,7 +257,7 @@ export default function PersonAlbum() {
             onPhotoFacesUpdated={async () => {
               // Refetch appropriate data based on whether viewing cluster or person
               if (isCluster) {
-                await refetchClusters();
+                await refetchClusterMetadata();
               } else {
                 await refetch();
               }
