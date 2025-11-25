@@ -61,6 +61,13 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const touchEndX = useRef<number | null>(null);
   const { url: photoUrl, loading: photoLoading } = usePhotoUrl(photo?.id || '', { thumbnail: false });
 
+  // Debug: Log when photo changes
+  useEffect(() => {
+    if (photo?.id) {
+      console.log('[Lightbox] Photo changed:', { photoId: photo.id, photoLoading });
+    }
+  }, [photo?.id, photoLoading]);
+
   useEffect(() => {
     if (photo?.faces) {
       console.log('[Lightbox useEffect] Photo changed, loading faces:', {
