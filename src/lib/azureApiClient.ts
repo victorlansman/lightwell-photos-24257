@@ -377,9 +377,11 @@ class AzureApiClient {
       if (filters.cursor) params.append('cursor', filters.cursor);
     }
 
-    // Backend requires limit parameter (crashes without it) and has max of 1000
+    // TEMPORARY WORKAROUND: Backend crashes with limit > 50
+    // See docs/BACKEND_PAGINATION_REQUIREMENTS.md for full context
+    // TODO: Remove this once backend implements proper pagination
     if (!filters?.limit) {
-      params.append('limit', '1000');
+      params.append('limit', '50');
     }
 
     const query = params.toString();
