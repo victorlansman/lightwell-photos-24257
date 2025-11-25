@@ -50,7 +50,7 @@ export default function PersonAlbum() {
   );
 
   // For clusters: need metadata for the header
-  const { data: clusterMetadata = [], refetch: refetchClusterMetadata } = useClusterMetadata(
+  const { data: clusterMetadata = [], isLoading: clusterLoading, refetch: refetchClusterMetadata } = useClusterMetadata(
     firstCollectionId,
     isNamedPerson ? [] : [id!]  // Only fetch if viewing cluster
   );
@@ -106,7 +106,7 @@ export default function PersonAlbum() {
   const updatePersonMutation = useUpdatePerson();
 
   // Loading state - only wait for photos and person/cluster metadata
-  const loading = collectionsLoading || peopleLoading || photosLoading || (isCluster && clusterMetadata.length === 0);
+  const loading = collectionsLoading || peopleLoading || photosLoading || (!isNamedPerson && clusterLoading);
 
   useEffect(() => {
     checkAuth();
