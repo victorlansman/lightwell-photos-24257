@@ -18,7 +18,9 @@ export default function UnknownPeople() {
 
   // Fetch all photos
   const { photos: allPhotos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(firstCollectionId);
-  const { allPeople, isLoading: peopleLoading, refetch: refetchPeople } = useAllPeople(firstCollectionId);
+  const { allPeople, isLoading: peopleLoading, refetch: refetchPeople } = useAllPeople(firstCollectionId, {
+    enabled: false,  // Don't load ALL clusters - not needed
+  });
 
   // Filter to only unnamed individual faces (not in clusters)
   const clusterPersonIds = useMemo(() => {
