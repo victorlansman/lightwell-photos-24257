@@ -234,9 +234,9 @@ export function useAllPeople(
         return {
           id: cluster.id,
           name: null,
-          // Use photo_id for thumbnails (more reliable than face thumbnails)
-          // Backend's representative_thumbnail_url can point to orphaned faces (deleted photos)
-          thumbnailPath: extractPhotoId(representativeFace?.photo_id),
+          // Use backend's representative_thumbnail_url (correct API)
+          // Fallback to photo_id only if backend doesn't provide thumbnail URL
+          thumbnailPath: cluster.representative_thumbnail_url || extractPhotoId(representativeFace?.photo_id),
           thumbnailBbox: representativeFace ? apiBboxToUi(representativeFace.bbox) : null,
           photoCount: photoIds.length,
           photos: photoIds,
