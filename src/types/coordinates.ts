@@ -61,14 +61,16 @@ export function uiCoord(value: number): UiCoordinate {
 
 /**
  * Create API coordinate from raw number (use when receiving from backend)
- * Throws for invalid values to enforce strict API contract
+ * Clamps invalid values to prevent bad backend data from breaking UI
  */
 export function apiCoord(value: number): ApiCoordinate {
   if (!isFinite(value)) {
-    throw new Error(`API coordinate must be finite number, got ${value}`);
+    console.warn(`API coordinate must be finite number, got ${value}, clamping to 0`);
+    return 0 as ApiCoordinate;
   }
   if (value < 0 || value > 1) {
-    throw new Error(`API coordinate ${value} outside valid range [0, 1]`);
+    console.warn(`API coordinate ${value} outside valid range [0, 1], clamping`);
+    return Math.max(0, Math.min(1, value)) as ApiCoordinate;
   }
   return value as ApiCoordinate;
 }
