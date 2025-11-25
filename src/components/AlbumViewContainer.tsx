@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useMemo } from 'react';
+import { ReactNode, useState, useEffect, useMemo, useRef } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { Photo } from '@/types/photo';
 import { PersonCluster } from '@/types/person';
@@ -10,6 +10,7 @@ import { SharePhotosDialog } from '@/components/SharePhotosDialog';
 import { Button } from '@/components/ui/button';
 import { useAlbumLightbox } from '@/hooks/useAlbumPhotos';
 import { format, isSameDay, parseISO } from 'date-fns';
+import { ThumbnailAbortContext } from '@/hooks/useThumbnailAbort';
 
 export interface AlbumViewContainerProps {
   photos: Photo[];
@@ -83,6 +84,20 @@ export function AlbumViewContainer({
 
   // Lightbox management
   const lightbox = useAlbumLightbox(photos);
+
+  // Thumbnail fetch abort controller - allows aborting thumbnails when lightbox opens
+  const thumbnailAbortRef = useRef(new AbortController());
+
+  // When lightbox opens, abort all thumbnail fetches to free up connection pool for full-size photo
+  useEffect(() => {
+    if (lightbox.isOpen) {
+      // Abort all pending thumbnail fetches
+      thumbnailAbortRef.current.abort();
+      console.log('[AlbumViewContainer] Lightbox opened - aborting thumbnail fetches');
+      // Create new controller for future thumbnail fetches
+      thumbnailAbortRef.current = new AbortController();
+    }
+  }, [lightbox.isOpen]);
 
   // Infinite scroll trigger
   const { ref: loadMoreRef, inView } = useInView({
@@ -167,7 +182,7 @@ export function AlbumViewContainer({
   const normalizedCollectionId = Array.isArray(collectionId) ? collectionId[0] : collectionId;
 
   return (
-    <>
+    <ThumbnailAbortContext.Provider value={{ abortController: thumbnailAbortRef.current }}>
       <div className="flex-1 flex flex-col">
         {/* View controls */}
         {showViewControls && (
@@ -356,6 +371,7 @@ export function AlbumViewContainer({
           setIsSelectionMode(false);
         }}
       />
+    </ThumbnailAbortContext.Provider>
     </>
   );
 }

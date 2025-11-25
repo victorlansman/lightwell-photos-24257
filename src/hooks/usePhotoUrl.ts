@@ -8,14 +8,24 @@ import { azureApi } from '@/lib/azureApiClient';
  * Handles:
  * - Photo IDs (UUID strings)
  * - Face thumbnail paths (/api/faces/{faceId}/thumbnail)
+ *
+ * @param options.thumbnail - Whether to fetch thumbnail
+ * @param options.abortSignal - AbortSignal to cancel fetch
+ * @param options.priority - 'high' for lightbox, 'low' for thumbnails (allows prioritization)
  */
-export function usePhotoUrl(photoIdOrPath: string, options?: { thumbnail?: boolean }) {
+export function usePhotoUrl(photoIdOrPath: string, options?: {
+  thumbnail?: boolean
+  abortSignal?: AbortSignal
+  priority?: 'high' | 'low'
+}) {
   const [url, setUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Extract thumbnail value to fix dependency array
+  // Extract options to fix dependency array
   const thumbnail = options?.thumbnail;
+  const abortSignal = options?.abortSignal;
+  const priority = options?.priority || 'low';
 
   useEffect(() => {
     // Guard against empty or whitespace-only photoIdOrPath
@@ -48,9 +58,11 @@ export function usePhotoUrl(photoIdOrPath: string, options?: { thumbnail?: boole
         } else {
           // Regular photo ID
           const fetchStart = performance.now();
-          blob = await azureApi.fetchPhoto(photoIdOrPath, { thumbnail });
+          // Add AbortSignal to fetch if provided
+          const fetchOptions = { thumbnail, abortSignal };
+          blob = await azureApi.fetchPhoto(photoIdOrPath, fetchOptions as any);
           const fetchElapsed = Math.round(performance.now() - fetchStart);
-          console.log('[usePhotoUrl] Photo fetched:', { photoId: photoIdOrPath, blobSize: `${Math.round(blob.size / 1024)}KB`, fetchElapsed: `${fetchElapsed}ms`, totalElapsed: `${Math.round(performance.now() - startTime)}ms` });
+          console.log('[usePhotoUrl] Photo fetched:', { photoId: photoIdOrPath, priority, blobSize: `${Math.round(blob.size / 1024)}KB`, fetchElapsed: `${fetchElapsed}ms`, totalElapsed: `${Math.round(performance.now() - startTime)}ms` });
         }
 
         if (cancelled) return;
@@ -88,7 +100,7 @@ export function usePhotoUrl(photoIdOrPath: string, options?: { thumbnail?: boole
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [photoIdOrPath, thumbnail]);
+  }, [photoIdOrPath, thumbnail, abortSignal, priority]);
 
   return { url, loading, error };
 }

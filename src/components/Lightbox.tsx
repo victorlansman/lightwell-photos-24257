@@ -59,7 +59,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
-  const { url: photoUrl, loading: photoLoading } = usePhotoUrl(photo?.id || '', { thumbnail: false });
+  const { url: photoUrl, loading: photoLoading } = usePhotoUrl(photo?.id || '', {
+    thumbnail: false,
+    priority: 'high',
+  });
 
   // Debug: Log when photo changes
   useEffect(() => {

@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
+import { useThumbnailAbort } from "@/hooks/useThumbnailAbort";
 
 interface PhotoCardProps {
   photo: Photo;
@@ -15,7 +16,12 @@ interface PhotoCardProps {
 
 export function PhotoCard({ photo, isSelected, onSelect, onClick, cropSquare = true, isSelectionMode = false }: PhotoCardProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const { url: photoUrl, loading } = usePhotoUrl(photo.id, { thumbnail: true });
+  const thumbnailAbort = useThumbnailAbort();
+  const { url: photoUrl, loading } = usePhotoUrl(photo.id, {
+    thumbnail: true,
+    abortSignal: thumbnailAbort.signal,
+    priority: 'low',
+  });
 
   const handleCardClick = () => {
     if (isSelectionMode) {

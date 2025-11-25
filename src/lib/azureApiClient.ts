@@ -456,7 +456,7 @@ class AzureApiClient {
    * Fetch photo blob with authentication.
    * Use this for downloading or displaying images.
    */
-  async fetchPhoto(photoId: string, options?: { thumbnail?: boolean }): Promise<Blob> {
+  async fetchPhoto(photoId: string, options?: { thumbnail?: boolean; abortSignal?: AbortSignal }): Promise<Blob> {
     const params = new URLSearchParams();
     if (options?.thumbnail) {
       params.append('thumbnail', 'true');
@@ -469,6 +469,7 @@ class AzureApiClient {
       headers: {
         ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
       },
+      signal: options?.abortSignal,
     });
 
     if (!response.ok) {

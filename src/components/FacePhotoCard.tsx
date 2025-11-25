@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Photo } from "@/types/photo";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
+import { useThumbnailAbort } from "@/hooks/useThumbnailAbort";
 
 interface FacePhotoCardProps {
   photo: Photo;
@@ -25,7 +26,11 @@ export function FacePhotoCard({
   showOnlyUnnamed = false,
   isThumbnailSelection = false,
 }: FacePhotoCardProps) {
-  const { url: photoUrl } = usePhotoUrl(photo.id);
+  const thumbnailAbort = useThumbnailAbort();
+  const { url: photoUrl } = usePhotoUrl(photo.id, {
+    abortSignal: thumbnailAbort.signal,
+    priority: 'low',
+  });
 
   // Find the face bounding box
   // For clusters: find first unnamed face
