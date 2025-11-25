@@ -142,6 +142,46 @@ These show "Not yet implemented" messages or are disabled in the UI. Backend wor
 
 ---
 
+## Photo Data Loading Architecture
+
+### Problem Solved
+Previously, viewing filtered photos (person albums) required loading ALL unnamed face clusters for the entire collection, blocking page render and lightbox functionality.
+
+### Solution
+Photos now include embedded face data (both named and unnamed) with cluster_id preserved from backend. Cluster metadata is loaded on-demand only when needed.
+
+### Data Flow
+
+#### Photos Query
+```
+GET /v1/collections/{id}/photos?person_id=abc
+→ Returns photos with embedded faces
+→ Each face has: person_id, name, bbox, cluster_id
+```
+
+#### Cluster Metadata Query (On-Demand)
+```
+GET /api/faces/clusters?ids=xyz
+→ Only when viewing cluster album header
+→ Not loaded on timeline or person albums
+```
+
+#### Where Queries Run
+
+| Page | Photos Query | Cluster Metadata | All People |
+|------|--------------|------------------|------------|
+| Timeline | ✅ All photos | ❌ Disabled | ❌ Disabled |
+| PersonAlbum | ✅ Filtered | ✅ Current only | ❌ Disabled |
+| People Gallery | ❌ None | ✅ All clusters | ✅ Enabled |
+
+### Performance Impact
+
+- PersonAlbum: 5-10x faster (no bulk cluster fetch)
+- Timeline: 3-5x faster (no cluster fetch)
+- Lightbox: Opens immediately (not blocked)
+
+---
+
 ## Backend Dependencies
 
 **Features awaiting backend endpoints:**
