@@ -1,20 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { azureApi, PhotoFilters } from '@/lib/azureApiClient';
-
-/**
- * Hook to fetch photos from a collection with filters.
- * Supports year range, person, tags, and favorites filtering.
- */
-export function useCollectionPhotos(
-  collectionId: string | undefined,
-  filters?: PhotoFilters
-) {
-  return useQuery({
-    queryKey: ['collections', collectionId, 'photos', filters],
-    queryFn: () => azureApi.getCollectionPhotos(collectionId!, filters),
-    enabled: !!collectionId,
-  });
-}
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { azureApi } from '@/lib/azureApiClient';
 
 /**
  * Hook to toggle photo favorite status

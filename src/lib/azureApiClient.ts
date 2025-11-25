@@ -322,45 +322,6 @@ class AzureApiClient {
     return this.request(`/v1/collections/${id}`);
   }
 
-  async getCollectionPhotos(
-    collectionId: string,
-    filters?: PhotoFilters
-  ): Promise<Photo[]> {
-    const params = new URLSearchParams();
-
-    if (filters) {
-      if (filters.person_id) params.append('person_id', filters.person_id);
-      if (filters.year_min) params.append('year_min', filters.year_min.toString());
-      if (filters.year_max) params.append('year_max', filters.year_max.toString());
-      if (filters.tags) params.append('tags', filters.tags);
-      if (filters.favorite !== undefined) params.append('favorite', filters.favorite.toString());
-      if (filters.limit) params.append('limit', filters.limit.toString());
-      if (filters.cursor) params.append('cursor', filters.cursor);
-    }
-
-    const query = params.toString();
-    const endpoint = `/v1/collections/${collectionId}/photos${query ? `?${query}` : ''}`;
-
-    const photos = await this.request<Photo[]>(endpoint);
-
-    // COORDINATE CONVERSION: API (0-1) → UI (0-100)
-    // Backend returns 0-1 normalized, transform to UI coordinates
-    return photos.map(photo => ({
-      ...photo,
-      people: photo.people.map(person => ({
-        ...person,
-        face_bbox: person.face_bbox
-          ? apiBboxToUi({
-              x: apiCoord(person.face_bbox.x as any),
-              y: apiCoord(person.face_bbox.y as any),
-              width: apiCoord(person.face_bbox.width as any),
-              height: apiCoord(person.face_bbox.height as any),
-            })
-          : null,
-      })),
-    }));
-  }
-
   async getCollectionPhotosPaginated(
     collectionId: string,
     filters?: PhotoFilters
@@ -377,22 +338,34 @@ class AzureApiClient {
       if (filters.cursor) params.append('cursor', filters.cursor);
     }
 
-    // TEMPORARY WORKAROUND: Backend crashes with limit > 50
-    // See docs/BACKEND_PAGINATION_REQUIREMENTS.md for full context
-    // TODO: Remove this once backend implements proper pagination
+    // Default page size if not specified
     if (!filters?.limit) {
-      params.append('limit', '50');
+      params.append('limit', '100');
     }
 
     const query = params.toString();
     const endpoint = `/v1/collections/${collectionId}/photos${query ? `?${query}` : ''}`;
 
-    const response = await this.request<any>(endpoint);
+    let response: any;
+    try {
+      response = await this.request<any>(endpoint);
+    } catch (error: any) {
+      // Auto-recover from invalid cursor: retry from page 1
+      if (error.message?.includes('Invalid cursor') || error.message?.includes('unable to decode')) {
+        console.warn('[Pagination] Invalid cursor detected, restarting from page 1');
+        params.delete('cursor');
+        const retryQuery = params.toString();
+        const retryEndpoint = `/v1/collections/${collectionId}/photos${retryQuery ? `?${retryQuery}` : ''}`;
+        response = await this.request<any>(retryEndpoint);
+      } else {
+        throw error;
+      }
+    }
 
-    // Handle different response formats
-    const photos: Photo[] = Array.isArray(response) ? response : (response.photos || []);
+    // Backend returns { photos, cursor, has_more, total }
+    const photos: Photo[] = response.photos || [];
     const cursor = response.cursor;
-    const hasMore = response.hasMore ?? false;
+    const hasMore = response.has_more ?? false;
     const total = response.total;
 
     // COORDINATE CONVERSION: API (0-1) → UI (0-100)
