@@ -382,6 +382,7 @@ class AzureApiClient {
               height: apiCoord(person.face_bbox.height as any),
             })
           : null,
+        cluster_id: person.cluster_id,  // Preserve from backend
       })),
     }));
 
