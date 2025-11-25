@@ -12,6 +12,7 @@ interface FacePhotoCardProps {
   onClick: () => void;
   isSelectionMode: boolean;
   showOnlyUnnamed?: boolean; // For cluster view - show unnamed faces
+  isThumbnailSelection?: boolean; // For thumbnail selection - adds blue border
 }
 
 export function FacePhotoCard({
@@ -22,6 +23,7 @@ export function FacePhotoCard({
   onClick,
   isSelectionMode,
   showOnlyUnnamed = false,
+  isThumbnailSelection = false,
 }: FacePhotoCardProps) {
   const { url: photoUrl } = usePhotoUrl(photo.id);
 
@@ -55,7 +57,8 @@ export function FacePhotoCard({
       className={cn(
         "relative aspect-square overflow-hidden rounded-full cursor-pointer group",
         "bg-muted transition-all duration-200",
-        isSelected && "ring-4 ring-primary"
+        isSelected && "ring-4 ring-primary",
+        isThumbnailSelection && "border-4 border-blue-500 hover:border-8 hover:border-blue-400 hover:shadow-lg"
       )}
       onClick={handleClick}
     >

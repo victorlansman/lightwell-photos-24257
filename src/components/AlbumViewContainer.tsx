@@ -287,6 +287,7 @@ export function AlbumViewContainer({
                                 }
                               }}
                               isSelectionMode={isSelectionMode}
+                              isThumbnailSelection={!!onFaceClick}
                             />
                           );
                         }
