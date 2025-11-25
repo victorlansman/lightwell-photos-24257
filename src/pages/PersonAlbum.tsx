@@ -46,7 +46,7 @@ export default function PersonAlbum() {
     firstCollectionId,
     isNamedPerson
       ? { personIds: [id!] }
-      : undefined  // Cluster filtering handled below
+      : { clusterIds: [id!] }  // USE CLUSTER FILTER for unnamed clusters
   );
 
   // For clusters: need metadata for the header

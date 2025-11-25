@@ -120,6 +120,7 @@ export interface Photo {
 
 export interface PhotoFilters {
   person_id?: string;
+  cluster_ids?: string;  // Comma-separated cluster IDs
   year_min?: number;      // CHANGED from year_from
   year_max?: number;      // CHANGED from year_to
   tags?: string;  // Comma-separated
@@ -331,6 +332,7 @@ class AzureApiClient {
 
     if (filters) {
       if (filters.person_id) params.append('person_id', filters.person_id);
+      if (filters.cluster_ids) params.append('cluster_ids', filters.cluster_ids);
       if (filters.year_min) params.append('year_min', filters.year_min.toString());
       if (filters.year_max) params.append('year_max', filters.year_max.toString());
       if (filters.tags) params.append('tags', filters.tags);

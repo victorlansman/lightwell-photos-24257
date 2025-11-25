@@ -32,6 +32,7 @@ function extractPhotoId(value: string | undefined): string {
 export interface PhotoFilters {
   yearRange?: [number, number];
   personIds?: string[];
+  clusterIds?: string[];
   tags?: string[];
   favoriteOnly?: boolean;
 }
@@ -73,6 +74,7 @@ export function usePhotosWithClusters(
           year_min: filters.yearRange?.[0],
           year_max: filters.yearRange?.[1],
           person_id: filters.personIds?.[0],
+          cluster_ids: filters.clusterIds?.[0],
           tags: filters.tags?.join(','),
           favorite: filters.favoriteOnly,
         } : {}),
