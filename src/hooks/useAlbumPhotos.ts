@@ -69,16 +69,17 @@ export function usePhotosWithClusters(
     queryFn: async ({ pageParam }) => {
       if (!normalizedCollectionId) throw new Error('Collection ID required');
 
-      // Convert filters to API format
-      // NOTE: Backend returns all photos as array without pagination support
-      // Removing limit to fetch all photos at once
-      const apiFilters = filters ? {
-        year_min: filters.yearRange?.[0],
-        year_max: filters.yearRange?.[1],
-        person_id: filters.personIds?.[0],
-        tags: filters.tags?.join(','),
-        favorite: filters.favoriteOnly,
-      } : {};
+      // Convert filters to API format with cursor from pageParam
+      const apiFilters = {
+        ...(filters ? {
+          year_min: filters.yearRange?.[0],
+          year_max: filters.yearRange?.[1],
+          person_id: filters.personIds?.[0],
+          tags: filters.tags?.join(','),
+          favorite: filters.favoriteOnly,
+        } : {}),
+        cursor: pageParam,  // Pass cursor from React Query
+      };
 
       return azureApi.getCollectionPhotosPaginated(normalizedCollectionId, apiFilters);
     },
