@@ -52,7 +52,6 @@ export function usePhotosWithClusters(
   collectionId: string | string[] | undefined,
   filters?: PhotoFilters
 ): UsePhotosWithClustersResult {
-  // Handle single or multiple collections
   const normalizedCollectionId = Array.isArray(collectionId) ? collectionId[0] : collectionId;
 
   // Fetch photos with infinite pagination
@@ -69,7 +68,6 @@ export function usePhotosWithClusters(
     queryFn: async ({ pageParam }) => {
       if (!normalizedCollectionId) throw new Error('Collection ID required');
 
-      // Convert filters to API format with cursor from pageParam
       const apiFilters = {
         ...(filters ? {
           year_min: filters.yearRange?.[0],
@@ -78,7 +76,7 @@ export function usePhotosWithClusters(
           tags: filters.tags?.join(','),
           favorite: filters.favoriteOnly,
         } : {}),
-        cursor: pageParam,  // Pass cursor from React Query
+        cursor: pageParam,
       };
 
       return azureApi.getCollectionPhotosPaginated(normalizedCollectionId, apiFilters);
@@ -90,83 +88,48 @@ export function usePhotosWithClusters(
     enabled: !!normalizedCollectionId,
   });
 
-  // Fetch cluster data
-  const {
-    data: clusterData = [],
-    isLoading: clustersLoading,
-    error: clustersError
-  } = useClusters(normalizedCollectionId);
-
-  // Flatten paginated photos
   const azurePhotos = photosData?.pages.flatMap(page => page.photos) ?? [];
   const totalCount = photosData?.pages[0]?.total;
 
-  const isLoading = photosLoading || clustersLoading;
-  const error = photosError || clustersError || null;
-
-  // Convert Azure photos to UI format with cluster faces
+  // Convert Azure photos to UI format - faces already embedded
   const allPhotos = useMemo(() => {
-    return azurePhotos.map(azurePhoto => {
-      // Start with named faces
-      let faces: FaceDetection[] = azurePhoto.people
+    return azurePhotos.map(azurePhoto => ({
+      id: azurePhoto.id,
+      collection_id: azurePhoto.collection_id,
+      path: azurePhoto.path,
+      thumbnail_url: azurePhoto.thumbnail_url,
+      original_filename: azurePhoto.original_filename,
+      created_at: azurePhoto.created_at,
+      filename: azurePhoto.title || undefined,
+      title: azurePhoto.title,
+      description: azurePhoto.description,
+      width: azurePhoto.width,
+      height: azurePhoto.height,
+      rotation: azurePhoto.rotation,
+      estimated_year: azurePhoto.estimated_year,
+      user_corrected_year: azurePhoto.user_corrected_year,
+      is_favorite: azurePhoto.is_favorite,
+      tags: azurePhoto.tags,
+      people: azurePhoto.people,
+      // Map people to faces with cluster_id preserved
+      faces: azurePhoto.people
         .filter(person => person.face_bbox !== null)
         .map(person => ({
           personId: person.id,
           personName: person.name,
           boundingBox: person.face_bbox!,
-        }));
-
-      // Add cluster faces for this photo
-      clusterData.forEach(cluster => {
-        const clusterFacesForPhoto = cluster.faces.filter(
-          f => f.photo_id === azurePhoto.id
-        );
-        clusterFacesForPhoto.forEach(clusterFace => {
-          faces.push({
-            personId: cluster.id,
-            personName: null,
-            boundingBox: apiBboxToUi(clusterFace.bbox),
-          });
-        });
-      });
-
-      return {
-        id: azurePhoto.id,
-        collection_id: azurePhoto.collection_id,
-        path: azurePhoto.path,
-        thumbnail_url: azurePhoto.thumbnail_url,
-        original_filename: azurePhoto.original_filename,
-        created_at: azurePhoto.created_at,
-        filename: azurePhoto.title || undefined,
-        title: azurePhoto.title,
-        description: azurePhoto.description,
-        width: azurePhoto.width,
-        height: azurePhoto.height,
-        rotation: azurePhoto.rotation,
-        estimated_year: azurePhoto.estimated_year,
-        user_corrected_year: azurePhoto.user_corrected_year,
-        is_favorite: azurePhoto.is_favorite,
-        tags: azurePhoto.tags,
-        people: azurePhoto.people,
-        faces,
-        taken_at: null,
-      } as Photo;
-    });
-  }, [azurePhotos, clusterData]);
-
-  // Apply client-side filters (after pagination)
-  const photos = useMemo(() => {
-    // Note: Server-side filters are applied in the query, so we don't need to re-filter here
-    // unless we're doing client-side filtering on top of server-side results
-    return allPhotos;
-  }, [allPhotos]);
+          clusterId: person.cluster_id,  // Preserved from backend
+        })),
+      taken_at: null,
+    } as Photo));
+  }, [azurePhotos]);
 
   return {
-    photos,
+    photos: allPhotos,
     allPhotos,
-    isLoading,
+    isLoading: photosLoading,
     isLoadingMore: isFetchingNextPage,
-    error,
+    error: photosError,
     refetch: refetchPhotos,
     loadMore: () => fetchNextPage(),
     hasMore: hasNextPage ?? false,
