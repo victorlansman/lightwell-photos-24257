@@ -109,6 +109,7 @@ export interface Photo {
     id: ServerId;  // Changed from string
     name: string;
     face_bbox: UiBoundingBox | null;  // Changed to use typed coords
+    cluster_id?: ServerId | null;
   }>;
   is_favorite: boolean;
 

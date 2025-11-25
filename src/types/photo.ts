@@ -5,6 +5,7 @@ export interface FaceDetection {
   personId: ServerId | null;
   personName: string | null;
   boundingBox: UiBoundingBox;
+  clusterId?: string | null;
 }
 
 export interface Photo {
@@ -27,6 +28,7 @@ export interface Photo {
     id: ServerId;
     name: string;
     face_bbox: UiBoundingBox | null;
+    cluster_id?: ServerId | null;
   }>;
   // Legacy fields (kept for backwards compatibility)
   filename?: string;
