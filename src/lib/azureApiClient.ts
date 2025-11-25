@@ -666,6 +666,44 @@ class AzureApiClient {
   }
 
   /**
+   * Get specific clusters by IDs (for cluster album metadata).
+   * More efficient than fetching all clusters when you only need 1-3.
+   *
+   * @param collectionId - Collection to query
+   * @param clusterIds - Array of cluster IDs to fetch
+   * @returns Array of matching clusters
+   */
+  async getClustersByIds(
+    collectionId: string,
+    clusterIds: string[]
+  ): Promise<FaceClusterResponse[]> {
+    if (clusterIds.length === 0) return [];
+
+    const params = new URLSearchParams({
+      collection_id: collectionId,
+      ids: clusterIds.join(','),
+    });
+
+    const response = await this.request<ClustersResponse>(
+      `/api/faces/clusters?${params.toString()}`
+    );
+
+    // Transform response (coordinate verification)
+    return response.clusters.map(cluster => ({
+      ...cluster,
+      faces: cluster.faces.map(face => ({
+        ...face,
+        bbox: {
+          x: apiCoord(face.bbox.x),
+          y: apiCoord(face.bbox.y),
+          width: apiCoord(face.bbox.width),
+          height: apiCoord(face.bbox.height),
+        }
+      }))
+    }));
+  }
+
+  /**
    * Label a face cluster by assigning all faces to a person.
    * This effectively "names" the cluster.
    *
