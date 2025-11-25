@@ -65,3 +65,20 @@ export function useUpdatePerson() {
     },
   });
 }
+
+/**
+ * Hook to merge two people/clusters together
+ */
+export function useMergePeople() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ targetPersonId, sourcePersonId }: { targetPersonId: string; sourcePersonId: string }) =>
+      azureApi.mergePeople(targetPersonId, sourcePersonId),
+    onSuccess: () => {
+      // Invalidate all people and cluster queries to get fresh photo counts
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+      queryClient.invalidateQueries({ queryKey: ['clusters'] });
+    },
+  });
+}

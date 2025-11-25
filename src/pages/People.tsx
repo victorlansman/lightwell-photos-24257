@@ -7,6 +7,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { useCollections } from "@/hooks/useCollections";
 import { useAllPeople } from "@/hooks/useAlbumPhotos";
+import { useMergePeople } from "@/hooks/useFaces";
 import { azureApi } from "@/lib/azureApiClient";
 import { toast } from "sonner";
 import {
@@ -62,7 +63,10 @@ export default function People() {
   const firstCollectionId = collections?.[0]?.id;
 
   // Use the refactored useAllPeople hook that handles both named people and clusters
-  const { allPeople, isLoading: peopleLoading, refetch: refetchPeople } = useAllPeople(firstCollectionId);
+  const { allPeople, isLoading: peopleLoading } = useAllPeople(firstCollectionId);
+
+  // Use mutation hook for merging people - handles cache invalidation automatically
+  const mergePeopleMutation = useMergePeople();
 
   const loading = collectionsLoading || peopleLoading;
 
@@ -126,12 +130,12 @@ export default function People() {
     }
 
     try {
-      const result = await azureApi.mergePeople(mergeTarget, sourceId);
+      const result = await mergePeopleMutation.mutateAsync({
+        targetPersonId: mergeTarget,
+        sourcePersonId: sourceId,
+      });
 
       toast.success(`Merged ${result.faces_merged} faces into one person`);
-
-      // Refresh people list
-      refetchPeople();
 
       // Exit selection mode and close dialog
       setIsSelectionMode(false);
