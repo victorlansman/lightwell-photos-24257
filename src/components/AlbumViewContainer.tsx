@@ -372,6 +372,5 @@ export function AlbumViewContainer({
         }}
       />
     </ThumbnailAbortContext.Provider>
-    </>
   );
 }
