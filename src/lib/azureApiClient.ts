@@ -377,10 +377,9 @@ class AzureApiClient {
       if (filters.cursor) params.append('cursor', filters.cursor);
     }
 
-    // Backend doesn't support cursor pagination - use large limit to fetch all photos
-    // Backend crashes (500 error) without limit parameter, so we must provide one
+    // Backend requires limit parameter (crashes without it) and has max of 1000
     if (!filters?.limit) {
-      params.append('limit', '10000');  // Large enough for most collections
+      params.append('limit', '1000');
     }
 
     const query = params.toString();
