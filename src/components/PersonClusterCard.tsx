@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PersonThumbnail } from "./PersonThumbnail";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 interface PersonClusterCardProps {
   cluster: PersonCluster;
@@ -21,14 +22,22 @@ export function PersonClusterCard({
   onClick,
   unnamedIndex,
 }: PersonClusterCardProps) {
+  // Lazy load: only fetch thumbnail when card is visible
+  const { ref, isVisible } = useIntersectionObserver({
+    rootMargin: '200px', // Load 200px before entering viewport
+    triggerOnce: true,
+  });
+
   // Fetch authenticated photo URL if thumbnailPath is a photo ID or face thumbnail path
-  const { url: photoUrl } = usePhotoUrl(cluster.thumbnailPath || '');
+  // Only fetch when visible (lazy loading)
+  const { url: photoUrl } = usePhotoUrl(isVisible ? (cluster.thumbnailPath || '') : '');
 
   // Check if this is a face thumbnail (pre-cropped by backend)
   const isFaceThumbnail = cluster.thumbnailPath?.startsWith('/api/faces/');
 
   return (
     <div
+      ref={ref}
       className="flex flex-col items-center gap-2 cursor-pointer group"
       onClick={() => {
         if (isSelectionMode) {
