@@ -720,23 +720,9 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                       <p className="text-sm font-medium text-muted-foreground">People in Photo</p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {faces.map((face, idx) => {
-                          let displayName = "Unnamed person";
-                          if (face.personName) {
-                            displayName = face.personName;
-                          } else if (face.personId && allPeople.length > 0) {
-                            const person = allPeople.find(p => p.id === face.personId);
-                            if (person && person.photoCount > 1) {
-                              const unnamedClusters = allPeople
-                                .filter(p => p.name === null && p.photoCount > 1)
-                                .sort((a, b) => a.id.localeCompare(b.id));
-                              const clusterIndex = unnamedClusters.findIndex(p => p.id === person.id);
-                              if (clusterIndex !== -1) {
-                                displayName = `Unnamed person ${clusterIndex + 1}`;
-                              }
-                            }
-                          }
+                          const displayName = face.personName || (face.clusterId ? "Unknown" : "Unnamed person");
                           return (
-                            <span 
+                            <span
                               key={idx}
                               className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded"
                             >

@@ -121,32 +121,22 @@ export function FaceBoundingBox({ face, imageWidth, imageHeight, onEdit, onRemov
   };
 
   // Determine display name and clickability
-  let displayName = "Unnamed person";
+  let displayName = "Unknown";
   const isUnnamed = !face.personName;
   let isClickable = false;
   let personIdForNav: string | null = null;
-  let isCluster = false;
+  let isCluster = !!face.clusterId;
 
-  if (face.personName && face.personId) {
+  if (face.personName) {
+    // Named person - show name
     displayName = face.personName;
-    isClickable = true;
+    isClickable = !!face.personId;
     personIdForNav = face.personId;
-  } else if (face.personId && allPeople.length > 0) {
-    const person = allPeople.find(p => p.id === face.personId);
-    if (person && person.photoCount > 1) {
-      // This is a cluster face (unnamed face in a cluster)
-      isCluster = true;
-      // Find cluster index among unnamed people
-      const unnamedClusters = allPeople
-        .filter(p => p.name === null && p.photoCount > 1)
-        .sort((a, b) => a.id.localeCompare(b.id));
-      const clusterIndex = unnamedClusters.findIndex(p => p.id === person.id);
-      if (clusterIndex !== -1) {
-        displayName = `Unnamed person ${clusterIndex + 1}`;
-        isClickable = true;
-        personIdForNav = person.id;
-      }
-    }
+  } else if (face.clusterId) {
+    // Cluster face - show "Unknown" and make clickable
+    displayName = "Unknown";
+    isClickable = true;
+    personIdForNav = face.clusterId;
   }
 
   const handleNameClick = (e: React.MouseEvent) => {
