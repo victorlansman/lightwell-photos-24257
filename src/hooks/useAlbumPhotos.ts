@@ -148,10 +148,19 @@ export interface UseAllPeopleResult {
   refetch: () => void;
 }
 
+/**
+ * Fetch all people + unnamed clusters for a collection.
+ *
+ * WARNING: This loads ALL clusters. Use sparingly.
+ * Good for: People gallery page
+ * Bad for: Every page that shows photos
+ */
 export function useAllPeople(
-  collectionId: string | string[] | undefined
+  collectionId: string | string[] | undefined,
+  options?: {
+    enabled?: boolean;  // Allow disabling the query
+  }
 ): UseAllPeopleResult {
-  // Handle single or multiple collections
   const normalizedCollectionId = Array.isArray(collectionId)
     ? collectionId[0]
     : collectionId;
@@ -164,13 +173,15 @@ export function useAllPeople(
     refetch: refetchPeople,
   } = usePeople(normalizedCollectionId);
 
-  // Fetch clusters
+  // Fetch clusters - now optional
   const {
     data: clusterData = [],
     isLoading: clustersLoading,
     error: clustersError,
     refetch: refetchClusters,
-  } = useClusters(normalizedCollectionId);
+  } = useClusters(normalizedCollectionId, {
+    enabled: options?.enabled ?? true,  // Respect enabled flag
+  });
 
   const isLoading = peopleLoading || clustersLoading;
   const error = peopleError || clustersError || null;

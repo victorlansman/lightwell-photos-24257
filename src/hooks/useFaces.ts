@@ -4,7 +4,10 @@ import { azureApi, FaceTag, CreatePersonRequest, UpdatePersonRequest } from '@/l
 /**
  * Hook to fetch face clusters for a collection
  */
-export function useClusters(collectionId: string | undefined) {
+export function useClusters(
+  collectionId: string | undefined,
+  options?: { enabled?: boolean }  // ADD THIS
+) {
   return useQuery({
     queryKey: ['clusters', collectionId],
     queryFn: () => {
@@ -13,7 +16,7 @@ export function useClusters(collectionId: string | undefined) {
       }
       return azureApi.getClusters(collectionId);
     },
-    enabled: !!collectionId,
+    enabled: (options?.enabled ?? true) && !!collectionId,  // UPDATE THIS
   });
 }
 
