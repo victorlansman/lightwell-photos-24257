@@ -896,8 +896,11 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
           </Button>
 
           {/* Add new person / Cancel button */}
-          {showFaces && (
-            <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-8 z-50 pointer-events-none">
+          {showFaces && showControls && (
+            <div
+              className="absolute bottom-0 left-0 right-0 flex justify-center z-50 pointer-events-none"
+              style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+            >
               {!newBox ? (
                 <Button
                   className="pointer-events-auto shadow-lg"
