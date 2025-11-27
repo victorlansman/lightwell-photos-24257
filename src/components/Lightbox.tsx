@@ -58,8 +58,39 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [showControls, setShowControls] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const prevPhotoId = useRef<string | null>(null);
+
+  // Check if mobile device
+  const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+
+  // Request fullscreen when lightbox opens
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      // Small delay to ensure dialog is rendered
+      const timer = setTimeout(() => {
+        if (document.fullscreenElement === null && containerRef.current) {
+          containerRef.current.requestFullscreen?.().catch(() => {
+            // Fullscreen request failed (user denied or not supported)
+            console.log('[Lightbox] Fullscreen request failed or denied');
+          });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    } else if (!isOpen && document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, [isOpen]);
+
+  // Turn off showFaces when navigating to different photo on mobile
+  useEffect(() => {
+    if (photo?.id && prevPhotoId.current && photo.id !== prevPhotoId.current && isMobile) {
+      setShowFaces(false);
+    }
+    prevPhotoId.current = photo?.id || null;
+  }, [photo?.id, isMobile]);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
@@ -656,7 +687,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   return (
     <>
       <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-        <DialogContentFullscreen className="[&>button]:hidden">
+        <DialogContentFullscreen ref={containerRef} className="[&>button]:hidden">
           {/* Header - only visible when showControls is true */}
           {showControls && (
             <div
@@ -722,7 +753,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
           {/* Mobile toolbar popup - horizontal in landscape, vertical in portrait */}
           {showControls && showMenu && (
             <div
-              className="absolute top-16 right-2 z-50 md:hidden flex landscape:flex-row portrait:flex-col gap-2 p-2 bg-background/90 rounded-2xl backdrop-blur-sm"
+              className="absolute top-16 right-2 z-50 md:hidden flex flex-col gap-1.5 p-2 bg-background/90 rounded-2xl backdrop-blur-sm max-h-[calc(100vh-5rem)] overflow-y-auto"
               style={{ marginTop: 'env(safe-area-inset-top)' }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -791,23 +822,26 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
                 )}
-                <img
-                  ref={imgRef}
-                  src={photoUrl || ''}
-                  alt="Photo"
-                  className={cn(
-                    "max-w-full max-h-full object-contain animate-fade-in",
-                    photoLoading && "opacity-0"
-                  )}
-                />
-                {showFaces && imageDimensions.width > 0 && (
-                  <div 
-                    className="absolute inset-0 z-10"
-                    style={{
-                      width: imageDimensions.width,
-                      height: imageDimensions.height,
-                    }}
-                  >
+                {/* Image wrapper - positions bounding boxes correctly */}
+                <div className="relative">
+                  <img
+                    ref={imgRef}
+                    src={photoUrl || ''}
+                    alt="Photo"
+                    className={cn(
+                      "max-w-full max-h-full object-contain animate-fade-in",
+                      photoLoading && "opacity-0"
+                    )}
+                    style={{ maxHeight: 'calc(100vh - 1rem)', maxWidth: 'calc(100vw - 1rem)' }}
+                  />
+                  {showFaces && imageDimensions.width > 0 && (
+                    <div
+                      className="absolute top-0 left-0 z-10 pointer-events-none"
+                      style={{
+                        width: imageDimensions.width,
+                        height: imageDimensions.height,
+                      }}
+                    >
                      {faces.map((face, idx) => (
                       <FaceBoundingBox
                         key={idx}
@@ -833,6 +867,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                     )}
                   </div>
                 )}
+                </div>
               </div>
             </div>
 
