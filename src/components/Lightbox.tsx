@@ -814,7 +814,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                       "max-w-full max-h-full object-contain animate-fade-in",
                       photoLoading && "opacity-0"
                     )}
-                    style={{ maxHeight: 'calc(100vh - 1rem)', maxWidth: 'calc(100vw - 1rem)' }}
+                    style={{
+                      maxHeight: 'calc(100vh - 1rem)',
+                      maxWidth: showInfo ? 'calc(100vw - 21rem)' : 'calc(100vw - 1rem)'
+                    }}
                   />
                   {showFaces && imageDimensions.width > 0 && (
                     <div
@@ -858,8 +861,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               <div
                 className={cn(
                   "absolute bg-card/95 backdrop-blur-sm p-4 space-y-4 overflow-y-auto z-50",
-                  // Desktop: side panel
-                  "lg:relative lg:w-80 lg:h-full lg:border-l lg:border-border",
+                  // Desktop: right side panel (absolute)
+                  "lg:top-0 lg:right-0 lg:bottom-0 lg:w-80 lg:border-l lg:border-border",
                   // Mobile portrait: bottom sheet
                   "max-lg:portrait:bottom-0 max-lg:portrait:left-0 max-lg:portrait:right-0 max-lg:portrait:max-h-[60vh] max-lg:portrait:rounded-t-2xl max-lg:portrait:border-t max-lg:portrait:border-border",
                   // Mobile landscape: right side panel
