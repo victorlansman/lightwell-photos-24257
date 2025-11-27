@@ -251,7 +251,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     touchEndY.current = null;
   };
 
-  // Tap to toggle controls (only if not swiping)
+  // Tap to toggle controls (mobile only)
   const handleTap = () => {
     // Don't toggle if we just swiped
     if (touchEndX.current !== null || touchEndY.current !== null) return;
@@ -268,8 +268,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       return;
     }
 
-    // Toggle controls
-    setShowControls(prev => !prev);
+    // Toggle controls (mobile only - desktop keeps controls visible)
+    if (isMobile) {
+      setShowControls(prev => !prev);
+    }
   };
 
   if (!photo) return null;
