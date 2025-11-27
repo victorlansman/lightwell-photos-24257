@@ -875,11 +875,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             {showInfo && (
               <div
                 className={cn(
-                  "absolute bg-card/95 backdrop-blur-sm p-6 space-y-4 overflow-y-auto z-50 border-l border-border",
-                  "lg:relative lg:w-80 lg:h-full",
-                  "max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:max-h-[60vh] max-lg:rounded-t-2xl max-lg:border-t max-lg:border-l-0"
+                  "absolute bg-card/95 backdrop-blur-sm p-4 space-y-4 overflow-y-auto z-50",
+                  // Desktop: side panel
+                  "lg:relative lg:w-80 lg:h-full lg:border-l lg:border-border",
+                  // Mobile portrait: bottom sheet
+                  "max-lg:portrait:bottom-0 max-lg:portrait:left-0 max-lg:portrait:right-0 max-lg:portrait:max-h-[60vh] max-lg:portrait:rounded-t-2xl max-lg:portrait:border-t max-lg:portrait:border-border",
+                  // Mobile landscape: right side panel
+                  "max-lg:landscape:top-0 max-lg:landscape:right-0 max-lg:landscape:bottom-0 max-lg:landscape:w-64 max-lg:landscape:border-l max-lg:landscape:border-border"
                 )}
-                style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+                style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between">
