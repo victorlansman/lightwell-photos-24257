@@ -260,21 +260,10 @@ export function useAlbumLightbox(photos: Photo[]): UseAlbumLightboxResult {
     : -1;
 
   const openLightbox = useCallback((photo: Photo) => {
-    // Request fullscreen immediately (user gesture context)
-    // Must be done here before React state update breaks the gesture chain
-    if (document.fullscreenElement === null) {
-      document.documentElement.requestFullscreen?.().catch(() => {
-        console.log('[openLightbox] Fullscreen request failed or denied');
-      });
-    }
     setLightboxPhoto(photo);
   }, []);
 
   const closeLightbox = useCallback(() => {
-    // Exit fullscreen when closing lightbox
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.().catch(() => {});
-    }
     setLightboxPhoto(null);
   }, []);
 
