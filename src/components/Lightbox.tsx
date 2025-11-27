@@ -697,6 +697,56 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             </div>
           )}
 
+          {/* Mobile toolbar popup */}
+          {showControls && showMenu && (
+            <div
+              className="absolute top-16 right-2 z-50 md:hidden flex flex-col gap-2 p-2 bg-black/80 rounded-2xl backdrop-blur-sm"
+              style={{ marginTop: 'env(safe-area-inset-top)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => { handleToggleFavorite(); setShowMenu(false); resetControlsTimeout(); }}
+                className="h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full"
+              >
+                <Heart className={cn("h-6 w-6", photo.is_favorite && "fill-red-500 text-red-500")} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => { handleShare(); setShowMenu(false); resetControlsTimeout(); }}
+                className="h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full"
+              >
+                <Share2 className="h-6 w-6" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => { handleDownload(); setShowMenu(false); resetControlsTimeout(); }}
+                className="h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full"
+              >
+                <Download className="h-6 w-6" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => { setShowFaces(!showFaces); setShowMenu(false); resetControlsTimeout(); }}
+                className={cn("h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full", showFaces && "bg-white/30")}
+              >
+                <Users className="h-6 w-6" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => { setShowInfo(!showInfo); setShowMenu(false); resetControlsTimeout(); }}
+                className={cn("h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full", showInfo && "bg-white/30")}
+              >
+                <Info className="h-6 w-6" />
+              </Button>
+            </div>
+          )}
+
           {/* Main content area - full bleed */}
           <div
             className="w-full h-full flex flex-col"
