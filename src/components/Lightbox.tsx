@@ -62,25 +62,30 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const prevPhotoId = useRef<string | null>(null);
+  const hasRequestedFullscreen = useRef(false);
 
   // Check if mobile device
   const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
 
-  // Request fullscreen when lightbox opens
+  // Request fullscreen - must be called from user gesture
+  const requestFullscreen = useCallback(() => {
+    if (hasRequestedFullscreen.current) return;
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) return;
+
+    hasRequestedFullscreen.current = true;
+    containerRef.current.requestFullscreen?.().catch(() => {
+      console.log('[Lightbox] Fullscreen request failed or denied');
+    });
+  }, []);
+
+  // Exit fullscreen when lightbox closes
   useEffect(() => {
-    if (isOpen && containerRef.current) {
-      // Small delay to ensure dialog is rendered
-      const timer = setTimeout(() => {
-        if (document.fullscreenElement === null && containerRef.current) {
-          containerRef.current.requestFullscreen?.().catch(() => {
-            // Fullscreen request failed (user denied or not supported)
-            console.log('[Lightbox] Fullscreen request failed or denied');
-          });
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    } else if (!isOpen && document.fullscreenElement) {
-      document.exitFullscreen?.().catch(() => {});
+    if (!isOpen) {
+      hasRequestedFullscreen.current = false;
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      }
     }
   }, [isOpen]);
 
@@ -241,6 +246,9 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   };
 
   const handleTouchEnd = () => {
+    // Request fullscreen on first touch interaction (requires user gesture)
+    requestFullscreen();
+
     if (!touchStartX.current || !touchStartY.current) return;
     if (!touchEndX.current || !touchEndY.current) return;
 
@@ -273,6 +281,9 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const handleTap = () => {
     // Don't toggle if we just swiped
     if (touchEndX.current !== null || touchEndY.current !== null) return;
+
+    // Request fullscreen on first tap (requires user gesture)
+    requestFullscreen();
 
     // If menu is open, just close it
     if (showMenu) {
