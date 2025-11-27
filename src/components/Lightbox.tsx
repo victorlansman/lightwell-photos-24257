@@ -876,12 +876,12 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             )}
           </div>
 
-          {/* Navigation buttons */}
+          {/* Navigation buttons - hidden on mobile (use swipe), visible on desktop */}
           <Button
             variant="ghost"
             size="icon"
-            className="absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-background/90 hover:bg-background border border-border shadow-lg z-50 backdrop-blur-sm"
-            onClick={onPrevious}
+            className="absolute left-2 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-black/50 hover:bg-black/70 text-white z-50 hidden md:flex"
+            onClick={(e) => { e.stopPropagation(); onPrevious(); }}
           >
             <ChevronLeft className="h-6 w-6" />
           </Button>
@@ -889,8 +889,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-background/90 hover:bg-background border border-border shadow-lg z-50 backdrop-blur-sm"
-            onClick={onNext}
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-black/50 hover:bg-black/70 text-white z-50 hidden md:flex"
+            onClick={(e) => { e.stopPropagation(); onNext(); }}
           >
             <ChevronRight className="h-6 w-6" />
           </Button>
