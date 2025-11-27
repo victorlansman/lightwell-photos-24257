@@ -56,11 +56,13 @@ const DialogContentFullscreen = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay className="bg-black" />
+    <DialogOverlay className="bg-background" />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-0 z-50 bg-black",
+        "fixed inset-0 z-50 bg-background",
+        // Use 100dvh for dynamic viewport height (accounts for mobile browser chrome)
+        "h-[100dvh] w-[100dvw]",
         // Safe area padding for notch/island
         "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
         className,

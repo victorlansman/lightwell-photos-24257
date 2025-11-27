@@ -65,20 +65,26 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const touchStartY = useRef<number | null>(null);
   const touchEndY = useRef<number | null>(null);
 
-  // Auto-hide controls after 3 seconds
+  // Auto-hide controls after 4 seconds (only when menu is NOT open)
   const resetControlsTimeout = useCallback(() => {
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
     }
+    // Don't auto-hide when menu or info panel is open
+    if (showMenu || showInfo) return;
+
     controlsTimeoutRef.current = setTimeout(() => {
       setShowControls(false);
-      setShowMenu(false);
-    }, 3000);
-  }, []);
+    }, 4000);
+  }, [showMenu, showInfo]);
 
-  // Start auto-hide timer when controls are shown
+  // Clear timeout when menu or info opens, restart when they close
   useEffect(() => {
-    if (showControls && isOpen) {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    // Only auto-hide when controls shown but menu/info closed
+    if (showControls && isOpen && !showMenu && !showInfo) {
       resetControlsTimeout();
     }
     return () => {
@@ -86,7 +92,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         clearTimeout(controlsTimeoutRef.current);
       }
     };
-  }, [showControls, isOpen, resetControlsTimeout]);
+  }, [showControls, isOpen, showMenu, showInfo, resetControlsTimeout]);
 
   const { url: photoUrl, loading: photoLoading } = usePhotoUrl(photo?.id || '', {
     thumbnail: false,
@@ -237,21 +243,20 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     // Don't toggle if we just swiped
     if (touchEndX.current !== null || touchEndY.current !== null) return;
 
-    // If menu is open, just close it and reset timer
+    // If menu is open, just close it
     if (showMenu) {
       setShowMenu(false);
-      resetControlsTimeout();
+      return;
+    }
+
+    // If info panel is open, close it
+    if (showInfo) {
+      setShowInfo(false);
       return;
     }
 
     // Toggle controls
-    setShowControls(prev => {
-      if (!prev) {
-        // Showing controls - timer will start via useEffect
-        return true;
-      }
-      return false;
-    });
+    setShowControls(prev => !prev);
   };
 
   if (!photo) return null;
@@ -659,50 +664,54 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Close button - always visible */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClose}
-                className="h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full"
-              >
-                <X className="h-6 w-6" />
-              </Button>
+              {/* Close button - hidden when mobile menu is open */}
+              {!showMenu && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClose}
+                  className="h-12 w-12 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm"
+                >
+                  <X className="h-6 w-6" />
+                </Button>
+              )}
+              {/* Spacer when menu is open to keep layout */}
+              {showMenu && <div className="h-12 w-12 md:hidden" />}
 
-              {/* Menu toggle - mobile only */}
+              {/* Menu toggle - mobile only, becomes X when open */}
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowMenu(!showMenu)}
-                className="h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full md:hidden"
+                className="h-12 w-12 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm md:hidden"
               >
-                <Menu className="h-6 w-6" />
+                {showMenu ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
               </Button>
 
               {/* Desktop toolbar - hidden on mobile */}
               <div className="hidden md:flex items-center gap-1">
-                <Button variant="ghost" size="icon" onClick={() => { handleToggleFavorite(); resetControlsTimeout(); }} className="h-10 w-10 bg-black/50 hover:bg-black/70 text-white rounded-full">
+                <Button variant="ghost" size="icon" onClick={() => { handleToggleFavorite(); }} className="h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm">
                   <Heart className={cn("h-5 w-5", photo.is_favorite && "fill-red-500 text-red-500")} />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => { handleShare(); resetControlsTimeout(); }} className="h-10 w-10 bg-black/50 hover:bg-black/70 text-white rounded-full">
+                <Button variant="ghost" size="icon" onClick={() => { handleShare(); }} className="h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm">
                   <Share2 className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => { handleDownload(); resetControlsTimeout(); }} className="h-10 w-10 bg-black/50 hover:bg-black/70 text-white rounded-full">
+                <Button variant="ghost" size="icon" onClick={() => { handleDownload(); }} className="h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm">
                   <Download className="h-5 w-5" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => { setShowFaces(!showFaces); resetControlsTimeout(); }}
-                  className={cn("h-10 w-10 bg-black/50 hover:bg-black/70 text-white rounded-full", showFaces && "bg-white/30")}
+                  onClick={() => { setShowFaces(!showFaces); }}
+                  className={cn("h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm", showFaces && "bg-primary/20")}
                 >
                   <Users className="h-5 w-5" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => { setShowInfo(!showInfo); resetControlsTimeout(); }}
-                  className={cn("h-10 w-10 bg-black/50 hover:bg-black/70 text-white rounded-full", showInfo && "bg-white/30")}
+                  onClick={() => { setShowInfo(!showInfo); }}
+                  className={cn("h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm", showInfo && "bg-primary/20")}
                 >
                   <Info className="h-5 w-5" />
                 </Button>
@@ -710,73 +719,73 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             </div>
           )}
 
-          {/* Mobile toolbar popup */}
+          {/* Mobile toolbar popup - horizontal in landscape, vertical in portrait */}
           {showControls && showMenu && (
             <div
-              className="absolute top-16 right-2 z-50 md:hidden flex flex-col gap-2 p-2 bg-black/80 rounded-2xl backdrop-blur-sm"
+              className="absolute top-16 right-2 z-50 md:hidden flex landscape:flex-row portrait:flex-col gap-2 p-2 bg-background/90 rounded-2xl backdrop-blur-sm"
               style={{ marginTop: 'env(safe-area-inset-top)' }}
               onClick={(e) => e.stopPropagation()}
             >
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => { handleToggleFavorite(); setShowMenu(false); resetControlsTimeout(); }}
-                className="h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                onClick={() => { handleToggleFavorite(); setShowMenu(false); }}
+                className="h-11 w-11 bg-background/80 hover:bg-background text-foreground rounded-full"
               >
-                <Heart className={cn("h-6 w-6", photo.is_favorite && "fill-red-500 text-red-500")} />
+                <Heart className={cn("h-5 w-5", photo.is_favorite && "fill-red-500 text-red-500")} />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => { handleShare(); setShowMenu(false); resetControlsTimeout(); }}
-                className="h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                onClick={() => { handleShare(); setShowMenu(false); }}
+                className="h-11 w-11 bg-background/80 hover:bg-background text-foreground rounded-full"
               >
-                <Share2 className="h-6 w-6" />
+                <Share2 className="h-5 w-5" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => { handleDownload(); setShowMenu(false); resetControlsTimeout(); }}
-                className="h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                onClick={() => { handleDownload(); setShowMenu(false); }}
+                className="h-11 w-11 bg-background/80 hover:bg-background text-foreground rounded-full"
               >
-                <Download className="h-6 w-6" />
+                <Download className="h-5 w-5" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => { setShowFaces(!showFaces); setShowMenu(false); resetControlsTimeout(); }}
-                className={cn("h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full", showFaces && "bg-white/30")}
+                onClick={() => { setShowFaces(!showFaces); setShowMenu(false); }}
+                className={cn("h-11 w-11 bg-background/80 hover:bg-background text-foreground rounded-full", showFaces && "bg-primary/20")}
               >
-                <Users className="h-6 w-6" />
+                <Users className="h-5 w-5" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => { setShowInfo(!showInfo); setShowMenu(false); resetControlsTimeout(); }}
-                className={cn("h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full", showInfo && "bg-white/30")}
+                onClick={() => { setShowInfo(!showInfo); setShowMenu(false); }}
+                className={cn("h-11 w-11 bg-background/80 hover:bg-background text-foreground rounded-full", showInfo && "bg-primary/20")}
               >
-                <Info className="h-6 w-6" />
+                <Info className="h-5 w-5" />
               </Button>
             </div>
           )}
 
           {/* Main content area - full bleed */}
           <div
-            className="w-full h-full flex flex-col"
+            className="absolute inset-0 flex flex-col overflow-hidden"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             onClick={handleTap}
           >
-            {/* Image - minimal padding, safe-area aware */}
+            {/* Image - fills available space */}
             <div
               ref={imageRef}
               className={cn(
-                "flex-1 flex items-center justify-center p-2 transition-all relative z-0",
+                "flex-1 flex items-center justify-center p-2 min-h-0 transition-all relative z-0",
                 showInfo && "lg:pr-80"
               )}
             >
-              <div className="relative max-w-full max-h-full flex items-center justify-center">
+              <div className="relative w-full h-full flex items-center justify-center">
                 {photoLoading && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -831,18 +840,18 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             {showInfo && (
               <div
                 className={cn(
-                  "absolute bg-black/90 backdrop-blur-sm p-6 space-y-4 overflow-y-auto z-50",
-                  "lg:relative lg:w-80 lg:h-full lg:bg-black/80",
-                  "max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:max-h-[60vh] max-lg:rounded-t-2xl"
+                  "absolute bg-card/95 backdrop-blur-sm p-6 space-y-4 overflow-y-auto z-50 border-l border-border",
+                  "lg:relative lg:w-80 lg:h-full",
+                  "max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:max-h-[60vh] max-lg:rounded-t-2xl max-lg:border-t max-lg:border-l-0"
                 )}
                 style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-white">Photo Info</h3>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <h3 className="text-lg font-semibold text-foreground">Photo Info</h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="lg:hidden"
                     onClick={() => setShowInfo(false)}
                   >
@@ -852,27 +861,27 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm font-medium text-gray-400">Filename</p>
-                    <p className="text-sm text-white">{photo.filename || `photo-${photo.id}.jpg`}</p>
+                    <p className="text-sm font-medium text-muted-foreground">Filename</p>
+                    <p className="text-sm text-foreground">{photo.filename || `photo-${photo.id}.jpg`}</p>
                   </div>
 
                   <div>
-                    <p className="text-sm font-medium text-gray-400">Date</p>
-                    <p className="text-sm text-white">
+                    <p className="text-sm font-medium text-muted-foreground">Date</p>
+                    <p className="text-sm text-foreground">
                       {format(new Date(photo.created_at), "PPpp")}
                     </p>
                   </div>
 
                   {faces.length > 0 && (
                     <div>
-                      <p className="text-sm font-medium text-gray-400">People in Photo</p>
+                      <p className="text-sm font-medium text-muted-foreground">People in Photo</p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {faces.map((face, idx) => {
                           const displayName = face.personName || (face.clusterId ? "Unknown" : "Unnamed person");
                           return (
                             <span
                               key={idx}
-                              className="text-xs bg-white/20 text-white px-2 py-1 rounded"
+                              className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded"
                             >
                               {displayName}
                             </span>
@@ -884,8 +893,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
                   {photo.user_notes && (
                     <div>
-                      <p className="text-sm font-medium text-gray-400">Notes</p>
-                      <p className="text-sm text-white">{photo.user_notes}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Notes</p>
+                      <p className="text-sm text-foreground">{photo.user_notes}</p>
                     </div>
                   )}
                 </div>
@@ -897,7 +906,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
           <Button
             variant="ghost"
             size="icon"
-            className="absolute left-2 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-black/50 hover:bg-black/70 text-white z-50 hidden md:flex"
+            className="absolute left-2 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-background/80 hover:bg-background text-foreground z-50 hidden md:flex backdrop-blur-sm"
             onClick={(e) => { e.stopPropagation(); onPrevious(); }}
           >
             <ChevronLeft className="h-6 w-6" />
@@ -906,7 +915,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-2 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-black/50 hover:bg-black/70 text-white z-50 hidden md:flex"
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-background/80 hover:bg-background text-foreground z-50 hidden md:flex backdrop-blur-sm"
             onClick={(e) => { e.stopPropagation(); onNext(); }}
           >
             <ChevronRight className="h-6 w-6" />
