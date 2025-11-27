@@ -88,16 +88,16 @@ export function AlbumViewContainer({
   // Thumbnail fetch abort controller - allows aborting thumbnails when lightbox opens
   const thumbnailAbortRef = useRef(new AbortController());
 
-  // When lightbox opens, abort all thumbnail fetches to free up connection pool for full-size photo
+  // When lightbox opens OR navigates to new photo, abort thumbnail fetches to free connection pool
   useEffect(() => {
     if (lightbox.isOpen) {
       // Abort all pending thumbnail fetches
       thumbnailAbortRef.current.abort();
-      console.log('[AlbumViewContainer] Lightbox opened - aborting thumbnail fetches');
+      console.log('[AlbumViewContainer] Lightbox photo changed - aborting thumbnail fetches');
       // Create new controller for future thumbnail fetches
       thumbnailAbortRef.current = new AbortController();
     }
-  }, [lightbox.isOpen]);
+  }, [lightbox.isOpen, lightbox.lightboxPhoto?.id]);
 
   // Infinite scroll trigger
   const { ref: loadMoreRef, inView } = useInView({
