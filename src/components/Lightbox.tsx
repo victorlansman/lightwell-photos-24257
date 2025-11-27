@@ -1,6 +1,6 @@
 import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
-import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users, UserPlus, Check, Loader2 } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users, UserPlus, Check, Loader2, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogContentFullscreen } from "@/components/ui/dialog";
 import {
@@ -639,44 +639,63 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     <>
       <Dialog open={isOpen} onOpenChange={handleDialogClose}>
         <DialogContentFullscreen className="[&>button]:hidden">
-          {/* Header */}
-          <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-background/80 to-transparent flex flex-wrap items-center justify-between px-4 py-2 z-50 gap-2">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={onClose} className="h-11 w-11">
+          {/* Header - only visible when showControls is true */}
+          {showControls && (
+            <div
+              className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-2 py-2"
+              style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button - always visible */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full"
+              >
                 <X className="h-6 w-6" />
               </Button>
-            </div>
 
-            <div className="flex items-center gap-1 flex-wrap justify-end">
-              <Button variant="ghost" size="sm" onClick={handleToggleFavorite} title="Toggle favorite">
-                <Heart className={cn("h-4 w-4", photo.is_favorite && "fill-primary text-primary")} />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleShare} title="Share">
-                <Share2 className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleDownload} title="Download">
-                <Download className="h-4 w-4" />
-              </Button>
+              {/* Menu toggle - mobile only */}
               <Button
                 variant="ghost"
-                size="sm"
-                onClick={() => setShowFaces(!showFaces)}
-                className={cn(showFaces && "bg-accent")}
-                title="Toggle faces"
+                size="icon"
+                onClick={() => setShowMenu(!showMenu)}
+                className="h-12 w-12 bg-black/50 hover:bg-black/70 text-white rounded-full md:hidden"
               >
-                <Users className="h-4 w-4" />
+                <Menu className="h-6 w-6" />
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowInfo(!showInfo)}
-                className={cn(showInfo && "bg-accent")}
-                title="Toggle info"
-              >
-                <Info className="h-4 w-4" />
-              </Button>
+
+              {/* Desktop toolbar - hidden on mobile */}
+              <div className="hidden md:flex items-center gap-1">
+                <Button variant="ghost" size="icon" onClick={() => { handleToggleFavorite(); resetControlsTimeout(); }} className="h-10 w-10 bg-black/50 hover:bg-black/70 text-white rounded-full">
+                  <Heart className={cn("h-5 w-5", photo.is_favorite && "fill-red-500 text-red-500")} />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => { handleShare(); resetControlsTimeout(); }} className="h-10 w-10 bg-black/50 hover:bg-black/70 text-white rounded-full">
+                  <Share2 className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => { handleDownload(); resetControlsTimeout(); }} className="h-10 w-10 bg-black/50 hover:bg-black/70 text-white rounded-full">
+                  <Download className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => { setShowFaces(!showFaces); resetControlsTimeout(); }}
+                  className={cn("h-10 w-10 bg-black/50 hover:bg-black/70 text-white rounded-full", showFaces && "bg-white/30")}
+                >
+                  <Users className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => { setShowInfo(!showInfo); resetControlsTimeout(); }}
+                  className={cn("h-10 w-10 bg-black/50 hover:bg-black/70 text-white rounded-full", showInfo && "bg-white/30")}
+                >
+                  <Info className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Main content area - full bleed */}
           <div
