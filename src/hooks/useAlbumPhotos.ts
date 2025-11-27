@@ -260,11 +260,6 @@ export function useAlbumLightbox(photos: Photo[]): UseAlbumLightboxResult {
     : -1;
 
   const openLightbox = useCallback((photo: Photo) => {
-    // Trigger iOS Safari minimal UI by scrolling slightly
-    // This collapses the address bar to give more screen space
-    if (window.scrollY === 0) {
-      window.scrollTo({ top: 1, behavior: 'instant' });
-    }
     setLightboxPhoto(photo);
   }, []);
 
