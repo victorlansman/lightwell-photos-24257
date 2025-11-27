@@ -78,18 +78,18 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const touchStartY = useRef<number | null>(null);
   const touchEndY = useRef<number | null>(null);
 
-  // Auto-hide controls after 4 seconds (only when menu is NOT open)
+  // Auto-hide controls after 4 seconds (mobile only, when menu is NOT open)
   const resetControlsTimeout = useCallback(() => {
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
     }
-    // Don't auto-hide when menu or info panel is open
-    if (showMenu || showInfo) return;
+    // Don't auto-hide on desktop or when menu/info panel is open
+    if (!isMobile || showMenu || showInfo) return;
 
     controlsTimeoutRef.current = setTimeout(() => {
       setShowControls(false);
     }, 4000);
-  }, [showMenu, showInfo]);
+  }, [isMobile, showMenu, showInfo]);
 
   // Clear timeout when menu or info opens, restart when they close
   useEffect(() => {
