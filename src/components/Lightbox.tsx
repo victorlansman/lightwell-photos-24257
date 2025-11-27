@@ -18,7 +18,7 @@ import { SharePhotosDialog } from "@/components/SharePhotosDialog";
 import { FaceBoundingBox } from "@/components/FaceBoundingBox";
 import { EditPersonDialog } from "@/components/EditPersonDialog";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { azureApi } from "@/lib/azureApiClient";
@@ -55,12 +55,39 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [newBox, setNewBox] = useState<FaceDetection | null>(null);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [showMenu, setShowMenu] = useState(false);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const touchEndY = useRef<number | null>(null);
+
+  // Auto-hide controls after 3 seconds
+  const resetControlsTimeout = useCallback(() => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+      setShowMenu(false);
+    }, 3000);
+  }, []);
+
+  // Start auto-hide timer when controls are shown
+  useEffect(() => {
+    if (showControls && isOpen) {
+      resetControlsTimeout();
+    }
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [showControls, isOpen, resetControlsTimeout]);
+
   const { url: photoUrl, loading: photoLoading } = usePhotoUrl(photo?.id || '', {
     thumbnail: false,
     priority: 'high',
@@ -203,6 +230,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     touchEndX.current = null;
     touchStartY.current = null;
     touchEndY.current = null;
+  };
+
+  // Tap to toggle controls (only if not swiping)
+  const handleTap = () => {
+    // Don't toggle if we just swiped
+    if (touchEndX.current !== null || touchEndY.current !== null) return;
+    setShowControls(prev => !prev);
+    // Hide menu when hiding controls
+    if (showControls) setShowMenu(false);
   };
 
   if (!photo) return null;
