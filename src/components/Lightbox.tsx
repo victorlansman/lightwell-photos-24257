@@ -816,13 +816,17 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
             {/* Info Panel */}
             {showInfo && (
-              <div className={cn(
-                "absolute bg-card/95 backdrop-blur-sm border-l border-border p-6 space-y-4 overflow-y-auto z-50",
-                "lg:relative lg:w-80 lg:h-full lg:z-auto",
-                "max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:top-16 max-lg:max-h-[calc(100vh-4rem)] max-lg:border-l-0 max-lg:border-t"
-              )}>
+              <div
+                className={cn(
+                  "absolute bg-black/90 backdrop-blur-sm p-6 space-y-4 overflow-y-auto z-50",
+                  "lg:relative lg:w-80 lg:h-full lg:bg-black/80",
+                  "max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:max-h-[60vh] max-lg:rounded-t-2xl"
+                )}
+                style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-foreground">Photo Info</h3>
+                  <h3 className="text-lg font-semibold text-white">Photo Info</h3>
                   <Button 
                     variant="ghost" 
                     size="icon" 
@@ -835,27 +839,27 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Filename</p>
-                    <p className="text-sm text-foreground">{photo.filename || `photo-${photo.id}.jpg`}</p>
+                    <p className="text-sm font-medium text-gray-400">Filename</p>
+                    <p className="text-sm text-white">{photo.filename || `photo-${photo.id}.jpg`}</p>
                   </div>
 
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Date</p>
-                    <p className="text-sm text-foreground">
+                    <p className="text-sm font-medium text-gray-400">Date</p>
+                    <p className="text-sm text-white">
                       {format(new Date(photo.created_at), "PPpp")}
                     </p>
                   </div>
 
                   {faces.length > 0 && (
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">People in Photo</p>
+                      <p className="text-sm font-medium text-gray-400">People in Photo</p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {faces.map((face, idx) => {
                           const displayName = face.personName || (face.clusterId ? "Unknown" : "Unnamed person");
                           return (
                             <span
                               key={idx}
-                              className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded"
+                              className="text-xs bg-white/20 text-white px-2 py-1 rounded"
                             >
                               {displayName}
                             </span>
@@ -867,8 +871,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
                   {photo.user_notes && (
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Notes</p>
-                      <p className="text-sm text-foreground">{photo.user_notes}</p>
+                      <p className="text-sm font-medium text-gray-400">Notes</p>
+                      <p className="text-sm text-white">{photo.user_notes}</p>
                     </div>
                   )}
                 </div>
