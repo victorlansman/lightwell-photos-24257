@@ -236,9 +236,22 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const handleTap = () => {
     // Don't toggle if we just swiped
     if (touchEndX.current !== null || touchEndY.current !== null) return;
-    setShowControls(prev => !prev);
-    // Hide menu when hiding controls
-    if (showControls) setShowMenu(false);
+
+    // If menu is open, just close it and reset timer
+    if (showMenu) {
+      setShowMenu(false);
+      resetControlsTimeout();
+      return;
+    }
+
+    // Toggle controls
+    setShowControls(prev => {
+      if (!prev) {
+        // Showing controls - timer will start via useEffect
+        return true;
+      }
+      return false;
+    });
   };
 
   if (!photo) return null;
