@@ -2,7 +2,7 @@ import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
 import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users, UserPlus, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogContentFullscreen } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -638,7 +638,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   return (
     <>
       <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-        <DialogContent className="max-w-[100vw] h-screen p-0 bg-background/95 backdrop-blur-sm border-0 [&>button]:hidden">
+        <DialogContentFullscreen className="[&>button]:hidden">
           {/* Header */}
           <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-background/80 to-transparent flex flex-wrap items-center justify-between px-4 py-2 z-50 gap-2">
             <div className="flex items-center gap-2">
@@ -849,7 +849,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
               )}
             </div>
           )}
-        </DialogContent>
+        </DialogContentFullscreen>
       </Dialog>
 
       <SharePhotosDialog
