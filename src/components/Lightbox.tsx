@@ -59,6 +59,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const imgRef = useRef<HTMLImageElement>(null);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const touchEndY = useRef<number | null>(null);
   const { url: photoUrl, loading: photoLoading } = usePhotoUrl(photo?.id || '', {
     thumbnail: false,
     priority: 'high',
@@ -166,20 +168,31 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   // Touch/swipe handling
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     touchEndX.current = e.touches[0].clientX;
+    touchEndY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = () => {
-    if (!touchStartX.current || !touchEndX.current) return;
+    if (!touchStartX.current || !touchStartY.current) return;
+    if (!touchEndX.current || !touchEndY.current) return;
 
-    const diff = touchStartX.current - touchEndX.current;
+    const diffX = touchStartX.current - touchEndX.current;
+    const diffY = touchStartY.current - touchEndY.current;
     const minSwipeDistance = 50;
 
-    if (Math.abs(diff) > minSwipeDistance) {
-      if (diff > 0) {
+    // Check if vertical swipe is dominant (swipe down to close)
+    if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > minSwipeDistance) {
+      if (diffY < 0) {
+        // Swipe down - close lightbox
+        onClose();
+      }
+    } else if (Math.abs(diffX) > minSwipeDistance) {
+      // Horizontal swipe - navigate
+      if (diffX > 0) {
         onNext();
       } else {
         onPrevious();
@@ -188,6 +201,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
     touchStartX.current = null;
     touchEndX.current = null;
+    touchStartY.current = null;
+    touchEndY.current = null;
   };
 
   if (!photo) return null;
@@ -591,8 +606,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
           {/* Header */}
           <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-background/80 to-transparent flex flex-wrap items-center justify-between px-4 py-2 z-50 gap-2">
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={onClose}>
-                <X className="h-4 w-4" />
+              <Button variant="ghost" size="icon" onClick={onClose} className="h-11 w-11">
+                <X className="h-6 w-6" />
               </Button>
             </div>
 
