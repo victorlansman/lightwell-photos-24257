@@ -678,19 +678,20 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             </div>
           </div>
 
-          {/* Main content area */}
-          <div 
-            className="w-full h-full flex"
+          {/* Main content area - full bleed */}
+          <div
+            className="w-full h-full flex flex-col"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onClick={handleTap}
           >
-            {/* Image */}
+            {/* Image - minimal padding, safe-area aware */}
             <div
               ref={imageRef}
               className={cn(
-                "flex-1 flex items-center justify-center p-8 md:p-16 pt-24 transition-all relative z-0",
-                showInfo && "lg:pr-8"
+                "flex-1 flex items-center justify-center p-2 transition-all relative z-0",
+                showInfo && "lg:pr-80"
               )}
             >
               <div className="relative max-w-full max-h-full flex items-center justify-center">
@@ -704,7 +705,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                   src={photoUrl || ''}
                   alt="Photo"
                   className={cn(
-                    "max-w-full max-h-[calc(100vh-8rem)] object-contain animate-fade-in",
+                    "max-w-full max-h-full object-contain animate-fade-in",
                     photoLoading && "opacity-0"
                   )}
                 />
