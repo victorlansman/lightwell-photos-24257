@@ -685,7 +685,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                   variant="ghost"
                   size="icon"
                   onClick={onClose}
-                  className="h-12 w-12 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm"
+                  className="h-12 w-12 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm focus:outline-none focus-visible:ring-0"
                 >
                   <X className="h-6 w-6" />
                 </Button>
@@ -698,27 +698,27 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowMenu(!showMenu)}
-                className="h-12 w-12 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm md:hidden"
+                className="h-12 w-12 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm md:hidden focus:outline-none focus-visible:ring-0"
               >
                 {showMenu ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
               </Button>
 
               {/* Desktop toolbar - hidden on mobile */}
               <div className="hidden md:flex items-center gap-1">
-                <Button variant="ghost" size="icon" onClick={() => { handleToggleFavorite(); }} className="h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm">
+                <Button variant="ghost" size="icon" onClick={() => { handleToggleFavorite(); }} className="h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm focus:outline-none focus-visible:ring-0">
                   <Heart className={cn("h-5 w-5", photo.is_favorite && "fill-red-500 text-red-500")} />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => { handleShare(); }} className="h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm">
+                <Button variant="ghost" size="icon" onClick={() => { handleShare(); }} className="h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm focus:outline-none focus-visible:ring-0">
                   <Share2 className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => { handleDownload(); }} className="h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm">
+                <Button variant="ghost" size="icon" onClick={() => { handleDownload(); }} className="h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm focus:outline-none focus-visible:ring-0">
                   <Download className="h-5 w-5" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => { setShowFaces(!showFaces); }}
-                  className={cn("h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm", showFaces && "bg-primary/20")}
+                  className={cn("h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm focus:outline-none focus-visible:ring-0", showFaces && "bg-primary/20")}
                 >
                   <Users className="h-5 w-5" />
                 </Button>
@@ -726,7 +726,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                   variant="ghost"
                   size="icon"
                   onClick={() => { setShowInfo(!showInfo); }}
-                  className={cn("h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm", showInfo && "bg-primary/20")}
+                  className={cn("h-10 w-10 bg-background/80 hover:bg-background text-foreground rounded-full backdrop-blur-sm focus:outline-none focus-visible:ring-0", showInfo && "bg-primary/20")}
                 >
                   <Info className="h-5 w-5" />
                 </Button>
