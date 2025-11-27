@@ -876,7 +876,6 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="lg:hidden"
                     onClick={() => setShowInfo(false)}
                   >
                     <X className="h-4 w-4" />
