@@ -7,8 +7,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { PersonThumbnail } from "@/components/PersonThumbnail";
 import { UserPlus, Search, Plus } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
@@ -138,12 +138,10 @@ export function EditPersonDialog({
                     onClose();
                   }}
                 >
-                  <Avatar className="h-10 w-10 mr-3">
-                    <AvatarImage src={person.thumbnailPath} />
-                    <AvatarFallback>
-                      {person.name?.[0] || "?"}
-                    </AvatarFallback>
-                  </Avatar>
+                  <PersonThumbnail
+                    faceId={person.representativeFaceId}
+                    className="h-10 w-10 mr-3"
+                  />
                   <div className="text-left">
                     <p className="font-medium">{person.name || "Unnamed"}</p>
                     <p className="text-xs text-muted-foreground">
@@ -172,12 +170,10 @@ export function EditPersonDialog({
                     onClose();
                   }}
                 >
-                  <Avatar className="h-10 w-10 mr-3">
-                    <AvatarImage src={person.thumbnailPath} />
-                    <AvatarFallback>
-                      {person.name?.[0] || "?"}
-                    </AvatarFallback>
-                  </Avatar>
+                  <PersonThumbnail
+                    faceId={person.representativeFaceId}
+                    className="h-10 w-10 mr-3"
+                  />
                   <div className="text-left">
                     <p className="font-medium">{person.name || "Unnamed"}</p>
                     <p className="text-xs text-muted-foreground">
