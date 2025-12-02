@@ -116,6 +116,7 @@ export interface Photo {
   width: number | null;
   height: number | null;
   rotation: number;
+  derivatives_ready: boolean;
 }
 
 export interface PhotoFilters {
@@ -141,6 +142,17 @@ export interface YearEstimationUpdate {
   user_corrected_year_min?: number;
   user_corrected_year_max?: number;
   user_year_reasoning?: string;
+}
+
+// ==================== Derivative Types ====================
+
+export type DerivativeVersion = 'default';  // Future: 'restored' | 'colorized'
+export type PhotoDerivativeSize = 'thumb_400' | 'web_2048';
+export type FaceDerivativeSize = 'thumb_384';
+
+export interface DerivativeSpec {
+  version: DerivativeVersion;
+  size: PhotoDerivativeSize | FaceDerivativeSize;
 }
 
 // ==================== Face & People Types ====================
@@ -182,11 +194,10 @@ export interface UpdatePersonRequest {
 }
 
 export interface PersonResponse {
-  id: ServerId;  // Changed from string
+  id: ServerId;
   name: string;
-  collection_id: ServerId;  // Changed from string
-  thumbnail_url: string | null;
-  thumbnail_bbox?: { x: number; y: number; width: number; height: number } | null;
+  collection_id: ServerId;
+  representative_face_id: ServerId | null;  // CHANGED: was thumbnail_url + thumbnail_bbox
   photo_count: number;
 }
 
@@ -203,8 +214,7 @@ export interface FaceClusterResponse {
   collection_id: ServerId;
   face_count: number;
   confidence: number;
-  representative_face_id: ServerId;
-  representative_thumbnail_url?: string;
+  representative_face_id: ServerId;  // CHANGED: was representative_thumbnail_url
   faces: ClusterFace[];
 }
 
@@ -470,6 +480,58 @@ class AzureApiClient {
         ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
       },
       signal: options?.abortSignal,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(error.message || `HTTP ${response.status}`);
+    }
+
+    return response.blob();
+  }
+
+  /**
+   * Fetch photo derivative (WebP thumbnail or viewing size).
+   * Use this for galleries and lightbox viewing.
+   */
+  async fetchPhotoDerivative(
+    photoId: string,
+    version: DerivativeVersion = 'default',
+    size: PhotoDerivativeSize,
+    options?: { abortSignal?: AbortSignal }
+  ): Promise<Blob> {
+    const endpoint = `/v1/photos/${photoId}/derivative/${version}/${size}`;
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      headers: {
+        ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+      },
+      signal: options?.abortSignal,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(error.message || `HTTP ${response.status}`);
+    }
+
+    return response.blob();
+  }
+
+  /**
+   * Fetch face derivative (pre-cropped WebP thumbnail).
+   * Use this for person/cluster avatars.
+   */
+  async fetchFaceDerivative(
+    faceId: string,
+    version: DerivativeVersion = 'default',
+    size: FaceDerivativeSize = 'thumb_384'
+  ): Promise<Blob> {
+    const endpoint = `/v1/faces/${faceId}/derivative/${version}/${size}`;
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      headers: {
+        ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+      },
     });
 
     if (!response.ok) {
