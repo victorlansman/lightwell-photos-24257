@@ -542,27 +542,6 @@ class AzureApiClient {
     return response.blob();
   }
 
-  /**
-   * Fetch face thumbnail blob with authentication.
-   * Face thumbnails are pre-cropped by the backend.
-   */
-  async fetchFaceThumbnail(faceId: string): Promise<Blob> {
-    const endpoint = `/api/faces/${faceId}/thumbnail`;
-
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      headers: {
-        ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(error.message || `HTTP ${response.status}`);
-    }
-
-    return response.blob();
-  }
-
   // ==================== Face Tagging ====================
 
   async updatePhotoFaces(
