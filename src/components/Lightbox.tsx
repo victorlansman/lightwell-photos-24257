@@ -1163,7 +1163,7 @@ function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onDiscard, o
   return (
     <div
       ref={boxRef}
-      className="absolute border-2 border-emerald-500 cursor-move z-40"
+      className="absolute border-2 border-emerald-500 cursor-move z-40 pointer-events-auto"
       style={{
         left: `${left}px`,
         top: `${top}px`,
@@ -1184,7 +1184,7 @@ function NewBoundingBox({ face, imageWidth, imageHeight, onConfirm, onDiscard, o
       <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full cursor-se-resize z-50" onMouseDown={(e) => handleMouseDown(e, 'bottom-right')} />
       
       {/* Person name flag with confirm/discard buttons */}
-      <div className="absolute -top-12 left-0 px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 shadow-lg bg-emerald-500 text-white z-50">
+      <div className="absolute -top-12 left-0 px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 shadow-lg bg-emerald-500 text-white z-50 pointer-events-auto">
         <span>New person</span>
         <div className="flex items-center gap-1">
           <Button
