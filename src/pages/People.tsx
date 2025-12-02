@@ -22,21 +22,16 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { PersonThumbnail } from "@/components/PersonThumbnail";
-import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 import { PersonCluster } from "@/types/person";
 
-// Component for merge dialog option with photo URL (outside component to enable proper memo)
+// Component for merge dialog option with face thumbnail
 const MergePersonOption = memo(({ person }: { person: PersonCluster }) => {
-  // Skip fetch if no thumbnail path (prevents 404s)
-  const { url: photoUrl } = usePhotoUrl(person.thumbnailPath || '', { thumbnail: true });
-
   return (
     <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-accent">
       <RadioGroupItem value={person.id} id={person.id} />
       <Label htmlFor={person.id} className="flex items-center gap-3 cursor-pointer flex-1">
         <PersonThumbnail
-          photoUrl={photoUrl || ''}
-          bbox={person.thumbnailBbox}
+          faceId={person.representativeFaceId}
           size="md"
         />
         <div className="flex flex-col">
