@@ -108,8 +108,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   }, [showControls, isOpen, showMenu, showInfo, resetControlsTimeout]);
 
   const { url: photoUrl, loading: photoLoading } = usePhotoUrl(photo?.id || '', {
-    thumbnail: false,
-    priority: 'high',
+    size: 'web_2048',
   });
 
   // Debug: Log when photo changes
