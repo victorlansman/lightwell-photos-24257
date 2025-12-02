@@ -2,7 +2,6 @@ import { PersonCluster } from "@/types/person";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PersonThumbnail } from "./PersonThumbnail";
-import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 interface PersonClusterCardProps {
@@ -22,18 +21,10 @@ export function PersonClusterCard({
   onClick,
   unnamedIndex,
 }: PersonClusterCardProps) {
-  // Lazy load: only fetch thumbnail when card is visible
   const { ref, isVisible } = useIntersectionObserver({
-    rootMargin: '200px', // Load 200px before entering viewport
+    rootMargin: '200px',
     triggerOnce: true,
   });
-
-  // Fetch authenticated photo URL if thumbnailPath is a photo ID or face thumbnail path
-  // Only fetch when visible (lazy loading)
-  const { url: photoUrl } = usePhotoUrl(isVisible ? (cluster.thumbnailPath || '') : '');
-
-  // Check if this is a face thumbnail (pre-cropped by backend)
-  const isFaceThumbnail = cluster.thumbnailPath?.startsWith('/api/faces/');
 
   return (
     <div
@@ -49,8 +40,7 @@ export function PersonClusterCard({
     >
       <div className="relative">
         <PersonThumbnail
-          photoUrl={photoUrl || ''}
-          bbox={isFaceThumbnail ? null : cluster.thumbnailBbox}
+          faceId={isVisible ? cluster.representativeFaceId : null}
           size="md"
           className={cn(
             "transition-all duration-200",
@@ -59,7 +49,6 @@ export function PersonClusterCard({
           )}
         />
 
-        {/* Selection indicator */}
         {isSelectionMode && (
           <div
             className={cn(
@@ -74,7 +63,6 @@ export function PersonClusterCard({
         )}
       </div>
 
-      {/* Label */}
       <div className="text-center">
         <div className="font-medium text-foreground">
           {cluster.name || (unnamedIndex ? `Unnamed person ${unnamedIndex}` : "Name?")}
