@@ -189,8 +189,8 @@ export interface CreatePersonRequest {
 
 export interface UpdatePersonRequest {
   name?: string;
-  thumbnail_url?: string | null;
-  thumbnail_bbox?: { x: number; y: number; width: number; height: number } | null;
+  representative_face_id?: string | null;
+  representative_photo_id?: string | null;
 }
 
 export interface PersonResponse {

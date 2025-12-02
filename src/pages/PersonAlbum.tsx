@@ -109,24 +109,13 @@ export default function PersonAlbum() {
     }
   };
 
-  const handleSelectFaceForThumbnail = async (face, photoId: string) => {
+  const handleSelectFaceForThumbnail = async (_face: unknown, photoId: string) => {
     if (!displayPerson || isCluster) return;
 
     try {
-      const updateRequest = {
-        name: displayPerson.name || undefined,
-        thumbnail_url: photoId,
-        thumbnail_bbox: {
-          x: (face.boundingBox.x as number) / 100,
-          y: (face.boundingBox.y as number) / 100,
-          width: (face.boundingBox.width as number) / 100,
-          height: (face.boundingBox.height as number) / 100,
-        },
-      };
-
       await updatePersonMutation.mutateAsync({
         personId: displayPerson.id,
-        request: updateRequest,
+        request: { representative_photo_id: photoId },
       });
 
       await refetchPeople();
