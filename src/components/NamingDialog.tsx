@@ -22,7 +22,6 @@ import { Label } from "@/components/ui/label";
 import { PersonCluster } from "@/types/person";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PersonThumbnail } from "./PersonThumbnail";
-import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 
 interface NamingDialogProps {
   isOpen: boolean;
@@ -186,23 +185,16 @@ export function NamingDialog({
 
 // Helper component for person suggestion with thumbnail loading
 function PersonSuggestionButton({ person, onClick }: { person: PersonCluster; onClick: () => void }) {
-  const { url: thumbnailUrl } = usePhotoUrl(person.thumbnailPath || '');
-
   return (
     <button
       onClick={onClick}
       className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left"
     >
-      {thumbnailUrl ? (
-        <PersonThumbnail
-          photoUrl={thumbnailUrl}
-          bbox={person.thumbnailBbox}
-          size="sm"
-          className="!w-12 !h-12"
-        />
-      ) : (
-        <div className="w-12 h-12 rounded-full bg-muted flex-shrink-0" />
-      )}
+      <PersonThumbnail
+        faceId={person.representativeFaceId}
+        size="sm"
+        className="!w-12 !h-12"
+      />
       <div>
         <div className="font-medium text-foreground">
           {person.name}
@@ -218,20 +210,13 @@ function PersonSuggestionButton({ person, onClick }: { person: PersonCluster; on
 
 // Helper component for merge dialog thumbnails
 function MergeThumbnail({ person }: { person: PersonCluster }) {
-  const { url: thumbnailUrl } = usePhotoUrl(person.thumbnailPath || '');
-
   return (
     <div className="flex flex-col items-center gap-2">
-      {thumbnailUrl ? (
-        <PersonThumbnail
-          photoUrl={thumbnailUrl}
-          bbox={person.thumbnailBbox}
-          size="lg"
-          className="!w-20 !h-20 !rounded-2xl"
-        />
-      ) : (
-        <div className="w-20 h-20 rounded-2xl bg-muted" />
-      )}
+      <PersonThumbnail
+        faceId={person.representativeFaceId}
+        size="lg"
+        className="!w-20 !h-20 !rounded-2xl"
+      />
       <span className="text-sm font-medium">
         {person.name || "Unlabeled"}
       </span>
