@@ -1,8 +1,7 @@
 export interface PersonCluster {
   id: string;
-  name: string | null; // null for unlabeled clusters
-  thumbnailPath: string;
-  thumbnailBbox?: { x: number; y: number; width: number; height: number } | null;
+  name: string | null;
+  representativeFaceId: string | null;  // CHANGED: was thumbnailPath + thumbnailBbox
   photoCount: number;
-  photos: string[]; // Array of photo paths in this cluster
+  photos: string[];
 }
