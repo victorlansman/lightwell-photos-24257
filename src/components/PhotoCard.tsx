@@ -18,9 +18,8 @@ export function PhotoCard({ photo, isSelected, onSelect, onClick, cropSquare = t
   const [isHovered, setIsHovered] = useState(false);
   const thumbnailAbort = useThumbnailAbort();
   const { url: photoUrl, loading } = usePhotoUrl(photo.id, {
-    thumbnail: true,
+    size: 'thumb_400',
     abortSignal: thumbnailAbort.signal,
-    priority: 'low',
   });
 
   const handleCardClick = () => {
