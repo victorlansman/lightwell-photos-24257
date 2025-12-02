@@ -16,10 +16,8 @@ import { useCollections } from "@/hooks/useCollections";
 import { usePeople } from "@/hooks/usePeople";
 import { useUpdatePerson } from "@/hooks/useFaces";
 import { azureApi } from "@/lib/azureApiClient";
-import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 import { usePhotosWithClusters, useAllPeople } from "@/hooks/useAlbumPhotos";
 import { useClusterMetadata } from "@/hooks/useClusterMetadata";
-import { apiBboxToUi } from "@/types/coordinates";
 import { toast } from "sonner";
 
 export default function PersonAlbum() {
@@ -64,24 +62,19 @@ export default function PersonAlbum() {
       return {
         id: person.id,
         name: person.name,
-        thumbnailPath: person.thumbnail_url || '',
-        thumbnailBbox: person.thumbnail_bbox || null,
-        photoCount: person.photo_count,
+        representativeFaceId: person.representativeFaceId,
+        photoCount: person.photoCount,
         photos: [],
       };
     }
 
     if (cluster) {
       const photoIds = Array.from(new Set(cluster.faces.map(f => f.photo_id)));
-      const representativeFace = cluster.faces.find(
-        f => f.id === cluster.representative_face_id
-      ) || cluster.faces[0];
 
       return {
         id: cluster.id,
         name: null,
-        thumbnailPath: cluster.representative_thumbnail_url || representativeFace?.photo_id || '',
-        thumbnailBbox: representativeFace ? apiBboxToUi(representativeFace.bbox) : null,
+        representativeFaceId: cluster.representative_face_id,
         photoCount: photoIds.length,
         photos: photoIds,
       };
@@ -94,9 +87,6 @@ export default function PersonAlbum() {
   const { allPeople, refetch: refetchAllPeople } = useAllPeople(firstCollectionId, {
     enabled: false,  // Don't block page load - we'll load on-demand later
   });
-
-  // Get thumbnail photo URL
-  const { url: thumbnailUrl } = usePhotoUrl(displayPerson?.thumbnailPath || '');
 
   // UI state
   const [isNamingDialogOpen, setIsNamingDialogOpen] = useState(false);
@@ -275,17 +265,10 @@ export default function PersonAlbum() {
                 </Button>
 
                 <div className="relative">
-                  {thumbnailUrl ? (
-                    <PersonThumbnail
-                      photoUrl={thumbnailUrl}
-                      bbox={displayPerson.thumbnailBbox}
-                      size="sm"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-3xl bg-muted flex items-center justify-center text-muted-foreground text-xs">
-                      No thumbnail
-                    </div>
-                  )}
+                  <PersonThumbnail
+                    faceId={displayPerson.representativeFaceId}
+                    size="sm"
+                  />
                   {!isCluster && (
                     <button
                       onClick={() => {
@@ -339,14 +322,7 @@ export default function PersonAlbum() {
         isOpen={isNamingDialogOpen}
         onClose={() => setIsNamingDialogOpen(false)}
         currentPerson={displayPerson}
-        allPeople={namedPeople.map(p => ({
-          id: p.id,
-          name: p.name,
-          thumbnailPath: p.thumbnail_url || '',
-          thumbnailBbox: p.thumbnail_bbox || null,
-          photoCount: p.photo_count,
-          photos: [],
-        }))}
+        allPeople={namedPeople}
         onNameSave={handleNameSave}
         onMerge={handleMerge}
       />
