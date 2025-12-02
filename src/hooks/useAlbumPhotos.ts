@@ -5,29 +5,7 @@ import { useCollectionPhotos, useToggleFavorite } from '@/hooks/usePhotos';
 import { useClusters } from '@/hooks/useFaces';
 import { usePeople } from '@/hooks/usePeople';
 import { PersonCluster } from '@/types/person';
-import { apiBboxToUi } from '@/types/coordinates';
 import { azureApi } from '@/lib/azureApiClient';
-
-/**
- * Extract photo ID from URL or return value as-is if already a UUID.
- * Handles backend inconsistency where photo_id field may contain full URL.
- *
- * Example: "http://.../api/faces/abc-123/thumbnail/image" -> "abc-123"
- * Example: "abc-123" -> "abc-123"
- */
-function extractPhotoId(value: string | undefined): string {
-  if (!value) return '';
-
-  // If it's already a UUID-like string (not a URL), return as-is
-  if (!value.startsWith('http://') && !value.startsWith('https://')) {
-    return value;
-  }
-
-  // Extract UUID from URL path
-  // Pattern: .../faces/{UUID}/... or .../photos/{UUID}/...
-  const match = value.match(/\/(photos|faces)\/([a-f0-9-]+)/i);
-  return match ? match[2] : value;
-}
 
 export interface PhotoFilters {
   yearRange?: [number, number];
@@ -191,29 +169,22 @@ export function useAllPeople(
   // Combine named people and clusters into PersonCluster[]
   const allPeople = useMemo(() => {
     const peopleList: PersonCluster[] = [
-      // Named people (thumbnailPath already normalized by usePeople hook)
+      // Named people
       ...namedPeople.map(p => ({
         id: p.id,
         name: p.name,
-        thumbnailPath: p.thumbnailPath, // Already normalized - don't extract again
-        thumbnailBbox: p.thumbnailBbox || null,
+        representativeFaceId: p.representativeFaceId,
         photoCount: p.photoCount,
         photos: [],
       })),
       // Unnamed clusters
       ...clusterData.map(cluster => {
         const photoIds = Array.from(new Set(cluster.faces.map(f => f.photo_id)));
-        const representativeFace = cluster.faces.find(
-          f => f.id === cluster.representative_face_id
-        ) || cluster.faces[0];
 
         return {
           id: cluster.id,
           name: null,
-          // Use backend's representative_thumbnail_url (correct API)
-          // Fallback to photo_id only if backend doesn't provide thumbnail URL
-          thumbnailPath: cluster.representative_thumbnail_url || extractPhotoId(representativeFace?.photo_id),
-          thumbnailBbox: representativeFace ? apiBboxToUi(representativeFace.bbox) : null,
+          representativeFaceId: cluster.representative_face_id,
           photoCount: photoIds.length,
           photos: photoIds,
         };
