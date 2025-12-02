@@ -26,8 +26,8 @@ export function PeopleGallery({
 }: PeopleGalleryProps) {
   const navigate = useNavigate();
   
-  // Separate named and unknown people
-  const namedPeople = people.filter(p => p.name !== null);
+  // Separate named and unknown people (exclude those with 0 photos)
+  const namedPeople = people.filter(p => p.name !== null && p.photoCount > 0);
   // Only show unnamed people with more than 1 photo (clusters)
   const unknownPeople = people.filter(p => p.name === null && p.photoCount > 1);
   
