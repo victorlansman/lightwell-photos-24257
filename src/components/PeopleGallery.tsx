@@ -3,10 +3,19 @@ import { PersonClusterCard } from "./PersonClusterCard";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Users, Trash2 } from "lucide-react";
+import { Users, Trash2, ChevronDown, Loader2 } from "lucide-react";
 
 interface PeopleGalleryProps {
-  people: PersonCluster[];
+  namedPeople: PersonCluster[];
+  namedPeopleHasMore: boolean;
+  onLoadMoreNamed: () => void;
+  isLoadingMoreNamed?: boolean;
+
+  clusters: PersonCluster[];
+  clustersHasMore: boolean;
+  onLoadMoreClusters: () => void;
+  isLoadingMoreClusters?: boolean;
+
   selectedClusters: Set<string>;
   isSelectionMode: boolean;
   onSelectCluster: (id: string) => void;
@@ -16,7 +25,14 @@ interface PeopleGalleryProps {
 }
 
 export function PeopleGallery({
-  people,
+  namedPeople,
+  namedPeopleHasMore,
+  onLoadMoreNamed,
+  isLoadingMoreNamed = false,
+  clusters,
+  clustersHasMore,
+  onLoadMoreClusters,
+  isLoadingMoreClusters = false,
   selectedClusters,
   isSelectionMode,
   onSelectCluster,
@@ -25,21 +41,23 @@ export function PeopleGallery({
   onHide,
 }: PeopleGalleryProps) {
   const navigate = useNavigate();
-  
-  // Separate named and unknown people (exclude those with 0 photos)
-  const namedPeople = people.filter(p => p.name !== null && p.photoCount > 0);
-  // Only show unnamed people with more than 1 photo (clusters)
-  const unknownPeople = people.filter(p => p.name === null && p.photoCount > 1);
-  
+
+  // Filter out people with 0 photos
+  const visibleNamedPeople = namedPeople.filter(p => p.photoCount > 0);
+  // Only show unnamed clusters with more than 1 photo
+  const visibleClusters = clusters.filter(p => p.photoCount > 1);
+
+  // Combine for selection operations
+  const allPeople = [...visibleNamedPeople, ...visibleClusters];
+
   const handleMerge = () => {
     if (selectedClusters.size !== 2) {
       toast.error("Select exactly 2 people to merge");
       return;
     }
 
-    // Check if BOTH selected items are unnamed clusters
     const selectedIds = Array.from(selectedClusters);
-    const selectedPeople = selectedIds.map(id => people.find(p => p.id === id));
+    const selectedPeople = selectedIds.map(id => allPeople.find(p => p.id === id));
     const bothUnnamed = selectedPeople.every(p => p && p.name === null);
 
     if (bothUnnamed) {
@@ -48,7 +66,6 @@ export function PeopleGallery({
     }
 
     onMerge(selectedIds);
-    // Success toast handled by parent after merge
   };
 
   const handleDelete = () => {
@@ -57,7 +74,6 @@ export function PeopleGallery({
       return;
     }
     onHide(Array.from(selectedClusters));
-    // Success toast handled by parent after deletion
   };
 
   return (
@@ -67,7 +83,7 @@ export function PeopleGallery({
         <div>
           <h1 className="text-3xl font-bold text-foreground">People</h1>
           <p className="text-muted-foreground mt-1">
-            {namedPeople.length} named, {unknownPeople.length} unnamed
+            {visibleNamedPeople.length} named{namedPeopleHasMore ? '+' : ''}, {visibleClusters.length} unnamed{clustersHasMore ? '+' : ''}
           </p>
         </div>
         <Button
@@ -93,21 +109,37 @@ export function PeopleGallery({
       )}
 
       {/* Named People Section */}
-      {namedPeople.length > 0 && (
+      {(visibleNamedPeople.length > 0 || namedPeopleHasMore) && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">Named People</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 animate-fade-in">
-            {namedPeople.map((cluster) => (
+            {visibleNamedPeople.map((person) => (
               <PersonClusterCard
-                key={cluster.id}
-                cluster={cluster}
-                isSelected={selectedClusters.has(cluster.id)}
+                key={person.id}
+                cluster={person}
+                isSelected={selectedClusters.has(person.id)}
                 isSelectionMode={isSelectionMode}
                 onSelect={onSelectCluster}
-                onClick={() => navigate(`/people/${cluster.id}`)}
+                onClick={() => navigate(`/people/${person.id}`)}
               />
             ))}
           </div>
+          {namedPeopleHasMore && (
+            <div className="flex justify-center pt-4">
+              <Button
+                variant="outline"
+                onClick={onLoadMoreNamed}
+                disabled={isLoadingMoreNamed}
+              >
+                {isLoadingMoreNamed ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 mr-2" />
+                )}
+                Load More Named People
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -134,7 +166,7 @@ export function PeopleGallery({
           </div>
 
           {/* Unnamed person clusters */}
-          {unknownPeople.map((cluster, index) => (
+          {visibleClusters.map((cluster, index) => (
             <PersonClusterCard
               key={cluster.id}
               cluster={cluster}
@@ -146,6 +178,22 @@ export function PeopleGallery({
             />
           ))}
         </div>
+        {clustersHasMore && (
+          <div className="flex justify-center pt-4">
+            <Button
+              variant="outline"
+              onClick={onLoadMoreClusters}
+              disabled={isLoadingMoreClusters}
+            >
+              {isLoadingMoreClusters ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ChevronDown className="h-4 w-4 mr-2" />
+              )}
+              Load More Unnamed People
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
