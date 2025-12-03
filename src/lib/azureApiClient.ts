@@ -692,21 +692,29 @@ class AzureApiClient {
   }
 
   /**
-   * Get unnamed face clusters for a collection.
-   * Used for bulk labeling of similar faces.
+   * Get unnamed face clusters for a collection with optional pagination.
    *
-   * @param collectionId - Collection to get clusters for
-   * @returns Array of face clusters with unnamed faces
+   * @param collectionId - Collection UUID
+   * @param options - Pagination: limit (1-500), offset (>=0), summary (omits faces array)
+   * @returns Array of face clusters
    */
-  async getClusters(collectionId: string): Promise<FaceClusterResponse[]> {
+  async getClusters(
+    collectionId: string,
+    options?: { limit?: number; offset?: number; summary?: boolean }
+  ): Promise<FaceClusterResponse[]> {
     const params = new URLSearchParams({ collection_id: collectionId });
-    const response = await this.request<ClustersResponse>(`/api/faces/clusters?${params.toString()}`);
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.offset) params.append('offset', options.offset.toString());
+    if (options?.summary) params.append('summary', 'true');
 
-    // Transform response to ensure coordinate consistency
-    // Backend should return 0-1 normalized, but we verify the contract
+    const response = await this.request<ClustersResponse>(
+      `/api/faces/clusters?${params.toString()}`
+    );
+
+    // Transform response - faces may be null in summary mode
     return response.clusters.map(cluster => ({
       ...cluster,
-      faces: cluster.faces.map(face => ({
+      faces: cluster.faces?.map(face => ({
         ...face,
         bbox: {
           x: apiCoord(face.bbox.x),
@@ -714,7 +722,7 @@ class AzureApiClient {
           width: apiCoord(face.bbox.width),
           height: apiCoord(face.bbox.height),
         }
-      }))
+      })) ?? []
     }));
   }
 
