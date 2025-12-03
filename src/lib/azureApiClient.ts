@@ -674,11 +674,20 @@ class AzureApiClient {
   }
 
   /**
-   * List all people in a collection.
+   * List all people in a collection with optional pagination.
    * Returns people sorted by photo_count desc, then name asc.
+   *
+   * @param collectionId - Collection UUID
+   * @param options - Pagination: limit (1-1000), offset (>=0)
    */
-  async getPeople(collectionId: string): Promise<PersonResponse[]> {
+  async getPeople(
+    collectionId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<PersonResponse[]> {
     const params = new URLSearchParams({ collection_id: collectionId });
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.offset) params.append('offset', options.offset.toString());
+
     return this.request(`/v1/people?${params.toString()}`);
   }
 
