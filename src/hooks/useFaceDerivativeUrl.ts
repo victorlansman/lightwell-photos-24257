@@ -1,52 +1,56 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { azureApi } from '@/lib/azureApiClient';
+import { useCallback } from 'react';
 
 /**
- * Hook to fetch face derivative URL.
+ * Hook to fetch face derivative URL with React Query caching.
+ * First load may take 3-4s (on-the-fly generation), subsequent loads ~200ms (cached).
  * Returns object URL for use in img src.
  */
 export function useFaceDerivativeUrl(faceId: string | null | undefined) {
-  const [url, setUrl] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const { data: url, isLoading: loading, error } = useQuery({
+    queryKey: ['face-derivative', faceId],
+    queryFn: async () => {
+      if (!faceId) return '';
+      const blob = await azureApi.fetchFaceDerivative(faceId);
+      return URL.createObjectURL(blob);
+    },
+    enabled: !!faceId,
+    staleTime: 1000 * 60 * 30, // Consider fresh for 30 minutes
+    gcTime: 1000 * 60 * 60, // Keep in cache for 1 hour
+    retry: 1, // Only retry once on failure
+  });
 
-  useEffect(() => {
-    if (!faceId) {
-      setLoading(false);
-      setUrl('');
-      setError(null);
-      return;
-    }
+  return {
+    url: url ?? '',
+    loading: loading && !!faceId,
+    error: error as Error | null,
+  };
+}
 
-    let objectUrl: string | null = null;
-    let cancelled = false;
+/**
+ * Hook to prefetch face derivatives before they're needed.
+ * Useful for hover prefetch or prefetching next page.
+ */
+export function usePrefetchFaceDerivative() {
+  const queryClient = useQueryClient();
 
-    async function loadImage() {
-      try {
-        setLoading(true);
-        setError(null);
+  const prefetch = useCallback((faceId: string | null | undefined) => {
+    if (!faceId) return;
 
+    // Don't prefetch if already in cache
+    const cached = queryClient.getQueryData(['face-derivative', faceId]);
+    if (cached) return;
+
+    queryClient.prefetchQuery({
+      queryKey: ['face-derivative', faceId],
+      queryFn: async () => {
         const blob = await azureApi.fetchFaceDerivative(faceId);
-        if (cancelled) return;
+        return URL.createObjectURL(blob);
+      },
+      staleTime: 1000 * 60 * 30,
+    });
+  }, [queryClient]);
 
-        objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
-      } catch (err) {
-        if (cancelled) return;
-        console.error('[useFaceDerivativeUrl] Failed:', err);
-        setError(err instanceof Error ? err : new Error('Failed to load face'));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    loadImage();
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [faceId]);
-
-  return { url, loading, error };
+  return prefetch;
 }
