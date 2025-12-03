@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { User } from "lucide-react";
 import { useFaceDerivativeUrl } from "@/hooks/useFaceDerivativeUrl";
 
 interface PersonThumbnailProps {
@@ -10,7 +9,10 @@ interface PersonThumbnailProps {
 
 /**
  * Displays a person's face as a circular thumbnail.
- * Uses pre-cropped face derivative from backend.
+ * Shows skeleton until image loads - no flash of placeholder icon.
+ *
+ * Note: First load may take 3-4s due to on-the-fly derivative generation.
+ * Subsequent loads are fast (~200ms) due to caching.
  */
 export function PersonThumbnail({
   faceId,
@@ -25,13 +27,8 @@ export function PersonThumbnail({
     lg: "w-40 h-40",
   };
 
-  const iconSizes = {
-    sm: "h-8 w-8",
-    md: "h-16 w-16",
-    lg: "h-20 w-20",
-  };
-
-  const showPlaceholder = !faceId || error || (!loading && !url);
+  // Show skeleton consistently until we have a loaded image
+  const showSkeleton = !faceId || loading || (!url && !error);
 
   return (
     <div
@@ -41,16 +38,17 @@ export function PersonThumbnail({
         className
       )}
     >
-      {loading ? (
+      {showSkeleton ? (
         <div className="w-full h-full bg-muted animate-pulse rounded-full" />
-      ) : showPlaceholder ? (
-        <User className={cn(iconSizes[size], "text-muted-foreground")} />
-      ) : (
+      ) : url ? (
         <img
           src={url}
           alt=""
           className="w-full h-full object-cover"
         />
+      ) : (
+        // Error state - show static muted background
+        <div className="w-full h-full bg-muted rounded-full" />
       )}
     </div>
   );
