@@ -4,6 +4,8 @@ import { Photo, FaceDetection } from '@/types/photo';
 import { useCollectionPhotos, useToggleFavorite } from '@/hooks/usePhotos';
 import { useClusters } from '@/hooks/useFaces';
 import { usePeople } from '@/hooks/usePeople';
+import { usePaginatedPeople } from './usePaginatedPeople';
+import { usePaginatedClusters } from './usePaginatedClusters';
 import { PersonCluster } from '@/types/person';
 import { azureApi } from '@/lib/azureApiClient';
 
@@ -122,85 +124,74 @@ export function usePhotosWithClusters(
 // ============================================================================
 
 export interface UseAllPeopleResult {
-  allPeople: PersonCluster[];
+  namedPeople: PersonCluster[];
+  namedPeopleHasMore: boolean;
+  loadMoreNamedPeople: () => void;
+  isLoadingMoreNamed: boolean;
+
+  clusters: PersonCluster[];
+  clustersHasMore: boolean;
+  loadMoreClusters: () => void;
+  isLoadingMoreClusters: boolean;
+
   isLoading: boolean;
   error: Error | null;
   refetch: () => void;
 }
 
 /**
- * Fetch all people + unnamed clusters for a collection.
- *
- * WARNING: This loads ALL clusters. Use sparingly.
- * Good for: People gallery page
- * Bad for: Every page that shows photos
+ * Fetch named people + unnamed clusters with separate pagination.
+ * Uses useInfiniteQuery pattern for both.
  */
 export function useAllPeople(
   collectionId: string | string[] | undefined,
-  options?: {
-    enabled?: boolean;  // Allow disabling the query
-  }
+  options?: { enabled?: boolean }
 ): UseAllPeopleResult {
   const normalizedCollectionId = Array.isArray(collectionId)
     ? collectionId[0]
     : collectionId;
 
-  // Fetch named people
   const {
-    data: namedPeople = [],
+    people: namedPeople,
+    hasMore: namedPeopleHasMore,
+    loadMore: loadMoreNamedPeople,
+    isFetchingMore: isLoadingMoreNamed,
     isLoading: peopleLoading,
     error: peopleError,
     refetch: refetchPeople,
-  } = usePeople(normalizedCollectionId);
+  } = usePaginatedPeople(normalizedCollectionId);
 
-  // Fetch clusters - now optional
   const {
-    data: clusterData = [],
+    clusters,
+    hasMore: clustersHasMore,
+    loadMore: loadMoreClusters,
+    isFetchingMore: isLoadingMoreClusters,
     isLoading: clustersLoading,
     error: clustersError,
     refetch: refetchClusters,
-  } = useClusters(normalizedCollectionId, {
-    enabled: options?.enabled ?? true,  // Respect enabled flag
+  } = usePaginatedClusters(normalizedCollectionId, {
+    enabled: options?.enabled ?? true,
   });
 
   const isLoading = peopleLoading || clustersLoading;
   const error = peopleError || clustersError || null;
 
-  // Combine named people and clusters into PersonCluster[]
-  const allPeople = useMemo(() => {
-    const peopleList: PersonCluster[] = [
-      // Named people
-      ...namedPeople.map(p => ({
-        id: p.id,
-        name: p.name,
-        representativeFaceId: p.representativeFaceId,
-        photoCount: p.photoCount,
-        photos: [],
-      })),
-      // Unnamed clusters
-      ...clusterData.map(cluster => {
-        const photoIds = Array.from(new Set(cluster.faces.map(f => f.photo_id)));
-
-        return {
-          id: cluster.id,
-          name: null,
-          representativeFaceId: cluster.representative_face_id,
-          photoCount: photoIds.length,
-          photos: photoIds,
-        };
-      })
-    ];
-
-    return peopleList;
-  }, [namedPeople, clusterData]);
-
-  const refetch = () => {
+  const refetch = useCallback(() => {
     refetchPeople();
     refetchClusters();
-  };
+  }, [refetchPeople, refetchClusters]);
 
   return {
-    allPeople,
+    namedPeople,
+    namedPeopleHasMore,
+    loadMoreNamedPeople,
+    isLoadingMoreNamed,
+
+    clusters,
+    clustersHasMore,
+    loadMoreClusters,
+    isLoadingMoreClusters,
+
     isLoading,
     error,
     refetch,
