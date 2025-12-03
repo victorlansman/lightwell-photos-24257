@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PersonThumbnail } from "./PersonThumbnail";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import { usePrefetchFaceDerivative } from "@/hooks/useFaceDerivativeUrl";
 
 interface PersonClusterCardProps {
   cluster: PersonCluster;
@@ -22,14 +23,24 @@ export function PersonClusterCard({
   unnamedIndex,
 }: PersonClusterCardProps) {
   const { ref, isVisible } = useIntersectionObserver({
-    rootMargin: '200px',
+    rootMargin: '400px',
     triggerOnce: true,
   });
+
+  const prefetch = usePrefetchFaceDerivative();
+
+  // Prefetch on hover for cards not yet in viewport
+  const handleMouseEnter = () => {
+    if (!isVisible && cluster.representativeFaceId) {
+      prefetch(cluster.representativeFaceId);
+    }
+  };
 
   return (
     <div
       ref={ref}
       className="flex flex-col items-center gap-2 cursor-pointer group"
+      onMouseEnter={handleMouseEnter}
       onClick={() => {
         if (isSelectionMode) {
           onSelect(cluster.id);
