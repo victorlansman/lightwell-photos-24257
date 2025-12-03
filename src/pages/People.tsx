@@ -58,10 +58,24 @@ export default function People() {
   const firstCollectionId = collections?.[0]?.id;
 
   // Use the refactored useAllPeople hook that handles both named people and clusters
-  const { allPeople, isLoading: peopleLoading } = useAllPeople(firstCollectionId);
+  const {
+    namedPeople,
+    namedPeopleHasMore,
+    loadMoreNamedPeople,
+    isLoadingMoreNamed,
+    clusters,
+    clustersHasMore,
+    loadMoreClusters,
+    isLoadingMoreClusters,
+    isLoading: peopleLoading,
+    refetch: refetchPeople,
+  } = useAllPeople(firstCollectionId);
 
   // Use mutation hook for merging people - handles cache invalidation automatically
   const mergePeopleMutation = useMergePeople();
+
+  // For merge operations, combine both lists
+  const allPeopleForMerge = [...namedPeople, ...clusters];
 
   const loading = collectionsLoading || peopleLoading;
 
@@ -102,8 +116,8 @@ export default function People() {
     }
 
     // Default to person with most photos
-    const person1 = allPeople.find(p => p.id === clusterIds[0]);
-    const person2 = allPeople.find(p => p.id === clusterIds[1]);
+    const person1 = allPeopleForMerge.find(p => p.id === clusterIds[0]);
+    const person2 = allPeopleForMerge.find(p => p.id === clusterIds[1]);
 
     const defaultTarget = (person1 && person2)
       ? (person1.photoCount >= person2.photoCount ? person1.id : person2.id)
@@ -188,7 +202,7 @@ export default function People() {
   }
 
   const selectedPersonsArray = Array.from(selectedClusters);
-  const selectedPersons = allPeople.filter(p => selectedPersonsArray.includes(p.id));
+  const selectedPersons = allPeopleForMerge.filter(p => selectedPersonsArray.includes(p.id));
 
   return (
     <SidebarProvider>
@@ -198,7 +212,14 @@ export default function People() {
           <Header />
           <main className="flex-1 p-6">
             <PeopleGallery
-              people={allPeople}
+              namedPeople={namedPeople}
+              namedPeopleHasMore={namedPeopleHasMore}
+              onLoadMoreNamed={loadMoreNamedPeople}
+              isLoadingMoreNamed={isLoadingMoreNamed}
+              clusters={clusters}
+              clustersHasMore={clustersHasMore}
+              onLoadMoreClusters={loadMoreClusters}
+              isLoadingMoreClusters={isLoadingMoreClusters}
               selectedClusters={selectedClusters}
               isSelectionMode={isSelectionMode}
               onSelectCluster={handleSelectCluster}
