@@ -83,10 +83,8 @@ export default function PersonAlbum() {
     return undefined;
   }, [isNamedPerson, person, cluster]);
 
-  // Only need allPeople for lightbox face tags (load lazily)
-  const { allPeople, refetch: refetchAllPeople } = useAllPeople(firstCollectionId, {
-    enabled: false,  // Don't block page load - we'll load on-demand later
-  });
+  // Only need allPeople for lightbox face tags
+  const { namedPeople: allPeople, refetch: refetchAllPeople } = useAllPeople(firstCollectionId);
 
   // UI state
   const [isNamingDialogOpen, setIsNamingDialogOpen] = useState(false);

@@ -36,9 +36,7 @@ export default function CollectionDetail() {
 
   // Use new hooks
   const { photos, allPhotos, isLoading: photosLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(id, filters);
-  const { allPeople, refetch: refetchPeople } = useAllPeople(id, {
-    enabled: false,  // Don't load ALL clusters - not needed
-  });
+  const { namedPeople: allPeople, refetch: refetchPeople } = useAllPeople(id);
 
   // Redirect if not authenticated
   useEffect(() => {

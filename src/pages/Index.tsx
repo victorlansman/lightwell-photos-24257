@@ -17,9 +17,7 @@ const Index = () => {
 
   // Use new hooks
   const { photos, isLoading, hasMore, isLoadingMore, loadMore, refetch } = usePhotosWithClusters(firstCollectionId);
-  const { allPeople, refetch: refetchPeople } = useAllPeople(firstCollectionId, {
-    enabled: false,  // Don't load ALL clusters on timeline - not needed
-  });
+  const { namedPeople: allPeople, refetch: refetchPeople } = useAllPeople(firstCollectionId);
 
   useEffect(() => {
     checkAuth();
