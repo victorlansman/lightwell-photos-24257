@@ -264,8 +264,18 @@ export default function Settings() {
                     <MembersList
                       members={members}
                       collectionId={selectedCollectionId}
+                      collectionName={selectedCollection?.name}
+                      photoCount={selectedCollection?.photo_count}
                       currentUserRole={selectedCollection?.user_role || 'viewer'}
                       currentUserId={currentUserId}
+                      onCollectionDeleted={() => {
+                        const remaining = collections?.filter(c => c.id !== selectedCollectionId);
+                        if (remaining && remaining.length > 0) {
+                          setSelectedCollectionId(remaining[0].id);
+                        } else {
+                          navigate("/");
+                        }
+                      }}
                     />
                   ) : (
                     <Card>

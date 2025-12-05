@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -12,31 +13,50 @@ import { useState } from "react";
 interface MembersListProps {
   members: Member[];
   collectionId: string;
+  collectionName?: string;
+  photoCount?: number;
   currentUserRole: 'owner' | 'admin' | 'viewer';
   currentUserId?: string;
+  onCollectionDeleted?: () => void;
 }
 
-export function MembersList({ members, collectionId, currentUserRole, currentUserId }: MembersListProps) {
+export function MembersList({ members, collectionId, collectionName, photoCount, currentUserRole, currentUserId, onCollectionDeleted }: MembersListProps) {
   const { toast } = useToast();
   const removeMember = useRemoveMember(collectionId);
   const changeMemberRole = useChangeMemberRole(collectionId);
   const [changingRole, setChangingRole] = useState<string | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
   const isOwner = currentUserRole === 'owner';
+  const ownerCount = members.filter(m => m.role === 'owner').length;
 
-  const handleRemove = async (userId: string, email: string) => {
+  const handleRemove = async (userId: string, email: string, willDeleteCollection: boolean) => {
+    setRemovingMemberId(userId);
     try {
-      await removeMember.mutateAsync(userId);
-      toast({
-        title: "Member removed",
-        description: `${email} has been removed from the collection`,
-      });
+      const result = await removeMember.mutateAsync(userId);
+
+      if (willDeleteCollection || result?.collection_deleted) {
+        toast({
+          title: "Collection deleted",
+          description: `Collection and all photos have been permanently deleted.`,
+        });
+        onCollectionDeleted?.();
+      } else {
+        toast({
+          title: "Member removed",
+          description: `${email} has been removed from the collection`,
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Failed to remove member",
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setRemovingMemberId(null);
+      setDeleteConfirmText('');
     }
   };
 
@@ -79,6 +99,8 @@ export function MembersList({ members, collectionId, currentUserRole, currentUse
             const isCurrentUser = member.user_id === currentUserId;
             const isOtherOwner = member.role === 'owner' && !isCurrentUser;
             const canModify = isOwner && !isOtherOwner;
+            const isMemberLastOwner = member.role === 'owner' && ownerCount === 1;
+            const willDeleteIfRemoved = isMemberLastOwner;
 
             return (
               <div
@@ -94,6 +116,11 @@ export function MembersList({ members, collectionId, currentUserRole, currentUse
                       <Badge variant="secondary" className="flex items-center gap-1">
                         <User className="h-3 w-3" />
                         You ({member.role})
+                      </Badge>
+                    )}
+                    {isMemberLastOwner && (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                        Last owner
                       </Badge>
                     )}
                   </div>
@@ -117,8 +144,12 @@ export function MembersList({ members, collectionId, currentUserRole, currentUse
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="owner">Owner</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="viewer">Viewer</SelectItem>
+                        <SelectItem value="admin" disabled={isMemberLastOwner}>
+                          Admin {isMemberLastOwner && '(need another owner)'}
+                        </SelectItem>
+                        <SelectItem value="viewer" disabled={isMemberLastOwner}>
+                          Viewer {isMemberLastOwner && '(need another owner)'}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   ) : (
@@ -129,7 +160,7 @@ export function MembersList({ members, collectionId, currentUserRole, currentUse
 
                   {/* Remove Button */}
                   {canModify && (
-                    <AlertDialog>
+                    <AlertDialog onOpenChange={(open) => { if (!open) setDeleteConfirmText(''); }}>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon">
                           <UserMinus className="h-4 w-4 text-destructive" />
@@ -137,18 +168,52 @@ export function MembersList({ members, collectionId, currentUserRole, currentUse
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Remove member?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Remove {member.email} from this collection? They will lose access to all photos.
+                          <AlertDialogTitle>
+                            {willDeleteIfRemoved
+                              ? '⚠️ Warning: This will delete the collection'
+                              : 'Remove member?'}
+                          </AlertDialogTitle>
+                          <AlertDialogDescription asChild>
+                            <div className="space-y-3">
+                              {willDeleteIfRemoved ? (
+                                <>
+                                  <p className="font-semibold text-destructive">
+                                    {member.email} is the last owner. Removing them will permanently delete "{collectionName}" and all {photoCount ?? 0} photos.
+                                  </p>
+                                  <p>This cannot be undone. All photos and member access will be lost.</p>
+                                  <div className="pt-2">
+                                    <p className="text-sm mb-2">Type <span className="font-mono font-bold">delete</span> to confirm:</p>
+                                    <Input
+                                      value={deleteConfirmText}
+                                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                      placeholder="delete"
+                                      disabled={removingMemberId === member.user_id}
+                                    />
+                                  </div>
+                                </>
+                              ) : (
+                                <p>Remove {member.email} from this collection? They will lose access to all photos.</p>
+                              )}
+                            </div>
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogCancel disabled={removingMemberId === member.user_id}>
+                            Cancel
+                          </AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => handleRemove(member.user_id, member.email)}
+                            onClick={() => handleRemove(member.user_id, member.email, willDeleteIfRemoved)}
+                            disabled={
+                              removingMemberId === member.user_id ||
+                              (willDeleteIfRemoved && deleteConfirmText.toLowerCase() !== 'delete')
+                            }
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
-                            Remove
+                            {removingMemberId === member.user_id
+                              ? 'Processing...'
+                              : willDeleteIfRemoved
+                              ? 'Delete Collection'
+                              : 'Remove'}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
