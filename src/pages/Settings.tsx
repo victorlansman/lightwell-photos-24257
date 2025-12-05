@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCollections } from "@/hooks/useCollections";
 import { useCollectionMembers, usePendingInvites, useLeaveCollection } from "@/hooks/useInvites";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { azureApi } from "@/lib/azureApiClient";
 import { Header } from "@/components/Header";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -24,7 +25,6 @@ export default function Settings() {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
-  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
@@ -34,18 +34,15 @@ export default function Settings() {
   // Get tab from URL params (default to members)
   const activeTab = searchParams.get("tab") || "members";
 
+  // Get current user from API
+  const { data: currentUser } = useCurrentUser();
+  const currentUserId = currentUser?.id;
+
   // Get all user collections
   const { data: collections, isLoading: collectionsLoading } = useCollections();
 
   // Leave collection mutation
   const leaveCollection = useLeaveCollection(selectedCollectionId);
-
-  // Get current user ID
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setCurrentUserId(user?.id);
-    });
-  }, []);
 
   // Set initial collection when collections load
   useEffect(() => {
@@ -147,7 +144,12 @@ export default function Settings() {
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <h1 className="text-3xl font-bold">Settings</h1>
+                <div>
+                  <h1 className="text-3xl font-bold">Settings</h1>
+                  {currentUser?.email && (
+                    <p className="text-sm text-muted-foreground">{currentUser.email}</p>
+                  )}
+                </div>
               </div>
 
               <Tabs value={activeTab} onValueChange={(tab) => navigate(`/settings?tab=${tab}`)} className="w-full">

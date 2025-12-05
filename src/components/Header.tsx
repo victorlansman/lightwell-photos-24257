@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { useCollections } from "@/hooks/useCollections";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,9 +19,15 @@ export function Header() {
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
 
-  // Use Azure API to fetch collections
-  const { data: collections } = useCollections();
-  const collectionId = collections?.[0]?.id || null;
+  // Fetch current user for email display
+  const { data: currentUser } = useCurrentUser();
+
+  // Truncate email if too long
+  const displayEmail = currentUser?.email
+    ? currentUser.email.length > 24
+      ? currentUser.email.slice(0, 21) + '...'
+      : currentUser.email
+    : null;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -61,9 +67,11 @@ export function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {collectionId && (
+            {displayEmail && (
               <>
-                <DropdownMenuLabel>Collection: {collectionId.slice(0, 8)}</DropdownMenuLabel>
+                <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
+                  {displayEmail}
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
               </>
             )}
@@ -105,10 +113,10 @@ export function Header() {
               )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            {collectionId && (
+            {displayEmail && (
               <>
-                <DropdownMenuLabel className="font-normal">
-                  Collection: {collectionId.slice(0, 8)}
+                <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
+                  {displayEmail}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
               </>

@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2, LogOut, Users, Image } from "lucide-react";
 import { CreateCollectionDialog } from "@/components/CreateCollectionDialog";
 import { useCollections } from "@/hooks/useCollections";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function Collections() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -15,6 +16,7 @@ export default function Collections() {
 
   // Use Azure API instead of Supabase queries
   const { data: collections, isLoading, error } = useCollections();
+  const { data: currentUser } = useCurrentUser();
 
   useEffect(() => {
     checkAuth();
@@ -54,7 +56,12 @@ export default function Collections() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">My Collections</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">My Collections</h1>
+            {currentUser?.email && (
+              <p className="text-sm text-muted-foreground">{currentUser.email}</p>
+            )}
+          </div>
           <Button variant="ghost" size="sm" onClick={handleSignOut}>
             <LogOut className="h-4 w-4 mr-2" />
             Sign Out

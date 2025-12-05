@@ -93,6 +93,15 @@ export interface LeaveCollectionResponse {
   blobs_deleted?: number;
 }
 
+export interface CurrentUser {
+  id: string;
+  email: string;
+  username: string | null;
+  full_name: string | null;
+  supabase_user_id: string;
+  collection_count: number;
+}
+
 // ==================== Photo Types ====================
 // Split into List (lean) and Detail (full) responses
 
@@ -392,6 +401,12 @@ class AzureApiClient {
       console.error(`API Error [${endpoint}]:`, error);
       throw error;
     }
+  }
+
+  // ==================== Auth ====================
+
+  async getCurrentUser(): Promise<CurrentUser> {
+    return this.request('/v1/auth/me');
   }
 
   // ==================== Collections ====================
