@@ -1,6 +1,6 @@
 import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
-import { X, ChevronLeft, ChevronRight, Heart, Share2, Download, Info, Users, UserPlus, Check, Loader2, Menu } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, ChevronDown, Heart, Share2, Download, Info, Users, UserPlus, Check, Loader2, Menu, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogContentFullscreen } from "@/components/ui/dialog";
 import {
@@ -19,6 +19,7 @@ import { FaceBoundingBox } from "@/components/FaceBoundingBox";
 import { EditPersonDialog } from "@/components/EditPersonDialog";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { azureApi } from "@/lib/azureApiClient";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
@@ -57,7 +58,16 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [isSaving, setIsSaving] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [showDateInput, setShowDateInput] = useState(false);
+  const [dateInputMode, setDateInputMode] = useState<'exact' | 'approximate'>('exact');
+  const [showAiSection, setShowAiSection] = useState(true);
+  // Date input fields (will connect to API later)
+  const [userYear, setUserYear] = useState('');
+  const [userYearMin, setUserYearMin] = useState('');
+  const [userYearMax, setUserYearMax] = useState('');
+  const [userDateComment, setUserDateComment] = useState('');
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -685,7 +695,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
           {/* Header - only visible when showControls is true */}
           {showControls && (
             <div
-              className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-2 py-2"
+              className={cn(
+                "absolute top-0 left-0 z-50 flex items-center justify-between px-2 py-2 transition-all",
+                showInfo ? "right-80" : "right-0"
+              )}
               style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -900,44 +913,214 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                     <p className="text-sm text-foreground">{photo.filename || `photo-${photo.id}.jpg`}</p>
                   </div>
 
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Year</p>
-                    <p className="text-sm text-foreground">
-                      {photo.display_year ? (
-                        <>
-                          {photo.display_year}
-                          {photo.estimated_year_min && photo.estimated_year_max &&
-                           photo.estimated_year_min !== photo.estimated_year_max && (
-                            <span className="text-muted-foreground ml-1">
-                              ({photo.estimated_year_min}–{photo.estimated_year_max})
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        'Unknown'
-                      )}
-                    </p>
-                    {/* Confidence from detail endpoint */}
-                    {detail?.estimated_year_confidence != null && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {Math.round(detail.estimated_year_confidence * 100)}% confidence
-                      </p>
-                    )}
-                  </div>
+                  {/* === DATE SECTION === */}
 
-                  {/* Reasoning from detail endpoint */}
-                  {detail?.year_estimation_reasoning && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">AI Reasoning</p>
-                      <p className="text-sm text-foreground/80 italic">
-                        {detail.year_estimation_reasoning}
+                  {/* User-set date (if exists) */}
+                  {detail?.user_corrected_year && (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">Photo Date</p>
+                      <p className="text-base text-foreground font-medium">
+                        {detail.user_corrected_year}
+                        {/* TODO: Show specific date if available */}
                       </p>
+                      {/* TODO: Show user comment if available */}
                     </div>
                   )}
 
-                  {detailLoading && (
-                    <p className="text-xs text-muted-foreground">Loading details...</p>
+                  {/* Set photo date button/section */}
+                  {!showDateInput ? (
+                    <button
+                      onClick={() => setShowDateInput(true)}
+                      className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      {detail?.user_corrected_year ? 'Edit photo date' : 'Set photo date'}
+                    </button>
+                  ) : (
+                    <div className="space-y-3 p-3 bg-secondary/50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-foreground">Set Photo Date</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowDateInput(false)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      {/* Mode toggle */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setDateInputMode('exact')}
+                          className={cn(
+                            "text-xs px-2 py-1 rounded transition-colors",
+                            dateInputMode === 'exact'
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                          )}
+                        >
+                          Exact date
+                        </button>
+                        <button
+                          onClick={() => setDateInputMode('approximate')}
+                          className={cn(
+                            "text-xs px-2 py-1 rounded transition-colors",
+                            dateInputMode === 'approximate'
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                          )}
+                        >
+                          Approximate
+                        </button>
+                      </div>
+
+                      {dateInputMode === 'exact' ? (
+                        <div className="space-y-2">
+                          <Input
+                            type="number"
+                            placeholder="Year (e.g., 1986)"
+                            value={userYear}
+                            onChange={(e) => setUserYear(e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                          <Input
+                            type="text"
+                            placeholder="Specific date (optional, e.g., Dec 25)"
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              placeholder="From year"
+                              value={userYearMin}
+                              onChange={(e) => setUserYearMin(e.target.value)}
+                              className="h-8 text-sm flex-1"
+                            />
+                            <Input
+                              type="number"
+                              placeholder="To year"
+                              value={userYearMax}
+                              onChange={(e) => setUserYearMax(e.target.value)}
+                              className="h-8 text-sm flex-1"
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {[2, 5, 10, 15].map(range => (
+                              <button
+                                key={range}
+                                onClick={() => {
+                                  const baseYear = parseInt(userYear) || photo.display_year || new Date().getFullYear();
+                                  setUserYearMin(String(baseYear - range));
+                                  setUserYearMax(String(baseYear + range));
+                                }}
+                                className="text-xs px-2 py-0.5 bg-secondary hover:bg-secondary/80 rounded"
+                              >
+                                ±{range} years
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <Input
+                        type="text"
+                        placeholder="Comment (e.g., Father's birthday)"
+                        value={userDateComment}
+                        onChange={(e) => setUserDateComment(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            // TODO: Connect to API
+                            toast.success('Date saved (UI only - API connection pending)');
+                            setShowDateInput(false);
+                          }}
+                          className="flex-1"
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setShowDateInput(false);
+                            setUserYear('');
+                            setUserYearMin('');
+                            setUserYearMax('');
+                            setUserDateComment('');
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
                   )}
+
+                  {/* AI Estimated Year Section */}
+                  <div className={cn(
+                    "space-y-2 p-3 bg-muted/30 rounded-lg border border-border/50",
+                    detail?.user_corrected_year && "mt-2"
+                  )}>
+                    {/* Collapsible header when user has set a date */}
+                    {detail?.user_corrected_year ? (
+                      <button
+                        onClick={() => setShowAiSection(!showAiSection)}
+                        className="flex items-center justify-between w-full text-left"
+                      >
+                        <p className="text-sm font-medium text-muted-foreground">AI Estimated Year</p>
+                        <ChevronDown className={cn(
+                          "h-4 w-4 text-muted-foreground transition-transform",
+                          !showAiSection && "-rotate-90"
+                        )} />
+                      </button>
+                    ) : (
+                      <p className="text-sm font-medium text-muted-foreground">AI Estimated Year</p>
+                    )}
+
+                    {/* AI content - collapsible if user has set date */}
+                    {(showAiSection || !detail?.user_corrected_year) && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-foreground">
+                          {photo.display_year ? (
+                            <>
+                              {photo.display_year}
+                              {photo.estimated_year_min && photo.estimated_year_max &&
+                               photo.estimated_year_min !== photo.estimated_year_max && (
+                                <span className="text-muted-foreground ml-1">
+                                  ({photo.estimated_year_min}–{photo.estimated_year_max})
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            'Unknown'
+                          )}
+                          {detail?.estimated_year_confidence != null && (
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {Math.round(detail.estimated_year_confidence * 100)}% confidence
+                            </span>
+                          )}
+                        </p>
+
+                        {detail?.year_estimation_reasoning && (
+                          <p className="text-xs text-muted-foreground italic leading-relaxed">
+                            {detail.year_estimation_reasoning}
+                          </p>
+                        )}
+
+                        {detailLoading && (
+                          <p className="text-xs text-muted-foreground">Loading AI analysis...</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {faces.length > 0 && (
                     <div>
@@ -945,13 +1128,23 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                       <div className="flex flex-wrap gap-1 mt-1">
                         {faces.map((face, idx) => {
                           const displayName = face.personName || (face.clusterId ? "Unknown" : "Unnamed person");
+                          const navigableId = face.personId || face.clusterId;
                           return (
-                            <span
+                            <button
                               key={idx}
-                              className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded"
+                              onClick={() => {
+                                if (navigableId) {
+                                  onClose();
+                                  navigate(`/people/${navigableId}`);
+                                }
+                              }}
+                              className={cn(
+                                "text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded transition-colors",
+                                navigableId && "hover:bg-primary hover:text-primary-foreground cursor-pointer"
+                              )}
                             >
                               {displayName}
-                            </span>
+                            </button>
                           );
                         })}
                       </div>
