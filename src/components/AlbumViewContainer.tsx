@@ -265,16 +265,14 @@ export function AlbumViewContainer({
                   <div className="text-muted-foreground">No photos found</div>
                 </div>
               )
-            ) : (
+            ) : showDates ? (
+              /* Grouped by year with headers */
               <>
                 {photosByYear.map((group) => (
                   <div key={group.year ?? 'unknown'} className="space-y-2">
-                    {/* Year header */}
-                    {showDates && (
-                      <h2 className="text-lg font-semibold text-foreground sticky top-0 bg-background/95 backdrop-blur-sm py-2 z-10">
-                        {group.year ?? 'Unknown Year'}
-                      </h2>
-                    )}
+                    <h2 className="text-lg font-semibold text-foreground sticky top-0 bg-background/95 backdrop-blur-sm py-2 z-10">
+                      {group.year ?? 'Unknown Year'}
+                    </h2>
 
                     <div
                       style={{
@@ -284,15 +282,10 @@ export function AlbumViewContainer({
                       }}
                     >
                       {group.photos.map(photo => {
-                        // For person albums: use showFaces state to control display mode
-                        // For other contexts: use gridMode prop
-                        // If onFaceClick is provided (thumbnail selection mode), force face view
                         const shouldShowFaces = onFaceClick ? true : (personId ? showFaces : (gridMode === 'faces'));
 
                         if (shouldShowFaces && personId) {
-                          // Find the face for this person in this photo
                           const face = photo.faces?.find(f => f.personId === personId);
-
                           return (
                             <FacePhotoCard
                               key={photo.id}
@@ -301,7 +294,6 @@ export function AlbumViewContainer({
                               isSelected={selectedPhotos.has(photo.id)}
                               onSelect={() => handleSelectPhoto(photo.id)}
                               onClick={() => {
-                                // If onFaceClick is provided (thumbnail selection mode), use it
                                 if (onFaceClick && face) {
                                   onFaceClick(face, photo.id);
                                 } else {
@@ -329,25 +321,72 @@ export function AlbumViewContainer({
                     </div>
                   </div>
                 ))}
-
-                {/* Load more trigger for infinite scroll */}
-                {hasMore && (
-                  <div ref={loadMoreRef} className="flex justify-center py-4">
-                    {isLoadingMore ? (
-                      <div className="text-muted-foreground text-sm">Loading more...</div>
-                    ) : (
-                      <div className="h-4" />
-                    )}
-                  </div>
-                )}
-
-                {/* End of results */}
-                {!hasMore && photos.length > 0 && (
-                  <div className="text-center text-muted-foreground text-sm py-4">
-                    All photos loaded ({photos.length} total)
-                  </div>
-                )}
               </>
+            ) : (
+              /* Single continuous grid when dates hidden */
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${zoomLevel}, minmax(0, 1fr))`,
+                  gap: '0.5rem',
+                }}
+              >
+                {photos.map(photo => {
+                  const shouldShowFaces = onFaceClick ? true : (personId ? showFaces : (gridMode === 'faces'));
+
+                  if (shouldShowFaces && personId) {
+                    const face = photo.faces?.find(f => f.personId === personId);
+                    return (
+                      <FacePhotoCard
+                        key={photo.id}
+                        photo={photo}
+                        personId={personId}
+                        isSelected={selectedPhotos.has(photo.id)}
+                        onSelect={() => handleSelectPhoto(photo.id)}
+                        onClick={() => {
+                          if (onFaceClick && face) {
+                            onFaceClick(face, photo.id);
+                          } else {
+                            handlePhotoClick(photo);
+                          }
+                        }}
+                        isSelectionMode={isSelectionMode}
+                        isThumbnailSelection={!!onFaceClick}
+                      />
+                    );
+                  }
+
+                  return (
+                    <PhotoCard
+                      key={photo.id}
+                      photo={photo}
+                      isSelected={selectedPhotos.has(photo.id)}
+                      onSelect={() => handleSelectPhoto(photo.id)}
+                      onClick={() => handlePhotoClick(photo)}
+                      isSelectionMode={isSelectionMode}
+                      cropSquare={cropSquare}
+                    />
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Load more trigger for infinite scroll */}
+            {hasMore && photos.length > 0 && (
+              <div ref={loadMoreRef} className="flex justify-center py-4">
+                {isLoadingMore ? (
+                  <div className="text-muted-foreground text-sm">Loading more...</div>
+                ) : (
+                  <div className="h-4" />
+                )}
+              </div>
+            )}
+
+            {/* End of results */}
+            {!hasMore && photos.length > 0 && (
+              <div className="text-center text-muted-foreground text-sm py-4">
+                All photos loaded ({photos.length} total)
+              </div>
             )}
           </div>
         </main>
