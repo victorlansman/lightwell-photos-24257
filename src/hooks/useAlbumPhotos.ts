@@ -1,13 +1,11 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Photo, FaceDetection } from '@/types/photo';
-import { useCollectionPhotos, useToggleFavorite } from '@/hooks/usePhotos';
-import { useClusters } from '@/hooks/useFaces';
-import { usePeople } from '@/hooks/usePeople';
+import { Photo } from '@/types/photo';
+import { useToggleFavorite } from '@/hooks/usePhotos';
 import { usePaginatedPeople } from './usePaginatedPeople';
 import { usePaginatedClusters } from './usePaginatedClusters';
 import { PersonCluster } from '@/types/person';
-import { azureApi } from '@/lib/azureApiClient';
+import { azureApi, PhotoListItem } from '@/lib/azureApiClient';
 
 export interface PhotoFilters {
   yearRange?: [number, number];
@@ -70,41 +68,37 @@ export function usePhotosWithClusters(
     enabled: !!normalizedCollectionId,
   });
 
-  const azurePhotos = photosData?.pages.flatMap(page => page.photos) ?? [];
+  const listPhotos = photosData?.pages.flatMap(page => page.photos) ?? [];
   const totalCount = photosData?.pages[0]?.total;
 
-  // Convert Azure photos to UI format - faces already embedded
-  const allPhotos = useMemo(() => {
-    return azurePhotos.map(azurePhoto => ({
-      id: azurePhoto.id,
-      collection_id: azurePhoto.collection_id,
-      path: azurePhoto.path,
-      thumbnail_url: azurePhoto.thumbnail_url,
-      original_filename: azurePhoto.original_filename,
-      created_at: azurePhoto.created_at,
-      filename: azurePhoto.title || undefined,
-      title: azurePhoto.title,
-      description: azurePhoto.description,
-      width: azurePhoto.width,
-      height: azurePhoto.height,
-      rotation: azurePhoto.rotation,
-      estimated_year: azurePhoto.estimated_year,
-      user_corrected_year: azurePhoto.user_corrected_year,
-      is_favorite: azurePhoto.is_favorite,
-      tags: azurePhoto.tags,
-      people: azurePhoto.people,
-      // Map people to faces with cluster_id preserved
-      faces: azurePhoto.people
-        .filter(person => person.face_bbox !== null)
-        .map(person => ({
-          personId: person.id,
-          personName: person.name,
-          boundingBox: person.face_bbox!,
-          clusterId: person.cluster_id,  // Preserved from backend
-        })),
+  // Convert lean list response to UI Photo format
+  // Note: faces/bboxes are NOT in list response - fetch detail for face tagging
+  const allPhotos = useMemo((): Photo[] => {
+    return listPhotos.map((photo: PhotoListItem) => ({
+      id: photo.id,
+      collection_id: photo.collection_id,
+      path: photo.path,
+      thumbnail_url: photo.thumbnail_url,
+      original_filename: null,
+      created_at: photo.created_at,
+      display_year: photo.display_year,
+      estimated_year_min: photo.estimated_year_min,
+      estimated_year_max: photo.estimated_year_max,
+      is_favorite: photo.is_favorite,
+      tags: photo.tags,
+      people: photo.people,
+      width: photo.width,
+      height: photo.height,
+      rotation: photo.rotation,
+      // Fields only available from detail endpoint:
+      title: null,
+      description: null,
+      estimated_year: null,
+      user_corrected_year: null,
+      faces: undefined, // Populated from PhotoDetail when lightbox opens
       taken_at: null,
-    } as Photo));
-  }, [azurePhotos]);
+    }));
+  }, [listPhotos]);
 
   return {
     photos: allPhotos,

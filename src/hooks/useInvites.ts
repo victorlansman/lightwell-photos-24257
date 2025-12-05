@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { azureApi, InviteRequest } from '@/lib/azureApiClient';
+import { azureApi, InviteRequest, LeaveCollectionResponse } from '@/lib/azureApiClient';
 
 /**
  * Fetch invite details (no auth required).
@@ -119,6 +119,30 @@ export function useChangeMemberRole(collectionId: string) {
       queryClient.invalidateQueries({
         queryKey: ['collections', collectionId, 'members']
       });
+    },
+  });
+}
+
+/**
+ * Leave a collection (self-removal).
+ * If user is the last owner, collection will be cascade deleted.
+ */
+export function useLeaveCollection(collectionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string): Promise<LeaveCollectionResponse> =>
+      azureApi.removeMember(collectionId, userId),
+    onSuccess: (data) => {
+      // Always invalidate collections list
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+
+      // If collection wasn't deleted, also invalidate its members
+      if (!data.collection_deleted) {
+        queryClient.invalidateQueries({
+          queryKey: ['collections', collectionId, 'members']
+        });
+      }
     },
   });
 }

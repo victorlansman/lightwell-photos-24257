@@ -1,6 +1,7 @@
 import { ServerId } from './identifiers';
 import { UiBoundingBox } from './coordinates';
 
+/** Face with bounding box - only available from PhotoDetail */
 export interface FaceDetection {
   personId: ServerId | null;
   personName: string | null;
@@ -8,32 +9,54 @@ export interface FaceDetection {
   clusterId?: string | null;
 }
 
+/** Person reference - lean version from list (no bbox) */
+export interface PhotoPersonRef {
+  id: ServerId;
+  name: string;
+  cluster_id?: ServerId | null;
+}
+
+/**
+ * UI Photo type - works with both list and detail responses.
+ *
+ * List response provides: core fields, display_year, people (no bbox)
+ * Detail response adds: reasoning, confidence, faces with bbox
+ */
 export interface Photo {
   id: ServerId;
-  collection_id: ServerId;  // Collection this photo belongs to
+  collection_id: ServerId;
   path: string;
-  thumbnail_url: string | null;  // DEPRECATED - now generated via getPhotoUrl()
+  thumbnail_url: string | null;
   original_filename: string | null;
   created_at: string;
   is_favorite: boolean;
-  title: string | null;
-  description: string | null;
+
+  // Year - display_year is primary (user_corrected ?? estimated)
+  display_year: number | null;
+  estimated_year_min: number | null;
+  estimated_year_max: number | null;
+
+  // Detail-only year fields (null until detail fetched)
+  estimated_year: number | null;
+  user_corrected_year: number | null;
+
+  // Dimensions
   width: number | null;
   height: number | null;
   rotation: number;
-  estimated_year: number | null;
-  user_corrected_year: number | null;
+
+  // Tags and people (from list, no face bbox)
   tags: string[];
-  people: Array<{
-    id: ServerId;
-    name: string;
-    face_bbox: UiBoundingBox | null;
-    cluster_id?: ServerId | null;
-  }>;
-  // Legacy fields (kept for backwards compatibility)
+  people: PhotoPersonRef[];
+
+  // Detail-only fields
+  title: string | null;
+  description: string | null;
+  faces?: FaceDetection[];  // Only from PhotoDetail
+  taken_at?: string | null;
+
+  // Legacy fields
   filename?: string;
   tagged_people?: string[];
   user_notes?: string;
-  faces?: FaceDetection[];
-  taken_at?: string | null;
 }

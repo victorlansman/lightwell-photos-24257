@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCollections } from "@/hooks/useCollections";
-import { useCollectionMembers, usePendingInvites } from "@/hooks/useInvites";
+import { useCollectionMembers, usePendingInvites, useLeaveCollection } from "@/hooks/useInvites";
 import { azureApi } from "@/lib/azureApiClient";
 import { Header } from "@/components/Header";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowLeft, LogOut } from "lucide-react";
 import { MembersList } from "@/components/MembersList";
 import { PendingInvitesList } from "@/components/PendingInvitesList";
 import { InviteForm } from "@/components/InviteForm";
@@ -24,14 +25,20 @@ export default function Settings() {
   const { toast } = useToast();
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
-  const [deleteStage, setDeleteStage] = useState<'none' | 'first' | 'second'>('none');
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [leaveConfirmText, setLeaveConfirmText] = useState('');
 
   // Get tab from URL params (default to members)
   const activeTab = searchParams.get("tab") || "members";
 
   // Get all user collections
   const { data: collections, isLoading: collectionsLoading } = useCollections();
+
+  // Leave collection mutation
+  const leaveCollection = useLeaveCollection(selectedCollectionId);
 
   // Get current user ID
   useEffect(() => {
@@ -55,6 +62,58 @@ export default function Settings() {
   const { data: invites, isLoading: invitesLoading } = usePendingInvites(
     isOwner ? selectedCollectionId : undefined
   );
+
+  // Check if current user is the last owner (for cascade delete warning)
+  const ownerCount = members?.filter(m => m.role === 'owner').length ?? 0;
+  const isLastOwner = isOwner && ownerCount === 1;
+
+  // Debug logging
+  console.log('[Leave Collection Debug]', {
+    members: members?.map(m => ({ email: m.email, role: m.role })),
+    ownerCount,
+    isOwner,
+    isLastOwner,
+    selectedCollection: selectedCollection?.name
+  });
+
+  // Handler for leaving collection
+  const handleLeaveCollection = async () => {
+    if (!currentUserId) return;
+    setIsLeaving(true);
+    try {
+      const result = await leaveCollection.mutateAsync(currentUserId);
+
+      if (result.collection_deleted) {
+        toast({
+          title: "Collection deleted",
+          description: `Collection and ${result.blobs_deleted ?? 0} photos have been permanently deleted.`,
+        });
+        // Navigate to home since collection no longer exists
+        navigate("/");
+      } else {
+        toast({
+          title: "Left collection",
+          description: `You have left "${selectedCollection?.name}".`,
+        });
+        // Select another collection if available
+        const remainingCollections = collections?.filter(c => c.id !== selectedCollectionId);
+        if (remainingCollections && remainingCollections.length > 0) {
+          setSelectedCollectionId(remainingCollections[0].id);
+        } else {
+          navigate("/");
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to leave collection",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLeaving(false);
+      setLeaveDialogOpen(false);
+    }
+  };
 
   if (collectionsLoading) {
     return (
@@ -128,6 +187,82 @@ export default function Settings() {
                     </CardContent>
                   </Card>
 
+                  {/* Collection Actions */}
+                  {selectedCollectionId && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Collection Actions</CardTitle>
+                        <CardDescription>
+                          Manage your membership in "{selectedCollection?.name}"
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex gap-3">
+                        {/* Leave Collection */}
+                        <AlertDialog
+                          open={leaveDialogOpen}
+                          onOpenChange={(open) => {
+                            setLeaveDialogOpen(open);
+                            if (!open) setLeaveConfirmText('');
+                          }}
+                        >
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline">
+                              <LogOut className="h-4 w-4 mr-2" />
+                              Leave Collection
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                {isLastOwner ? "⚠️ Warning: You are the last owner" : "Leave collection?"}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription asChild>
+                                <div className="space-y-3">
+                                  {isLastOwner ? (
+                                    <>
+                                      <p className="font-semibold text-destructive">
+                                        Leaving will permanently delete this collection and all {selectedCollection?.photo_count ?? 0} photos.
+                                      </p>
+                                      <p>This cannot be undone. All photos and their data will be deleted.</p>
+                                      <div className="pt-2">
+                                        <p className="text-sm mb-2">Type <span className="font-mono font-bold">delete</span> to confirm:</p>
+                                        <Input
+                                          value={leaveConfirmText}
+                                          onChange={(e) => setLeaveConfirmText(e.target.value)}
+                                          placeholder="delete"
+                                          disabled={isLeaving}
+                                        />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <p>You will lose access to "{selectedCollection?.name}" and all its photos.</p>
+                                  )}
+                                </div>
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel disabled={isLeaving}>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={handleLeaveCollection}
+                                disabled={isLeaving || (isLastOwner && leaveConfirmText.toLowerCase() !== 'delete')}
+                                className={isLastOwner ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+                              >
+                                {isLeaving ? "Deleting..." : isLastOwner ? "Delete Collection" : "Leave"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+
+                        {/* Delete Collection (owner shortcut - same as leaving as last owner) */}
+                        {isOwner && !isLastOwner && (
+                          <p className="text-sm text-muted-foreground self-center">
+                            Transfer ownership to another member before deleting.
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
                   {/* Members List */}
                   {membersLoading ? (
                     <Card>
@@ -181,90 +316,61 @@ export default function Settings() {
                       <CardDescription>Permanently delete your account and all associated data</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {/* Stage 1: Initial Warning */}
-                      <AlertDialog open={deleteStage === 'first'} onOpenChange={(open) => setDeleteStage(open ? 'first' : 'none')}>
+                      <AlertDialog
+                        open={deleteDialogOpen}
+                        onOpenChange={(open) => {
+                          setDeleteDialogOpen(open);
+                          if (!open) setDeleteConfirmText('');
+                        }}
+                      >
                         <AlertDialogTrigger asChild>
-                          <Button variant="destructive" disabled={isDeleting}>
+                          <Button variant="destructive">
                             Delete My Account
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>Warning: Permanent Account Deletion</AlertDialogTitle>
-                            <AlertDialogDescription className="space-y-2">
-                              <p className="font-semibold text-destructive">
-                                You will permanently lose access to all collections, photos, and data.
-                              </p>
-                              <p>This action cannot be undone.</p>
+                            <AlertDialogDescription asChild>
+                              <div className="space-y-3">
+                                <p className="font-semibold text-destructive">
+                                  You will permanently lose access to all collections, photos, and data.
+                                </p>
+                                <p>This action cannot be undone.</p>
+                                <div className="pt-2">
+                                  <p className="text-sm mb-2">Type <span className="font-mono font-bold">delete</span> to confirm:</p>
+                                  <Input
+                                    value={deleteConfirmText}
+                                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                    placeholder="delete"
+                                  />
+                                </div>
+                              </div>
                             </AlertDialogDescription>
                           </AlertDialogHeader>
-                          <AlertDialogCancel onClick={() => setDeleteStage('none')}>
-                            Cancel
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setDeleteStage('second');
-                            }}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            I Understand
-                          </AlertDialogAction>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={async (e) => {
+                                e.preventDefault();
 
-                      {/* Stage 2: Final Confirmation */}
-                      <AlertDialog open={deleteStage === 'second'} onOpenChange={(open) => setDeleteStage(open ? 'second' : 'none')}>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Final Confirmation</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action will delete your account permanently. Are you absolutely sure?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogCancel onClick={() => setDeleteStage('none')}>
-                            Cancel
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={async () => {
-                              setIsDeleting(true);
-                              try {
-                                // Call backend to delete account
-                                const result = await azureApi.deleteAccount();
+                                // Fire backend delete (don't await - runs in background)
+                                azureApi.deleteAccount().catch(err => {
+                                  console.error('Account deletion error:', err);
+                                });
 
-                                // Show impact summary
-                                if (result.deleted_collections.length > 0) {
-                                  toast({
-                                    title: "Collections deleted",
-                                    description: `${result.deleted_collections.length} collection(s) permanently deleted as you were the last owner.`,
-                                  });
-                                }
-
-                                // Sign out
+                                // Sign out and redirect IMMEDIATELY
                                 await supabase.auth.signOut();
-
-                                toast({
-                                  title: "Account deleted",
-                                  description: "Your account has been permanently deleted.",
-                                });
-
-                                navigate("/auth");
-                              } catch (error: any) {
-                                toast({
-                                  title: "Error deleting account",
-                                  description: error.message,
-                                  variant: "destructive",
-                                });
-                                setDeleteStage('none');
-                              } finally {
-                                setIsDeleting(false);
-                              }
-                            }}
-                            disabled={isDeleting}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            {isDeleting ? "Deleting..." : "Delete Account"}
-                          </AlertDialogAction>
+                                navigate("/auth", { replace: true });
+                              }}
+                              disabled={deleteConfirmText.toLowerCase() !== 'delete'}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete Account
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
                     </CardContent>

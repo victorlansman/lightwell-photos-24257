@@ -9,7 +9,6 @@ import { Lightbox } from '@/components/Lightbox';
 import { SharePhotosDialog } from '@/components/SharePhotosDialog';
 import { Button } from '@/components/ui/button';
 import { useAlbumLightbox } from '@/hooks/useAlbumPhotos';
-import { format, isSameDay, parseISO } from 'date-fns';
 import { ThumbnailAbortContext } from '@/hooks/useThumbnailAbort';
 
 export interface AlbumViewContainerProps {
@@ -112,19 +111,27 @@ export function AlbumViewContainer({
     }
   }, [inView, hasMore, isLoadingMore, onLoadMore]);
 
-  // Group photos by date
-  const photosByDate = useMemo(() => {
-    const groups: { date: string; photos: Photo[] }[] = [];
+  // Group photos by year (AI-estimated display_year, not upload date)
+  const photosByYear = useMemo(() => {
+    const groups: { year: number | null; photos: Photo[] }[] = [];
 
     photos.forEach(photo => {
-      const photoDate = format(parseISO(photo.created_at), 'yyyy-MM-dd');
-      const existingGroup = groups.find(g => g.date === photoDate);
+      const year = photo.display_year;
+      const existingGroup = groups.find(g => g.year === year);
 
       if (existingGroup) {
         existingGroup.photos.push(photo);
       } else {
-        groups.push({ date: photoDate, photos: [photo] });
+        groups.push({ year, photos: [photo] });
       }
+    });
+
+    // Sort by year descending (most recent first), nulls last
+    groups.sort((a, b) => {
+      if (a.year === null && b.year === null) return 0;
+      if (a.year === null) return 1;
+      if (b.year === null) return -1;
+      return b.year - a.year;
     });
 
     return groups;
@@ -260,12 +267,12 @@ export function AlbumViewContainer({
               )
             ) : (
               <>
-                {photosByDate.map((group) => (
-                  <div key={group.date} className="space-y-2">
-                    {/* Date header */}
+                {photosByYear.map((group) => (
+                  <div key={group.year ?? 'unknown'} className="space-y-2">
+                    {/* Year header */}
                     {showDates && (
                       <h2 className="text-lg font-semibold text-foreground sticky top-0 bg-background/95 backdrop-blur-sm py-2 z-10">
-                        {format(parseISO(group.date), 'EEEE, MMMM d, yyyy')}
+                        {group.year ?? 'Unknown Year'}
                       </h2>
                     )}
 

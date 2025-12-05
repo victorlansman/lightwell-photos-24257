@@ -20,7 +20,6 @@ import { EditPersonDialog } from "@/components/EditPersonDialog";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { azureApi } from "@/lib/azureApiClient";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 import { ServerId, FaceTag } from "@/types/identifiers";
@@ -890,9 +889,21 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                   </div>
 
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Date</p>
+                    <p className="text-sm font-medium text-muted-foreground">Year</p>
                     <p className="text-sm text-foreground">
-                      {format(new Date(photo.created_at), "PPpp")}
+                      {photo.display_year ? (
+                        <>
+                          {photo.display_year}
+                          {photo.estimated_year_min && photo.estimated_year_max &&
+                           photo.estimated_year_min !== photo.estimated_year_max && (
+                            <span className="text-muted-foreground ml-1">
+                              ({photo.estimated_year_min}–{photo.estimated_year_max})
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        'Unknown'
+                      )}
                     </p>
                   </div>
 

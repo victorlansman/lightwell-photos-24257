@@ -87,9 +87,74 @@ export interface InviteResponse {
   expires_at?: string;
 }
 
+export interface LeaveCollectionResponse {
+  message: string;
+  collection_deleted?: boolean;
+  blobs_deleted?: number;
+}
+
+// ==================== Photo Types ====================
+// Split into List (lean) and Detail (full) responses
+
+/** Person reference in list response - no bbox */
+export interface PhotoPersonRef {
+  id: ServerId;
+  name: string;
+  cluster_id?: ServerId | null;
+}
+
+/** Person with face bbox - only in detail response */
+export interface PhotoPersonWithFace extends PhotoPersonRef {
+  face_bbox: UiBoundingBox | null;
+}
+
+/** Lean photo from list endpoint - optimized for grid/timeline views */
+export interface PhotoListItem {
+  id: ServerId;
+  collection_id: ServerId;
+  path: string;
+  thumbnail_url: string | null;
+  created_at: string;
+
+  // Year - display_year is computed (user_corrected ?? estimated)
+  display_year: number | null;
+  estimated_year_min: number | null;
+  estimated_year_max: number | null;
+
+  // For display (filtering is server-side)
+  tags: string[];
+  people: PhotoPersonRef[];
+  is_favorite: boolean;
+
+  // Layout
+  width: number | null;
+  height: number | null;
+  rotation: number;
+  derivatives_ready: boolean;
+}
+
+/** Full photo detail from GET /v1/photos/{id} */
+export interface PhotoDetail extends Omit<PhotoListItem, 'people'> {
+  // People with face bboxes for tagging
+  people: PhotoPersonWithFace[];
+
+  // Year estimation details
+  estimated_year: number | null;
+  user_corrected_year: number | null;
+  estimated_year_confidence: number | null;
+  year_estimation_reasoning: string | null;
+
+  // Metadata
+  title: string | null;
+  description: string | null;
+  master_image_id: ServerId | null;
+  camera_model: string | null;
+}
+
+/** @deprecated Use PhotoListItem for lists, PhotoDetail for single photo */
 export interface Photo {
-  id: ServerId;  // Changed from string
-  collection_id: ServerId;  // Collection this photo belongs to
+  id: ServerId;
+  collection_id: ServerId;
   path: string;
   thumbnail_url: string | null;
   created_at: string;
@@ -106,9 +171,9 @@ export interface Photo {
   // Filtering
   tags: string[];
   people: Array<{
-    id: ServerId;  // Changed from string
+    id: ServerId;
     name: string;
-    face_bbox: UiBoundingBox | null;  // Changed to use typed coords
+    face_bbox: UiBoundingBox | null;
     cluster_id?: ServerId | null;
   }>;
   is_favorite: boolean;
@@ -131,7 +196,7 @@ export interface PhotoFilters {
 }
 
 export interface PaginatedPhotosResponse {
-  photos: Photo[];
+  photos: PhotoListItem[];
   cursor?: string;
   hasMore: boolean;
   total?: number;
@@ -376,33 +441,38 @@ class AzureApiClient {
     }
 
     // Backend returns { photos, cursor, has_more, total }
-    const photos: Photo[] = response.photos || [];
-    const cursor = response.cursor;
-    const hasMore = response.has_more ?? false;
-    const total = response.total;
+    // List response is lean - no face_bbox, no coordinate conversion needed
+    const photos: PhotoListItem[] = response.photos || [];
 
-    // COORDINATE CONVERSION: API (0-1) → UI (0-100)
-    const convertedPhotos = photos.map(photo => ({
-      ...photo,
-      people: photo.people.map(person => ({
+    return {
+      photos,
+      cursor: response.cursor,
+      hasMore: response.has_more ?? false,
+      total: response.total,
+    };
+  }
+
+  /**
+   * Get full photo detail including year reasoning and face bboxes.
+   * Use for lightbox info panel, face tagging, slideshow captions.
+   */
+  async getPhotoDetail(photoId: string): Promise<PhotoDetail> {
+    const response = await this.request<any>(`/v1/photos/${photoId}`);
+
+    // COORDINATE CONVERSION: API (0-1) → UI (0-100) for face bboxes
+    return {
+      ...response,
+      people: response.people.map((person: any) => ({
         ...person,
         face_bbox: person.face_bbox
           ? apiBboxToUi({
-              x: apiCoord(person.face_bbox.x as any),
-              y: apiCoord(person.face_bbox.y as any),
-              width: apiCoord(person.face_bbox.width as any),
-              height: apiCoord(person.face_bbox.height as any),
+              x: apiCoord(person.face_bbox.x),
+              y: apiCoord(person.face_bbox.y),
+              width: apiCoord(person.face_bbox.width),
+              height: apiCoord(person.face_bbox.height),
             })
           : null,
-        cluster_id: person.cluster_id,  // Preserve from backend
       })),
-    }));
-
-    return {
-      photos: convertedPhotos,
-      cursor,
-      hasMore,
-      total,
     };
   }
 
@@ -913,9 +983,10 @@ class AzureApiClient {
   }
 
   /**
-   * Remove a member from a collection (owners only).
+   * Remove a member from a collection (owners only) or leave collection (self).
+   * If the leaving user is the last owner, the collection will be cascade deleted.
    */
-  async removeMember(collectionId: string, userId: string): Promise<void> {
+  async removeMember(collectionId: string, userId: string): Promise<LeaveCollectionResponse> {
     return this.request(`/v1/collections/${collectionId}/members/${userId}`, {
       method: 'DELETE',
     });
