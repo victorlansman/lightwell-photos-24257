@@ -226,8 +226,8 @@ export default function PersonAlbum() {
             collectionId={firstCollectionId!}
             isLoading={photosLoading}
             personId={id}
-            showViewControls
-            enableSelection
+            showViewControls={!isChoosingThumbnail}
+            enableSelection={!isChoosingThumbnail}
             hasMore={isCluster ? false : hasMore}
             isLoadingMore={isCluster ? false : isLoadingMore}
             onLoadMore={isCluster ? undefined : loadMore}
@@ -246,7 +246,7 @@ export default function PersonAlbum() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => navigate("/people")}
+                  onClick={() => isChoosingThumbnail ? setIsChoosingThumbnail(false) : navigate("/people")}
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
@@ -256,7 +256,8 @@ export default function PersonAlbum() {
                     faceId={displayPerson.representativeFaceId}
                     size="sm"
                   />
-                  {!isCluster && (
+                  {/* Hide edit pencil when choosing thumbnail */}
+                  {!isCluster && !isChoosingThumbnail && (
                     <button
                       onClick={() => {
                         setIsChoosingThumbnail(true);
@@ -270,7 +271,21 @@ export default function PersonAlbum() {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  {displayPerson.name ? (
+                  {isChoosingThumbnail ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h1 className="text-xl md:text-2xl font-bold text-foreground">
+                        Choose a thumbnail
+                      </h1>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsChoosingThumbnail(false)}
+                        className="shrink-0"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : displayPerson.name ? (
                     <div className="flex items-center gap-2 flex-wrap">
                       <h1 className="text-2xl md:text-3xl font-bold text-foreground truncate">
                         {displayPerson.name}
@@ -295,9 +310,11 @@ export default function PersonAlbum() {
                       Name This {isCluster ? 'Cluster' : 'Person'}
                     </Button>
                   )}
-                  <p className="text-muted-foreground mt-1 text-sm md:text-base">
-                    {displayPerson.photoCount} {displayPerson.photoCount === 1 ? "Item" : "Items"}
-                  </p>
+                  {!isChoosingThumbnail && (
+                    <p className="text-muted-foreground mt-1 text-sm md:text-base">
+                      {displayPerson.photoCount} {displayPerson.photoCount === 1 ? "Item" : "Items"}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
