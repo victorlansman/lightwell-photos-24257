@@ -294,8 +294,9 @@ export function AlbumViewContainer({
                               isSelected={selectedPhotos.has(photo.id)}
                               onSelect={() => handleSelectPhoto(photo.id)}
                               onClick={() => {
-                                if (onFaceClick && face) {
-                                  onFaceClick(face, photo.id);
+                                // In thumbnail selection mode, always call onFaceClick (face can be null)
+                                if (onFaceClick) {
+                                  onFaceClick(face ?? null, photo.id);
                                 } else {
                                   handlePhotoClick(photo);
                                 }
@@ -344,8 +345,9 @@ export function AlbumViewContainer({
                         isSelected={selectedPhotos.has(photo.id)}
                         onSelect={() => handleSelectPhoto(photo.id)}
                         onClick={() => {
-                          if (onFaceClick && face) {
-                            onFaceClick(face, photo.id);
+                          // In thumbnail selection mode, always call onFaceClick (face can be null)
+                          if (onFaceClick) {
+                            onFaceClick(face ?? null, photo.id);
                           } else {
                             handlePhotoClick(photo);
                           }
