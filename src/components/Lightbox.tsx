@@ -1079,33 +1079,41 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                       </div>
                       <p className="text-base text-foreground font-medium">
                         {(() => {
-                          // Check if this is an approximate range (has min/max that differ)
-                          const hasRange = detail.user_corrected_year_min && detail.user_corrected_year_max &&
-                            detail.user_corrected_year_min !== detail.user_corrected_year_max;
+                          // Determine if this is truly approximate mode:
+                          // - Has min/max that differ
+                          // - Year equals midpoint of range (we set this when saving approximate)
+                          // If year doesn't match midpoint, range is stale from backend not clearing
+                          const minYear = detail.user_corrected_year_min;
+                          const maxYear = detail.user_corrected_year_max;
+                          const year = detail.user_corrected_year;
 
-                          let dateDisplay: string | number = detail.user_corrected_year;
+                          const isApproximate = minYear && maxYear && year &&
+                            minYear !== maxYear &&
+                            year === Math.round((minYear + maxYear) / 2);
+
+                          let dateDisplay: string | number = year ?? 'Unknown';
 
                           // Format specific date if available
                           if (detail.user_corrected_date) {
                             const parts = detail.user_corrected_date.split('-');
                             if (parts.length >= 2) {
-                              const year = parts[0];
+                              const yearStr = parts[0];
                               const month = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleString('en-US', { month: 'long' });
                               if (parts.length === 3 && parts[2]) {
-                                dateDisplay = `${month} ${parseInt(parts[2])}, ${year}`;
+                                dateDisplay = `${month} ${parseInt(parts[2])}, ${yearStr}`;
                               } else {
-                                dateDisplay = `${month} ${year}`;
+                                dateDisplay = `${month} ${yearStr}`;
                               }
                             }
                           }
 
-                          // Add range suffix for approximate dates
-                          if (hasRange) {
+                          // Add range suffix only for approximate dates
+                          if (isApproximate) {
                             return (
                               <>
                                 {dateDisplay}
                                 <span className="text-muted-foreground ml-1">
-                                  ({detail.user_corrected_year_min}–{detail.user_corrected_year_max})
+                                  ({minYear}–{maxYear})
                                 </span>
                               </>
                             );
