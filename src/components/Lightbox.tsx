@@ -1386,13 +1386,13 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                     {(showAiSection || !detail?.user_corrected_year) && (
                       <div className="space-y-2">
                         <p className="text-sm text-foreground">
-                          {photo.display_year ? (
+                          {detail?.estimated_year ? (
                             <>
-                              {photo.display_year}
-                              {photo.estimated_year_min && photo.estimated_year_max &&
-                               photo.estimated_year_min !== photo.estimated_year_max && (
+                              {detail.estimated_year}
+                              {detail.estimated_year_min && detail.estimated_year_max &&
+                               detail.estimated_year_min !== detail.estimated_year_max && (
                                 <span className="text-muted-foreground ml-1">
-                                  ({photo.estimated_year_min}–{photo.estimated_year_max})
+                                  ({detail.estimated_year_min}–{detail.estimated_year_max})
                                 </span>
                               )}
                             </>
