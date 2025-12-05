@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { azureApi } from "@/lib/azureApiClient";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
 import { usePhotoDetail, usePrefetchPhotoDetail } from "@/hooks/usePhotoDetail";
+import { useQueryClient } from "@tanstack/react-query";
 import { ServerId, FaceTag } from "@/types/identifiers";
 
 interface LightboxProps {
@@ -61,11 +62,13 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateInputMode, setDateInputMode] = useState<'exact' | 'approximate'>('exact');
   const [showAiSection, setShowAiSection] = useState(true);
-  // Date input fields (will connect to API later)
+  // Date input fields
   const [userYear, setUserYear] = useState('');
   const [userYearMin, setUserYearMin] = useState('');
   const [userYearMax, setUserYearMax] = useState('');
+  const [userDate, setUserDate] = useState(''); // Specific date (e.g., "1986-06-15" or "1986-06")
   const [userDateComment, setUserDateComment] = useState('');
+  const [isSavingDate, setIsSavingDate] = useState(false);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -122,9 +125,21 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   });
 
   // Fetch full photo detail (reasoning, confidence, face bboxes)
-  const { detail, isLoading: detailLoading } = usePhotoDetail(photo?.id, {
+  const { detail, isLoading: detailLoading, refetch: refetchDetail } = usePhotoDetail(photo?.id, {
     enabled: isOpen,
   });
+
+  const queryClient = useQueryClient();
+
+  // Initialize date input fields from detail when opened/loaded
+  useEffect(() => {
+    if (detail && showDateInput) {
+      // Populate from existing user-corrected values
+      setUserYear(detail.user_corrected_year?.toString() ?? '');
+      setUserDate(detail.user_corrected_date ?? '');
+      // Note: reasoning not currently stored on backend
+    }
+  }, [detail, showDateInput]);
 
   // Debug: Log when photo changes
   useEffect(() => {
@@ -335,6 +350,59 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     } catch (error) {
       console.error('Download failed:', error);
       toast.error("Failed to download photo");
+    }
+  };
+
+  const handleSaveDate = async () => {
+    if (!photo?.id) return;
+
+    try {
+      setIsSavingDate(true);
+
+      // Build update payload based on mode
+      const update: Parameters<typeof azureApi.updateYearEstimation>[1] = {};
+
+      if (dateInputMode === 'exact') {
+        // Exact mode: year required, specific date optional
+        if (userYear) {
+          update.user_corrected_year = parseInt(userYear, 10);
+        }
+        // If specific date provided, include it
+        if (userDate) {
+          update.user_corrected_date = userDate; // "YYYY-MM-DD" or "YYYY-MM"
+        }
+      } else {
+        // Approximate mode: year range
+        if (userYearMin) {
+          update.user_corrected_year_min = parseInt(userYearMin, 10);
+        }
+        if (userYearMax) {
+          update.user_corrected_year_max = parseInt(userYearMax, 10);
+        }
+        // Calculate middle year for display_year if both provided
+        if (userYearMin && userYearMax) {
+          update.user_corrected_year = Math.round((parseInt(userYearMin, 10) + parseInt(userYearMax, 10)) / 2);
+        }
+      }
+
+      // Comment (reasoning)
+      if (userDateComment) {
+        update.user_year_reasoning = userDateComment;
+      }
+
+      await azureApi.updateYearEstimation(photo.id, update);
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['photo-detail', photo.id] });
+      queryClient.invalidateQueries({ queryKey: ['photos'] });
+
+      toast.success('Date saved');
+      setShowDateInput(false);
+    } catch (error) {
+      console.error('Failed to save date:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save date');
+    } finally {
+      setIsSavingDate(false);
     }
   };
 
@@ -920,10 +988,24 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-muted-foreground">Photo Date</p>
                       <p className="text-base text-foreground font-medium">
-                        {detail.user_corrected_year}
-                        {/* TODO: Show specific date if available */}
+                        {detail.user_corrected_date ? (
+                          // Format "YYYY-MM" as "June 1985" or "YYYY-MM-DD" as "June 15, 1985"
+                          (() => {
+                            const parts = detail.user_corrected_date.split('-');
+                            if (parts.length >= 2) {
+                              const year = parts[0];
+                              const month = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleString('en-US', { month: 'long' });
+                              if (parts.length === 3 && parts[2]) {
+                                return `${month} ${parseInt(parts[2])}, ${year}`;
+                              }
+                              return `${month} ${year}`;
+                            }
+                            return detail.user_corrected_year;
+                          })()
+                        ) : (
+                          detail.user_corrected_year
+                        )}
                       </p>
-                      {/* TODO: Show user comment if available */}
                     </div>
                   )}
 
@@ -986,8 +1068,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                             className="h-8 text-sm"
                           />
                           <Input
-                            type="text"
-                            placeholder="Specific date (optional, e.g., Dec 25)"
+                            type="month"
+                            placeholder="Month (optional)"
+                            value={userDate ? userDate.substring(0, 7) : ''}
+                            onChange={(e) => setUserDate(e.target.value)}
                             className="h-8 text-sm"
                           />
                         </div>
@@ -1038,13 +1122,11 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                       <div className="flex gap-2">
                         <Button
                           size="sm"
-                          onClick={() => {
-                            // TODO: Connect to API
-                            toast.success('Date saved (UI only - API connection pending)');
-                            setShowDateInput(false);
-                          }}
+                          onClick={handleSaveDate}
+                          disabled={isSavingDate || (dateInputMode === 'exact' ? !userYear : !userYearMin || !userYearMax)}
                           className="flex-1"
                         >
+                          {isSavingDate ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
                           Save
                         </Button>
                         <Button
@@ -1055,8 +1137,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                             setUserYear('');
                             setUserYearMin('');
                             setUserYearMax('');
+                            setUserDate('');
                             setUserDateComment('');
                           }}
+                          disabled={isSavingDate}
                         >
                           Cancel
                         </Button>

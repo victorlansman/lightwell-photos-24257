@@ -141,6 +141,7 @@ export interface PhotoDetail extends Omit<PhotoListItem, 'people'> {
   // Year estimation details
   estimated_year: number | null;
   user_corrected_year: number | null;
+  user_corrected_date: string | null;  // "YYYY-MM-DD" or "YYYY-MM"
   estimated_year_confidence: number | null;
   year_estimation_reasoning: string | null;
 
@@ -203,10 +204,11 @@ export interface PaginatedPhotosResponse {
 }
 
 export interface YearEstimationUpdate {
-  user_corrected_year?: number;
-  user_corrected_year_min?: number;
-  user_corrected_year_max?: number;
-  user_year_reasoning?: string;
+  user_corrected_year?: number | null;
+  user_corrected_year_min?: number | null;
+  user_corrected_year_max?: number | null;
+  user_corrected_date?: string | null;  // "YYYY-MM-DD" or "YYYY-MM", null to clear
+  user_year_reasoning?: string | null;
 }
 
 // ==================== Derivative Types ====================
