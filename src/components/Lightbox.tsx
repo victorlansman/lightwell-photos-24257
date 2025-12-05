@@ -434,21 +434,24 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     try {
       setIsSavingDate(true);
 
-      // Build update payload based on mode - clear other mode's data to avoid conflicts
-      const update: Parameters<typeof azureApi.updateYearEstimation>[1] = {};
+      // Build update payload - ALWAYS include all fields to ensure clearing works
+      // Backend may ignore undefined but should process explicit null
+      const update: Parameters<typeof azureApi.updateYearEstimation>[1] = {
+        user_corrected_year: null,
+        user_corrected_year_min: null,
+        user_corrected_year_max: null,
+        user_corrected_date: null,
+        user_year_reasoning: userDateComment || null,
+      };
 
       if (dateInputMode === 'exact') {
         // Exact mode: year required, month/day optional
         update.user_corrected_year = parseInt(userYear, 10);
-        // Clear approximate range fields
-        update.user_corrected_year_min = null;
-        update.user_corrected_year_max = null;
+        // user_corrected_year_min and _max stay null (clearing approximate)
         // Build date string if month provided
         const dateStr = buildDateString(userYear, userMonth, userDay);
         if (dateStr && userMonth) {
           update.user_corrected_date = dateStr;
-        } else {
-          update.user_corrected_date = null;
         }
       } else {
         // Approximate mode: year range with optional month/day
@@ -457,24 +460,18 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         // Calculate middle year for display_year if both provided
         if (userYearMin && userYearMax) {
           update.user_corrected_year = Math.round((parseInt(userYearMin, 10) + parseInt(userYearMax, 10)) / 2);
-        }
-        // Build date from middle year + optional month/day for approximate mode
-        if (update.user_corrected_year && userMonthApprox) {
-          update.user_corrected_date = buildDateString(
-            String(update.user_corrected_year),
-            userMonthApprox,
-            userDayApprox
-          );
-        } else {
-          update.user_corrected_date = null;
+          // Build date from middle year + optional month/day
+          if (userMonthApprox) {
+            update.user_corrected_date = buildDateString(
+              String(update.user_corrected_year),
+              userMonthApprox,
+              userDayApprox
+            );
+          }
         }
       }
 
-      // Comment (reasoning)
-      if (userDateComment) {
-        update.user_year_reasoning = userDateComment;
-      }
-
+      console.log('[handleSaveDate] Sending update:', JSON.stringify(update));
       await azureApi.updateYearEstimation(photo.id, update);
 
       // Invalidate queries to refresh data
@@ -1198,7 +1195,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                                 }
                               }
                             }}
-                            className="h-8 text-sm"
+                            className={cn(
+                              "h-8 text-sm",
+                              userYear && !isValidYear(userYear) && "border-red-500 focus-visible:ring-red-500"
+                            )}
                           />
                           <div className="flex gap-2">
                             <select
@@ -1247,7 +1247,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                                 const val = e.target.value.replace(/\D/g, '').slice(0, 4);
                                 setUserYearMin(val);
                               }}
-                              className="h-8 text-sm flex-1"
+                              className={cn(
+                                "h-8 text-sm flex-1",
+                                userYearMin && !isValidYear(userYearMin) && "border-red-500 focus-visible:ring-red-500"
+                              )}
                             />
                             <Input
                               type="text"
@@ -1260,7 +1263,10 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                                 const val = e.target.value.replace(/\D/g, '').slice(0, 4);
                                 setUserYearMax(val);
                               }}
-                              className="h-8 text-sm flex-1"
+                              className={cn(
+                                "h-8 text-sm flex-1",
+                                userYearMax && !isValidYear(userYearMax) && "border-red-500 focus-visible:ring-red-500"
+                              )}
                             />
                           </div>
                           <div className="flex gap-2">
