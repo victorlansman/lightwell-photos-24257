@@ -373,8 +373,9 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     }
   };
 
-  // Helper to validate year is between 1800-2100
+  // Helper to validate year is exactly 4 digits and between 1800-2100
   const isValidYear = (year: string) => {
+    if (year.length !== 4) return false;
     const num = parseInt(year, 10);
     return !isNaN(num) && num >= 1800 && num <= 2100;
   };
@@ -415,25 +416,26 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     try {
       setIsSavingDate(true);
 
-      // Build update payload based on mode
+      // Build update payload based on mode - clear other mode's data to avoid conflicts
       const update: Parameters<typeof azureApi.updateYearEstimation>[1] = {};
 
       if (dateInputMode === 'exact') {
         // Exact mode: year required, month/day optional
         update.user_corrected_year = parseInt(userYear, 10);
+        // Clear approximate range fields
+        update.user_corrected_year_min = null;
+        update.user_corrected_year_max = null;
         // Build date string if month provided
         const dateStr = buildDateString(userYear, userMonth, userDay);
         if (dateStr && userMonth) {
           update.user_corrected_date = dateStr;
+        } else {
+          update.user_corrected_date = null;
         }
       } else {
         // Approximate mode: year range with optional month/day
-        if (userYearMin) {
-          update.user_corrected_year_min = parseInt(userYearMin, 10);
-        }
-        if (userYearMax) {
-          update.user_corrected_year_max = parseInt(userYearMax, 10);
-        }
+        update.user_corrected_year_min = userYearMin ? parseInt(userYearMin, 10) : null;
+        update.user_corrected_year_max = userYearMax ? parseInt(userYearMax, 10) : null;
         // Calculate middle year for display_year if both provided
         if (userYearMin && userYearMax) {
           update.user_corrected_year = Math.round((parseInt(userYearMin, 10) + parseInt(userYearMax, 10)) / 2);
@@ -445,6 +447,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
             userMonthApprox,
             userDayApprox
           );
+        } else {
+          update.user_corrected_date = null;
         }
       }
 
@@ -1053,29 +1057,47 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                         <p className="text-sm font-medium text-muted-foreground">Photo Date</p>
                         <button
                           onClick={() => setShowDateInput(true)}
-                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          className="text-primary hover:text-primary/80 transition-colors"
                         >
                           <Pencil className="h-3 w-3" />
                         </button>
                       </div>
                       <p className="text-base text-foreground font-medium">
-                        {detail.user_corrected_date ? (
-                          // Format "YYYY-MM" as "June 1985" or "YYYY-MM-DD" as "June 15, 1985"
-                          (() => {
+                        {(() => {
+                          // Check if this is an approximate range (has min/max that differ)
+                          const hasRange = detail.user_corrected_year_min && detail.user_corrected_year_max &&
+                            detail.user_corrected_year_min !== detail.user_corrected_year_max;
+
+                          let dateDisplay: string | number = detail.user_corrected_year;
+
+                          // Format specific date if available
+                          if (detail.user_corrected_date) {
                             const parts = detail.user_corrected_date.split('-');
                             if (parts.length >= 2) {
                               const year = parts[0];
                               const month = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleString('en-US', { month: 'long' });
                               if (parts.length === 3 && parts[2]) {
-                                return `${month} ${parseInt(parts[2])}, ${year}`;
+                                dateDisplay = `${month} ${parseInt(parts[2])}, ${year}`;
+                              } else {
+                                dateDisplay = `${month} ${year}`;
                               }
-                              return `${month} ${year}`;
                             }
-                            return detail.user_corrected_year;
-                          })()
-                        ) : (
-                          detail.user_corrected_year
-                        )}
+                          }
+
+                          // Add range suffix for approximate dates
+                          if (hasRange) {
+                            return (
+                              <>
+                                {dateDisplay}
+                                <span className="text-muted-foreground ml-1">
+                                  ({detail.user_corrected_year_min}–{detail.user_corrected_year_max})
+                                </span>
+                              </>
+                            );
+                          }
+
+                          return dateDisplay;
+                        })()}
                       </p>
                       {/* User's comment about the date */}
                       {detail.user_year_reasoning && (
@@ -1120,7 +1142,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                             "text-xs px-2 py-1 rounded transition-colors",
                             dateInputMode === 'exact'
                               ? "bg-primary text-primary-foreground"
-                              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                              : "bg-transparent text-primary border border-primary hover:bg-primary/10"
                           )}
                         >
                           Exact date
@@ -1131,7 +1153,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                             "text-xs px-2 py-1 rounded transition-colors",
                             dateInputMode === 'approximate'
                               ? "bg-primary text-primary-foreground"
-                              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                              : "bg-transparent text-primary border border-primary hover:bg-primary/10"
                           )}
                         >
                           Approximate
@@ -1141,12 +1163,16 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                       {dateInputMode === 'exact' ? (
                         <div className="space-y-2">
                           <Input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={4}
                             placeholder="Year (e.g., 1986)"
-                            min={1800}
-                            max={2100}
                             value={userYear}
-                            onChange={(e) => setUserYear(e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              setUserYear(val);
+                            }}
                             className="h-8 text-sm"
                           />
                           <div className="flex gap-2">
@@ -1161,37 +1187,46 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                                 <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
                               ))}
                             </select>
-                            <Input
-                              type="number"
-                              placeholder="Day"
-                              min={1}
-                              max={31}
+                            <select
                               value={userDay}
                               onChange={(e) => setUserDay(e.target.value)}
-                              className="h-8 text-sm w-16"
+                              className="h-8 text-sm w-20 rounded-md border border-input bg-background px-2"
                               disabled={!userMonth}
-                            />
+                            >
+                              <option value="">Day</option>
+                              {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                                <option key={d} value={String(d).padStart(2, '0')}>{d}</option>
+                              ))}
+                            </select>
                           </div>
                         </div>
                       ) : (
                         <div className="space-y-2">
                           <div className="flex gap-2">
                             <Input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={4}
                               placeholder="From year"
-                              min={1800}
-                              max={2100}
                               value={userYearMin}
-                              onChange={(e) => setUserYearMin(e.target.value)}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                setUserYearMin(val);
+                              }}
                               className="h-8 text-sm flex-1"
                             />
                             <Input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={4}
                               placeholder="To year"
-                              min={1800}
-                              max={2100}
                               value={userYearMax}
-                              onChange={(e) => setUserYearMax(e.target.value)}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                setUserYearMax(val);
+                              }}
                               className="h-8 text-sm flex-1"
                             />
                           </div>
@@ -1207,16 +1242,17 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                                 <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
                               ))}
                             </select>
-                            <Input
-                              type="number"
-                              placeholder="Day"
-                              min={1}
-                              max={31}
+                            <select
                               value={userDayApprox}
                               onChange={(e) => setUserDayApprox(e.target.value)}
-                              className="h-8 text-sm w-16"
+                              className="h-8 text-sm w-20 rounded-md border border-input bg-background px-2"
                               disabled={!userMonthApprox}
-                            />
+                            >
+                              <option value="">Day</option>
+                              {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                                <option key={d} value={String(d).padStart(2, '0')}>{d}</option>
+                              ))}
+                            </select>
                           </div>
                         </div>
                       )}
@@ -1233,7 +1269,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                         <Button
                           size="sm"
                           onClick={handleSaveDate}
-                          disabled={isSavingDate || (dateInputMode === 'exact' ? !userYear : !userYearMin || !userYearMax)}
+                          disabled={isSavingDate || (dateInputMode === 'exact' ? !isValidYear(userYear) : !isValidYear(userYearMin) || !isValidYear(userYearMax))}
                           className="flex-1"
                         >
                           {isSavingDate ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
