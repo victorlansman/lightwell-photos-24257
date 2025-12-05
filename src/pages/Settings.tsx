@@ -160,7 +160,7 @@ export default function Settings() {
 
                 {/* Collection Members Tab */}
                 <TabsContent value="members" className="space-y-4">
-                  {/* Collection Selector */}
+                  {/* Collection Selector with Leave Action */}
                   <Card>
                     <CardHeader>
                       <CardTitle>Select Collection</CardTitle>
@@ -170,7 +170,7 @@ export default function Settings() {
                           : 'View members of this collection'}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
                       <Select
                         value={selectedCollectionId}
                         onValueChange={setSelectedCollectionId}
@@ -181,89 +181,77 @@ export default function Settings() {
                         <SelectContent>
                           {collections?.map((collection) => (
                             <SelectItem key={collection.id} value={collection.id}>
-                              {collection.name} ({collection.user_role})
+                              {collection.name} · {collection.photo_count} photos ({collection.user_role})
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+
+                      {selectedCollectionId && (
+                        <div className="flex items-center gap-3 pt-2 border-t">
+                          <AlertDialog
+                            open={leaveDialogOpen}
+                            onOpenChange={(open) => {
+                              setLeaveDialogOpen(open);
+                              if (!open) setLeaveConfirmText('');
+                            }}
+                          >
+                            <AlertDialogTrigger asChild>
+                              <Button variant={isLastOwner ? "destructive" : "outline"} size="sm">
+                                <LogOut className="h-4 w-4 mr-2" />
+                                {isLastOwner ? `Delete "${selectedCollection?.name}"` : `Leave "${selectedCollection?.name}"`}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  {isLastOwner ? "⚠️ Warning: You are the last owner" : "Leave collection?"}
+                                </AlertDialogTitle>
+                                <AlertDialogDescription asChild>
+                                  <div className="space-y-3">
+                                    {isLastOwner ? (
+                                      <>
+                                        <p className="font-semibold text-destructive">
+                                          Leaving will permanently delete this collection and all {selectedCollection?.photo_count ?? 0} photos.
+                                        </p>
+                                        <p>This cannot be undone. All photos and their data will be deleted.</p>
+                                        <div className="pt-2">
+                                          <p className="text-sm mb-2">Type <span className="font-mono font-bold">delete</span> to confirm:</p>
+                                          <Input
+                                            value={leaveConfirmText}
+                                            onChange={(e) => setLeaveConfirmText(e.target.value)}
+                                            placeholder="delete"
+                                            disabled={isLeaving}
+                                          />
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <p>You will lose access to "{selectedCollection?.name}" and all its photos.</p>
+                                    )}
+                                  </div>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel disabled={isLeaving}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={handleLeaveCollection}
+                                  disabled={isLeaving || (isLastOwner && leaveConfirmText.toLowerCase() !== 'delete')}
+                                  className={isLastOwner ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+                                >
+                                  {isLeaving ? "Processing..." : isLastOwner ? "Delete Collection" : "Leave"}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                          {isOwner && !isLastOwner && (
+                            <p className="text-xs text-muted-foreground">
+                              Transfer ownership to delete this collection.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
-
-                  {/* Collection Actions */}
-                  {selectedCollectionId && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Collection Actions</CardTitle>
-                        <CardDescription>
-                          Manage your membership in "{selectedCollection?.name}"
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="flex gap-3">
-                        {/* Leave Collection */}
-                        <AlertDialog
-                          open={leaveDialogOpen}
-                          onOpenChange={(open) => {
-                            setLeaveDialogOpen(open);
-                            if (!open) setLeaveConfirmText('');
-                          }}
-                        >
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline">
-                              <LogOut className="h-4 w-4 mr-2" />
-                              Leave Collection
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                {isLastOwner ? "⚠️ Warning: You are the last owner" : "Leave collection?"}
-                              </AlertDialogTitle>
-                              <AlertDialogDescription asChild>
-                                <div className="space-y-3">
-                                  {isLastOwner ? (
-                                    <>
-                                      <p className="font-semibold text-destructive">
-                                        Leaving will permanently delete this collection and all {selectedCollection?.photo_count ?? 0} photos.
-                                      </p>
-                                      <p>This cannot be undone. All photos and their data will be deleted.</p>
-                                      <div className="pt-2">
-                                        <p className="text-sm mb-2">Type <span className="font-mono font-bold">delete</span> to confirm:</p>
-                                        <Input
-                                          value={leaveConfirmText}
-                                          onChange={(e) => setLeaveConfirmText(e.target.value)}
-                                          placeholder="delete"
-                                          disabled={isLeaving}
-                                        />
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <p>You will lose access to "{selectedCollection?.name}" and all its photos.</p>
-                                  )}
-                                </div>
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel disabled={isLeaving}>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={handleLeaveCollection}
-                                disabled={isLeaving || (isLastOwner && leaveConfirmText.toLowerCase() !== 'delete')}
-                                className={isLastOwner ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
-                              >
-                                {isLeaving ? "Deleting..." : isLastOwner ? "Delete Collection" : "Leave"}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-
-                        {/* Delete Collection (owner shortcut - same as leaving as last owner) */}
-                        {isOwner && !isLastOwner && (
-                          <p className="text-sm text-muted-foreground self-center">
-                            Transfer ownership to another member before deleting.
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )}
 
                   {/* Members List */}
                   {membersLoading ? (
@@ -287,17 +275,36 @@ export default function Settings() {
                     </Card>
                   )}
 
-                  {/* Pending Invites (Owners Only) */}
-                  {isOwner && invites && invites.length > 0 && (
-                    <PendingInvitesList
-                      invites={invites}
-                      collectionId={selectedCollectionId}
-                    />
-                  )}
-
-                  {/* Invite Form */}
+                  {/* Invitations Section (Owners Only) */}
                   {isOwner ? (
-                    <InviteForm collectionId={selectedCollectionId} />
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>{selectedCollection?.name} Invitations</CardTitle>
+                        <CardDescription>
+                          Invite new members or manage pending invitations
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {/* Pending Invites */}
+                        {invites && invites.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-medium text-muted-foreground">
+                              Pending ({invites.length})
+                            </h4>
+                            <PendingInvitesList
+                              invites={invites}
+                              collectionId={selectedCollectionId}
+                              embedded
+                            />
+                          </div>
+                        )}
+
+                        {/* Invite Form */}
+                        <div className={invites && invites.length > 0 ? "pt-4 border-t" : ""}>
+                          <InviteForm collectionId={selectedCollectionId} embedded />
+                        </div>
+                      </CardContent>
+                    </Card>
                   ) : (
                     <Card className="border-dashed">
                       <CardContent className="py-8">
@@ -315,9 +322,44 @@ export default function Settings() {
                   <Card className="border-destructive">
                     <CardHeader>
                       <CardTitle className="text-destructive">Delete Account</CardTitle>
-                      <CardDescription>Permanently delete your account and all associated data</CardDescription>
+                      <CardDescription>
+                        Permanently delete your account ({currentUser?.email}) and its associated data
+                      </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
+                      {/* Collections you own */}
+                      {collections && collections.filter(c => c.user_role === 'owner').length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium">Collections you own (may be deleted):</h4>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            {collections.filter(c => c.user_role === 'owner').map(c => (
+                              <li key={c.id} className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
+                                {c.name} ({c.photo_count} photos, {c.member_count} members)
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="text-xs text-muted-foreground italic">
+                            Collections with co-owners will be maintained. Collections where you're the only owner will be permanently deleted.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Collections you're a member of */}
+                      {collections && collections.filter(c => c.user_role !== 'owner').length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium">Collections you'll leave (won't be deleted):</h4>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            {collections.filter(c => c.user_role !== 'owner').map(c => (
+                              <li key={c.id} className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                                {c.name} ({c.photo_count} photos)
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
                       <AlertDialog
                         open={deleteDialogOpen}
                         onOpenChange={(open) => {
@@ -336,7 +378,10 @@ export default function Settings() {
                             <AlertDialogDescription asChild>
                               <div className="space-y-3">
                                 <p className="font-semibold text-destructive">
-                                  You will permanently lose access to all collections, photos, and data.
+                                  Deleting account: {currentUser?.email}
+                                </p>
+                                <p>
+                                  Collections you solely own will be permanently deleted, including all photos and member access.
                                 </p>
                                 <p>This action cannot be undone.</p>
                                 <div className="pt-2">

@@ -9,9 +9,10 @@ import { Clock, X } from "lucide-react";
 interface PendingInvitesListProps {
   invites: PendingInvite[];
   collectionId: string;
+  embedded?: boolean; // When true, renders without Card wrapper
 }
 
-export function PendingInvitesList({ invites, collectionId }: PendingInvitesListProps) {
+export function PendingInvitesList({ invites, collectionId, embedded = false }: PendingInvitesListProps) {
   const { toast } = useToast();
   const cancelInvite = useCancelInvite(collectionId);
 
@@ -56,62 +57,68 @@ export function PendingInvitesList({ invites, collectionId }: PendingInvitesList
     return null;
   }
 
+  const content = (
+    <div className="space-y-3">
+      {invites.map((invite) => (
+        <div
+          key={invite.id}
+          className="flex items-center justify-between p-3 border border-dashed rounded-lg"
+        >
+          <div className="flex-1">
+            <p className="font-medium">{invite.email}</p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              <span>{getTimeUntilExpiry(invite.expires_at)}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Role Badge */}
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(invite.role)}`}>
+              {invite.role}
+            </span>
+
+            {/* Cancel Button */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <X className="h-4 w-4 text-destructive" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cancel invitation?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Cancel the invitation to {invite.email}? They will not be able to join using the existing invite link.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep Invite</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => handleCancel(invite.id, invite.email)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Cancel Invite
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Pending Invites ({invites.length})</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {invites.map((invite) => (
-            <div
-              key={invite.id}
-              className="flex items-center justify-between p-3 border border-dashed rounded-lg"
-            >
-              <div className="flex-1">
-                <p className="font-medium">{invite.email}</p>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  <span>{getTimeUntilExpiry(invite.expires_at)}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Role Badge */}
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(invite.role)}`}>
-                  {invite.role}
-                </span>
-
-                {/* Cancel Button */}
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <X className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Cancel invitation?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Cancel the invitation to {invite.email}? They will not be able to join using the existing invite link.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Keep Invite</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => handleCancel(invite.id, invite.email)}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Cancel Invite
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
+      <CardContent>{content}</CardContent>
     </Card>
   );
 }

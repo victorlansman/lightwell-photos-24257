@@ -9,9 +9,10 @@ import { Mail, Loader2 } from "lucide-react";
 
 interface InviteFormProps {
   collectionId: string;
+  embedded?: boolean; // When true, renders without Card wrapper
 }
 
-export function InviteForm({ collectionId }: InviteFormProps) {
+export function InviteForm({ collectionId, embedded = false }: InviteFormProps) {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<'owner' | 'admin' | 'viewer'>('viewer');
@@ -56,66 +57,72 @@ export function InviteForm({ collectionId }: InviteFormProps) {
     }
   };
 
+  const content = (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <label htmlFor="email" className="text-sm font-medium">
+          Email Address
+        </label>
+        <Input
+          id="email"
+          type="email"
+          placeholder="colleague@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={inviteUser.isPending}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="role" className="text-sm font-medium">
+          Role
+        </label>
+        <Select
+          value={role}
+          onValueChange={(value) => setRole(value as any)}
+          disabled={inviteUser.isPending}
+        >
+          <SelectTrigger id="role">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="viewer">Viewer - Can view photos</SelectItem>
+            <SelectItem value="admin">Admin - Can manage photos</SelectItem>
+            <SelectItem value="owner">Owner - Full control</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Button type="submit" className="w-full" disabled={inviteUser.isPending}>
+        {inviteUser.isPending ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Sending...
+          </>
+        ) : (
+          <>
+            <Mail className="mr-2 h-4 w-4" />
+            Send Invite
+          </>
+        )}
+      </Button>
+
+      <p className="text-xs text-muted-foreground">
+        If the user has an account, they'll be added immediately. Otherwise, they'll receive an email invitation.
+      </p>
+    </form>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
   return (
     <Card className="border-dashed">
       <CardHeader>
         <CardTitle className="text-lg">Invite New Member</CardTitle>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email Address
-            </label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="colleague@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={inviteUser.isPending}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="role" className="text-sm font-medium">
-              Role
-            </label>
-            <Select
-              value={role}
-              onValueChange={(value) => setRole(value as any)}
-              disabled={inviteUser.isPending}
-            >
-              <SelectTrigger id="role">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="viewer">Viewer - Can view photos</SelectItem>
-                <SelectItem value="admin">Admin - Can manage photos</SelectItem>
-                <SelectItem value="owner">Owner - Full control</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Button type="submit" className="w-full" disabled={inviteUser.isPending}>
-            {inviteUser.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Mail className="mr-2 h-4 w-4" />
-                Send Invite
-              </>
-            )}
-          </Button>
-
-          <p className="text-xs text-muted-foreground">
-            If the user has an account, they'll be added immediately. Otherwise, they'll receive an email invitation.
-          </p>
-        </form>
-      </CardContent>
+      <CardContent>{content}</CardContent>
     </Card>
   );
 }
