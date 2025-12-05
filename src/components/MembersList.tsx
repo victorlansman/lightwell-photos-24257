@@ -28,6 +28,15 @@ export function MembersList({ members, collectionId, collectionName, photoCount,
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
+  // State for self-demotion confirmation
+  const [demoteDialogOpen, setDemoteDialogOpen] = useState(false);
+  const [pendingDemotion, setPendingDemotion] = useState<{
+    userId: string;
+    email: string;
+    newRole: 'admin' | 'viewer';
+  } | null>(null);
+  const [demoteConfirmText, setDemoteConfirmText] = useState('');
+
   const isOwner = currentUserRole === 'owner';
   const ownerCount = members.filter(m => m.role === 'owner').length;
 
@@ -60,6 +69,18 @@ export function MembersList({ members, collectionId, collectionName, photoCount,
     }
   };
 
+  // Request role change - may open confirmation dialog for self-demotion
+  const requestRoleChange = (userId: string, newRole: 'owner' | 'admin' | 'viewer', email: string, isCurrentUser: boolean, currentRole: string) => {
+    // Self-demotion from owner requires confirmation
+    if (isCurrentUser && currentRole === 'owner' && newRole !== 'owner') {
+      setPendingDemotion({ userId, email, newRole });
+      setDemoteDialogOpen(true);
+      return;
+    }
+    // Otherwise proceed directly
+    handleRoleChange(userId, newRole, email);
+  };
+
   const handleRoleChange = async (userId: string, newRole: 'owner' | 'admin' | 'viewer', email: string) => {
     setChangingRole(userId);
     try {
@@ -77,6 +98,14 @@ export function MembersList({ members, collectionId, collectionName, photoCount,
     } finally {
       setChangingRole(null);
     }
+  };
+
+  const handleConfirmDemotion = async () => {
+    if (!pendingDemotion) return;
+    await handleRoleChange(pendingDemotion.userId, pendingDemotion.newRole, pendingDemotion.email);
+    setDemoteDialogOpen(false);
+    setPendingDemotion(null);
+    setDemoteConfirmText('');
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -135,7 +164,7 @@ export function MembersList({ members, collectionId, collectionName, photoCount,
                     <Select
                       value={member.role}
                       onValueChange={(role: 'owner' | 'admin' | 'viewer') =>
-                        handleRoleChange(member.user_id, role, member.email)
+                        requestRoleChange(member.user_id, role, member.email, isCurrentUser, member.role)
                       }
                       disabled={changingRole === member.user_id}
                     >
@@ -225,6 +254,54 @@ export function MembersList({ members, collectionId, collectionName, photoCount,
           })}
         </div>
       </CardContent>
+
+      {/* Self-demotion confirmation dialog */}
+      <AlertDialog
+        open={demoteDialogOpen}
+        onOpenChange={(open) => {
+          setDemoteDialogOpen(open);
+          if (!open) {
+            setPendingDemotion(null);
+            setDemoteConfirmText('');
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>⚠️ Demote yourself from Owner?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  You are about to change your role from <span className="font-semibold">Owner</span> to{' '}
+                  <span className="font-semibold">{pendingDemotion?.newRole}</span>.
+                </p>
+                <p className="text-destructive font-medium">
+                  This cannot be undone by yourself. Another owner will need to restore your permissions.
+                </p>
+                <div className="pt-2">
+                  <p className="text-sm mb-2">Type <span className="font-mono font-bold">change</span> to confirm:</p>
+                  <Input
+                    value={demoteConfirmText}
+                    onChange={(e) => setDemoteConfirmText(e.target.value)}
+                    placeholder="change"
+                    disabled={changingRole !== null}
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={changingRole !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDemotion}
+              disabled={changingRole !== null || demoteConfirmText.toLowerCase() !== 'change'}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {changingRole ? 'Processing...' : 'Demote Myself'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
