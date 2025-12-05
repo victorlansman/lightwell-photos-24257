@@ -22,6 +22,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { azureApi } from "@/lib/azureApiClient";
 import { usePhotoUrl } from "@/hooks/usePhotoUrl";
+import { usePhotoDetail, usePrefetchPhotoDetail } from "@/hooks/usePhotoDetail";
 import { ServerId, FaceTag } from "@/types/identifiers";
 
 interface LightboxProps {
@@ -110,28 +111,39 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     size: 'web_2048',
   });
 
+  // Fetch full photo detail (reasoning, confidence, face bboxes)
+  const { detail, isLoading: detailLoading } = usePhotoDetail(photo?.id, {
+    enabled: isOpen,
+  });
+
   // Debug: Log when photo changes
   useEffect(() => {
     if (photo?.id) {
-      console.log('[Lightbox] Photo changed:', { photoId: photo.id, photoLoading });
+      console.log('[Lightbox] Photo changed:', { photoId: photo.id, photoLoading, detailLoading });
     }
-  }, [photo?.id, photoLoading]);
+  }, [photo?.id, photoLoading, detailLoading]);
 
+  // Load faces from detail response (has bboxes), fallback to photo.faces
   useEffect(() => {
-    if (photo?.faces) {
-      console.log('[Lightbox useEffect] Photo changed, loading faces:', {
-        photoId: photo.id,
-        faceCount: photo.faces.length,
-        unnamedCount: photo.faces.filter(f => !f.personId).length
-      });
-
+    if (detail?.people) {
+      // Detail has face bboxes - convert to FaceDetection format
+      const detailFaces: FaceDetection[] = detail.people
+        .filter(p => p.face_bbox !== null)
+        .map(p => ({
+          personId: p.id,
+          personName: p.name,
+          boundingBox: p.face_bbox!,
+          clusterId: p.cluster_id,
+        }));
+      console.log('[Lightbox] Loaded faces from detail:', detailFaces.length);
+      setFaces(detailFaces);
+    } else if (photo?.faces) {
+      console.log('[Lightbox] Using faces from photo prop:', photo.faces.length);
       setFaces(photo.faces);
     } else {
-      console.log('[Lightbox useEffect] Photo has no faces, clearing');
       setFaces([]);
     }
-    // Don't reset showFaces - let user control visibility
-  }, [photo]);
+  }, [detail, photo]);
 
   // Track image dimensions for bounding box positioning
   useEffect(() => {
@@ -905,7 +917,27 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                         'Unknown'
                       )}
                     </p>
+                    {/* Confidence from detail endpoint */}
+                    {detail?.estimated_year_confidence != null && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {Math.round(detail.estimated_year_confidence * 100)}% confidence
+                      </p>
+                    )}
                   </div>
+
+                  {/* Reasoning from detail endpoint */}
+                  {detail?.year_estimation_reasoning && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">AI Reasoning</p>
+                      <p className="text-sm text-foreground/80 italic">
+                        {detail.year_estimation_reasoning}
+                      </p>
+                    </div>
+                  )}
+
+                  {detailLoading && (
+                    <p className="text-xs text-muted-foreground">Loading details...</p>
+                  )}
 
                   {faces.length > 0 && (
                     <div>
