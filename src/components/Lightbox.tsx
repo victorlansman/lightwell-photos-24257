@@ -380,6 +380,24 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     return !isNaN(num) && num >= 1800 && num <= 2100;
   };
 
+  // Helper to get days in a month (accounting for leap years)
+  const getDaysInMonth = (month: string, year: string): number => {
+    if (!month) return 31;
+    const m = parseInt(month, 10);
+    const y = year ? parseInt(year, 10) : 2000; // Default to leap year if no year
+
+    // 30-day months: April (4), June (6), September (9), November (11)
+    if ([4, 6, 9, 11].includes(m)) return 30;
+
+    // February: check leap year
+    if (m === 2) {
+      const isLeapYear = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+      return isLeapYear ? 29 : 28;
+    }
+
+    return 31;
+  };
+
   // Build date string from year/month/day
   const buildDateString = (year: string, month: string, day: string): string | null => {
     if (!year) return null;
@@ -1172,13 +1190,28 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                             onChange={(e) => {
                               const val = e.target.value.replace(/\D/g, '').slice(0, 4);
                               setUserYear(val);
+                              // Reset day if Feb and day exceeds max for new year (leap year change)
+                              if (userMonth === '02' && userDay) {
+                                const maxDays = getDaysInMonth(userMonth, val);
+                                if (parseInt(userDay, 10) > maxDays) {
+                                  setUserDay('');
+                                }
+                              }
                             }}
                             className="h-8 text-sm"
                           />
                           <div className="flex gap-2">
                             <select
                               value={userMonth}
-                              onChange={(e) => setUserMonth(e.target.value)}
+                              onChange={(e) => {
+                                const newMonth = e.target.value;
+                                setUserMonth(newMonth);
+                                // Reset day if it exceeds max days in new month
+                                const maxDays = getDaysInMonth(newMonth, userYear);
+                                if (userDay && parseInt(userDay, 10) > maxDays) {
+                                  setUserDay('');
+                                }
+                              }}
                               className="h-8 text-sm flex-1 rounded-md border border-input bg-background px-2"
                             >
                               <option value="">Month (optional)</option>
@@ -1194,7 +1227,7 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                               disabled={!userMonth}
                             >
                               <option value="">Day</option>
-                              {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                              {Array.from({ length: getDaysInMonth(userMonth, userYear) }, (_, i) => i + 1).map(d => (
                                 <option key={d} value={String(d).padStart(2, '0')}>{d}</option>
                               ))}
                             </select>
@@ -1233,7 +1266,18 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                           <div className="flex gap-2">
                             <select
                               value={userMonthApprox}
-                              onChange={(e) => setUserMonthApprox(e.target.value)}
+                              onChange={(e) => {
+                                const newMonth = e.target.value;
+                                setUserMonthApprox(newMonth);
+                                // Reset day if it exceeds max days in new month (use middle year for leap calc)
+                                const middleYear = userYearMin && userYearMax
+                                  ? String(Math.round((parseInt(userYearMin, 10) + parseInt(userYearMax, 10)) / 2))
+                                  : '';
+                                const maxDays = getDaysInMonth(newMonth, middleYear);
+                                if (userDayApprox && parseInt(userDayApprox, 10) > maxDays) {
+                                  setUserDayApprox('');
+                                }
+                              }}
                               className="h-8 text-sm flex-1 rounded-md border border-input bg-background px-2"
                             >
                               <option value="">Month (optional)</option>
@@ -1249,9 +1293,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                               disabled={!userMonthApprox}
                             >
                               <option value="">Day</option>
-                              {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                                <option key={d} value={String(d).padStart(2, '0')}>{d}</option>
-                              ))}
+                              {(() => {
+                                // Use middle year for leap year calculation in approximate mode
+                                const middleYear = userYearMin && userYearMax
+                                  ? String(Math.round((parseInt(userYearMin, 10) + parseInt(userYearMax, 10)) / 2))
+                                  : '';
+                                return Array.from({ length: getDaysInMonth(userMonthApprox, middleYear) }, (_, i) => i + 1).map(d => (
+                                  <option key={d} value={String(d).padStart(2, '0')}>{d}</option>
+                                ));
+                              })()}
                             </select>
                           </div>
                         </div>
