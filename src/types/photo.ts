@@ -11,9 +11,10 @@ export interface FaceDetection {
 
 /** Person reference - lean version from list (no bbox) */
 export interface PhotoPersonRef {
-  id: ServerId;
-  name: string;
+  id: ServerId | null;  // null for unlabeled faces
+  name: string | null;
   cluster_id?: ServerId | null;
+  face_id: ServerId;  // Always present - use for face derivatives
 }
 
 /**

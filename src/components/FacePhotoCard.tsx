@@ -1,9 +1,7 @@
-import { useState, useEffect } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Photo } from "@/types/photo";
-import { usePhotoUrl } from "@/hooks/usePhotoUrl";
-import { useThumbnailAbort } from "@/hooks/useThumbnailAbort";
+import { useFaceDerivativeUrl } from "@/hooks/useFaceDerivativeUrl";
 
 interface FacePhotoCardProps {
   photo: Photo;
@@ -26,20 +24,14 @@ export function FacePhotoCard({
   showOnlyUnnamed = false,
   isThumbnailSelection = false,
 }: FacePhotoCardProps) {
-  const thumbnailAbort = useThumbnailAbort();
-  const { url: photoUrl } = usePhotoUrl(photo.id, {
-    abortSignal: thumbnailAbort.signal,
-    priority: 'low',
-  });
+  // Find matching face in photo.people[] (from list response)
+  // personId can be a person ID or cluster ID depending on context
+  const matchingPerson = showOnlyUnnamed
+    ? photo.people?.find(p => p.cluster_id === personId && p.id === null)
+    : photo.people?.find(p => p.id === personId || p.cluster_id === personId);
 
-  // Find the face bounding box
-  // For clusters: find first unnamed face
-  // For persons: find face for this person
-  const face = showOnlyUnnamed
-    ? photo.faces?.find(f => !f.personId || !f.personName)
-    : photo.faces?.find(f => f.personId === personId);
-
-  const bbox = face?.boundingBox || { x: 50, y: 50, width: 20, height: 20 };
+  // Use face derivative (pre-cropped) instead of manual cropping
+  const { url: faceUrl, loading } = useFaceDerivativeUrl(matchingPerson?.face_id);
 
   const handleClick = () => {
     if (isSelectionMode) {
@@ -48,14 +40,6 @@ export function FacePhotoCard({
       onClick();
     }
   };
-
-  // Calculate the center point of the face
-  const centerX = bbox.x + bbox.width / 2;
-  const centerY = bbox.y + bbox.height / 2;
-
-  // Calculate zoom level to make face fill the card (with some padding)
-  // bbox dimensions are in percentages, so 100/bbox gives us the zoom needed
-  const zoomFactor = Math.max(100 / bbox.width, 100 / bbox.height) * 0.8;
 
   return (
     <div
@@ -67,19 +51,17 @@ export function FacePhotoCard({
       )}
       onClick={handleClick}
     >
-      {photoUrl && (
-        <div className="w-full h-full overflow-hidden">
-          <img
-            src={photoUrl}
-            alt=""
-            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-            style={{
-              objectPosition: `${centerX}% ${centerY}%`,
-              transform: `scale(${zoomFactor})`,
-              transformOrigin: `${centerX}% ${centerY}%`,
-            }}
-          />
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
+      )}
+      {faceUrl && (
+        <img
+          src={faceUrl}
+          alt=""
+          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+        />
       )}
 
       {/* Selection overlay */}
