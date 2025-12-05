@@ -142,6 +142,7 @@ export interface PhotoDetail extends Omit<PhotoListItem, 'people'> {
   estimated_year: number | null;
   user_corrected_year: number | null;
   user_corrected_date: string | null;  // "YYYY-MM-DD" or "YYYY-MM"
+  user_year_reasoning: string | null;  // User's comment about the date
   estimated_year_confidence: number | null;
   year_estimation_reasoning: string | null;
 

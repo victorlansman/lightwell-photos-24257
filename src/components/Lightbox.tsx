@@ -1,6 +1,6 @@
 import { Photo, FaceDetection } from "@/types/photo";
 import { PersonCluster } from "@/types/person";
-import { X, ChevronLeft, ChevronRight, ChevronDown, Heart, Share2, Download, Info, Users, UserPlus, Check, Loader2, Menu, Calendar } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, ChevronDown, Heart, Share2, Download, Info, Users, UserPlus, Check, Loader2, Menu, Calendar, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogContentFullscreen } from "@/components/ui/dialog";
 import {
@@ -62,11 +62,14 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateInputMode, setDateInputMode] = useState<'exact' | 'approximate'>('exact');
   const [showAiSection, setShowAiSection] = useState(true);
-  // Date input fields
+  // Date input fields - separate month/day for both exact and approximate modes
   const [userYear, setUserYear] = useState('');
+  const [userMonth, setUserMonth] = useState(''); // 1-12
+  const [userDay, setUserDay] = useState(''); // 1-31
   const [userYearMin, setUserYearMin] = useState('');
   const [userYearMax, setUserYearMax] = useState('');
-  const [userDate, setUserDate] = useState(''); // Specific date (e.g., "1986-06-15" or "1986-06")
+  const [userMonthApprox, setUserMonthApprox] = useState(''); // For approximate mode
+  const [userDayApprox, setUserDayApprox] = useState('');
   const [userDateComment, setUserDateComment] = useState('');
   const [isSavingDate, setIsSavingDate] = useState(false);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -136,10 +139,27 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     if (detail && showDateInput) {
       // Populate from existing user-corrected values
       setUserYear(detail.user_corrected_year?.toString() ?? '');
-      setUserDate(detail.user_corrected_date ?? '');
-      // Note: reasoning not currently stored on backend
+      // Parse user_corrected_date into month/day (format: "YYYY-MM" or "YYYY-MM-DD")
+      if (detail.user_corrected_date) {
+        const parts = detail.user_corrected_date.split('-');
+        if (parts.length >= 2) {
+          setUserMonth(parts[1]); // Month (01-12)
+          if (parts.length === 3) {
+            setUserDay(parts[2]); // Day (01-31)
+          }
+        }
+      }
     }
   }, [detail, showDateInput]);
+
+  // Auto-collapse AI section when user has set a date
+  useEffect(() => {
+    if (detail?.user_corrected_year) {
+      setShowAiSection(false);
+    } else {
+      setShowAiSection(true);
+    }
+  }, [detail?.user_corrected_year]);
 
   // Debug: Log when photo changes
   useEffect(() => {
@@ -353,8 +373,44 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
     }
   };
 
+  // Helper to validate year is between 1800-2100
+  const isValidYear = (year: string) => {
+    const num = parseInt(year, 10);
+    return !isNaN(num) && num >= 1800 && num <= 2100;
+  };
+
+  // Build date string from year/month/day
+  const buildDateString = (year: string, month: string, day: string): string | null => {
+    if (!year) return null;
+    let dateStr = year;
+    if (month) {
+      dateStr += `-${month.padStart(2, '0')}`;
+      if (day) {
+        dateStr += `-${day.padStart(2, '0')}`;
+      }
+    }
+    return dateStr;
+  };
+
   const handleSaveDate = async () => {
     if (!photo?.id) return;
+
+    // Validate years
+    if (dateInputMode === 'exact') {
+      if (!isValidYear(userYear)) {
+        toast.error('Year must be between 1800 and 2100');
+        return;
+      }
+    } else {
+      if (userYearMin && !isValidYear(userYearMin)) {
+        toast.error('From year must be between 1800 and 2100');
+        return;
+      }
+      if (userYearMax && !isValidYear(userYearMax)) {
+        toast.error('To year must be between 1800 and 2100');
+        return;
+      }
+    }
 
     try {
       setIsSavingDate(true);
@@ -363,16 +419,15 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
       const update: Parameters<typeof azureApi.updateYearEstimation>[1] = {};
 
       if (dateInputMode === 'exact') {
-        // Exact mode: year required, specific date optional
-        if (userYear) {
-          update.user_corrected_year = parseInt(userYear, 10);
-        }
-        // If specific date provided, include it
-        if (userDate) {
-          update.user_corrected_date = userDate; // "YYYY-MM-DD" or "YYYY-MM"
+        // Exact mode: year required, month/day optional
+        update.user_corrected_year = parseInt(userYear, 10);
+        // Build date string if month provided
+        const dateStr = buildDateString(userYear, userMonth, userDay);
+        if (dateStr && userMonth) {
+          update.user_corrected_date = dateStr;
         }
       } else {
-        // Approximate mode: year range
+        // Approximate mode: year range with optional month/day
         if (userYearMin) {
           update.user_corrected_year_min = parseInt(userYearMin, 10);
         }
@@ -382,6 +437,14 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
         // Calculate middle year for display_year if both provided
         if (userYearMin && userYearMax) {
           update.user_corrected_year = Math.round((parseInt(userYearMin, 10) + parseInt(userYearMax, 10)) / 2);
+        }
+        // Build date from middle year + optional month/day for approximate mode
+        if (update.user_corrected_year && userMonthApprox) {
+          update.user_corrected_date = buildDateString(
+            String(update.user_corrected_year),
+            userMonthApprox,
+            userDayApprox
+          );
         }
       }
 
@@ -983,10 +1046,18 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
 
                   {/* === DATE SECTION === */}
 
-                  {/* User-set date (if exists) */}
-                  {detail?.user_corrected_year && (
+                  {/* User-set date (if exists) - with edit pencil icon */}
+                  {detail?.user_corrected_year && !showDateInput && (
                     <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">Photo Date</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-muted-foreground">Photo Date</p>
+                        <button
+                          onClick={() => setShowDateInput(true)}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      </div>
                       <p className="text-base text-foreground font-medium">
                         {detail.user_corrected_date ? (
                           // Format "YYYY-MM" as "June 1985" or "YYYY-MM-DD" as "June 15, 1985"
@@ -1006,19 +1077,28 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                           detail.user_corrected_year
                         )}
                       </p>
+                      {/* User's comment about the date */}
+                      {detail.user_year_reasoning && (
+                        <p className="text-xs text-muted-foreground italic">
+                          {detail.user_year_reasoning}
+                        </p>
+                      )}
                     </div>
                   )}
 
-                  {/* Set photo date button/section */}
-                  {!showDateInput ? (
+                  {/* Set photo date button (when no date set) */}
+                  {!detail?.user_corrected_year && !showDateInput && (
                     <button
                       onClick={() => setShowDateInput(true)}
                       className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors"
                     >
                       <Calendar className="h-4 w-4" />
-                      {detail?.user_corrected_year ? 'Edit photo date' : 'Set photo date'}
+                      Set photo date
                     </button>
-                  ) : (
+                  )}
+
+                  {/* Date input form */}
+                  {showDateInput && (
                     <div className="space-y-3 p-3 bg-secondary/50 rounded-lg">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium text-foreground">Set Photo Date</p>
@@ -1063,17 +1143,35 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                           <Input
                             type="number"
                             placeholder="Year (e.g., 1986)"
+                            min={1800}
+                            max={2100}
                             value={userYear}
                             onChange={(e) => setUserYear(e.target.value)}
                             className="h-8 text-sm"
                           />
-                          <Input
-                            type="month"
-                            placeholder="Month (optional)"
-                            value={userDate ? userDate.substring(0, 7) : ''}
-                            onChange={(e) => setUserDate(e.target.value)}
-                            className="h-8 text-sm"
-                          />
+                          <div className="flex gap-2">
+                            <select
+                              value={userMonth}
+                              onChange={(e) => setUserMonth(e.target.value)}
+                              className="h-8 text-sm flex-1 rounded-md border border-input bg-background px-2"
+                            >
+                              <option value="">Month (optional)</option>
+                              {['January', 'February', 'March', 'April', 'May', 'June',
+                                'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
+                                <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
+                              ))}
+                            </select>
+                            <Input
+                              type="number"
+                              placeholder="Day"
+                              min={1}
+                              max={31}
+                              value={userDay}
+                              onChange={(e) => setUserDay(e.target.value)}
+                              className="h-8 text-sm w-16"
+                              disabled={!userMonth}
+                            />
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-2">
@@ -1081,6 +1179,8 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                             <Input
                               type="number"
                               placeholder="From year"
+                              min={1800}
+                              max={2100}
                               value={userYearMin}
                               onChange={(e) => setUserYearMin(e.target.value)}
                               className="h-8 text-sm flex-1"
@@ -1088,25 +1188,35 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                             <Input
                               type="number"
                               placeholder="To year"
+                              min={1800}
+                              max={2100}
                               value={userYearMax}
                               onChange={(e) => setUserYearMax(e.target.value)}
                               className="h-8 text-sm flex-1"
                             />
                           </div>
-                          <div className="flex flex-wrap gap-1">
-                            {[2, 5, 10, 15].map(range => (
-                              <button
-                                key={range}
-                                onClick={() => {
-                                  const baseYear = parseInt(userYear) || photo.display_year || new Date().getFullYear();
-                                  setUserYearMin(String(baseYear - range));
-                                  setUserYearMax(String(baseYear + range));
-                                }}
-                                className="text-xs px-2 py-0.5 bg-secondary hover:bg-secondary/80 rounded"
-                              >
-                                ±{range} years
-                              </button>
-                            ))}
+                          <div className="flex gap-2">
+                            <select
+                              value={userMonthApprox}
+                              onChange={(e) => setUserMonthApprox(e.target.value)}
+                              className="h-8 text-sm flex-1 rounded-md border border-input bg-background px-2"
+                            >
+                              <option value="">Month (optional)</option>
+                              {['January', 'February', 'March', 'April', 'May', 'June',
+                                'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
+                                <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
+                              ))}
+                            </select>
+                            <Input
+                              type="number"
+                              placeholder="Day"
+                              min={1}
+                              max={31}
+                              value={userDayApprox}
+                              onChange={(e) => setUserDayApprox(e.target.value)}
+                              className="h-8 text-sm w-16"
+                              disabled={!userMonthApprox}
+                            />
                           </div>
                         </div>
                       )}
@@ -1135,9 +1245,12 @@ export function Lightbox({ photo, isOpen, onClose, onPrevious, onNext, onToggleF
                           onClick={() => {
                             setShowDateInput(false);
                             setUserYear('');
+                            setUserMonth('');
+                            setUserDay('');
                             setUserYearMin('');
                             setUserYearMax('');
-                            setUserDate('');
+                            setUserMonthApprox('');
+                            setUserDayApprox('');
                             setUserDateComment('');
                           }}
                           disabled={isSavingDate}
